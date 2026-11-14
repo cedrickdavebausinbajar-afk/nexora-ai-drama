@@ -191,6 +191,7 @@ function shell() {
   <p class="drawer-foot">© 2026 NEXORA AI DRAMA</p>
 </aside>
 <nav class="tabs"><button class="${view==='feed'?'active':''}" data-view="feed">DISCOVER</button><button class="${view==='search'?'active':''}" data-view="search">SEARCH</button><button class="${view==='saved'?'active':''}" data-view="saved">SAVED</button></nav>
+${view==='feed'?`<section class="welcome-strip"><div class="welcome-copy"><span class="welcome-kicker">THE PREMIUM SHORT-FILM CLUB</span><h1>Stories worth<br><em>staying up for.</em></h1><p>Discover a handpicked collection of creator-credited films and stories.</p><div class="welcome-tags"><span>CURATED STORIES</span><span>BLACK LABEL</span><span>NEW DISCOVERIES</span></div></div><div class="welcome-emblem"><img src="/nexora-logo.svg" alt="NEXORA emblem"></div></section>`:''}
 <main id="screen"></main>
 <footer>© ${new Date().getFullYear()} NEXORA AI DRAMA <span>Open films · creator credits and license details shown per title · Watch responsibly</span></footer>`;
   const drawer = document.querySelector('#menuDrawer');
