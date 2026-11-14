@@ -52,6 +52,36 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug
 
+      - name: Prepare and build signed release APK when signing secrets are configured
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "Release signing secrets are not configured yet; debug APK is still built."
+            exit 0
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-key.jks
+          sed -i -E "s/versionCode[[:space:]]+1/versionCode ${GITHUB_RUN_NUMBER}/" android/app/build.gradle
+          cd android
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file="$PWD/release-key.jks" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+          rm -f release-key.jks
+
+      - name: Upload signed release APK
+        if: ${{ success() && hashFiles('android/app/build/outputs/apk/release/app-release.apk') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXORA-AI-DRAMA-release
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
