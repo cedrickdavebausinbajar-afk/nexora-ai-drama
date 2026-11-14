@@ -1,4 +1,5 @@
 import './style.css';
+import { Browser } from '@capacitor/browser';
 
 const app = document.querySelector('#app');
 const APP_REPO = 'cedrickdavebausinbajar-afk/nexora-ai-drama';
@@ -29,7 +30,7 @@ async function checkForUpdates() {
   const versions=document.querySelector('#updateVersions');
   if(versions) versions.textContent=`Installed: ${updateInfo.installed||'—'} · Latest: ${updateInfo.latest||'—'}`;
   const action=document.querySelector('#updateAction');
-  if(action) { action.hidden=updateInfo.status!=='available'; action.onclick=()=>{if(updateInfo.url) window.open(updateInfo.url,'_blank','noopener');}; }
+  if(action) { action.hidden=updateInfo.status!=='available'; action.onclick=()=>{if(updateInfo.url) Browser.open({url:updateInfo.url});}; }
 }
 
 const KEY = 'nexora-drama-demo-v2';
