@@ -42,3 +42,6 @@ button,input,select{font:inherit}button{cursor:pointer}.top{height:72px;padding:
 .drawer-foot{margin-top:auto;color:#746b5b;font-size:10px;letter-spacing:1px;text-align:center;padding-top:18px}
 
 .brand-logo{width:46px;height:46px;object-fit:contain;flex:0 0 46px;filter:drop-shadow(0 0 8px #c18b2c88)}
+
+/* Official PeerTube embeds for open-film playback */
+.player .peer-player{display:block;position:relative;z-index:1;width:100%;height:100%;border:0;background:#000}
