@@ -1,6 +1,37 @@
 import './style.css';
 
 const app = document.querySelector('#app');
+const APP_REPO = 'cedrickdavebausinbajar-afk/nexora-ai-drama';
+let updateInfo = {status:'checking', installed:'', latest:'', url:'', message:'Checking for updates…'};
+async function checkForUpdates() {
+  try {
+    const [localRes, remoteRes] = await Promise.all([
+      fetch('/app-version.json', {cache:'no-store'}),
+      fetch(`https://api.github.com/repos/${APP_REPO}/releases/latest`, {headers:{Accept:'application/vnd.github+json'}, cache:'no-store'})
+    ]);
+    if (!localRes.ok || !remoteRes.ok) throw new Error('Update service unavailable');
+    const local = await localRes.json();
+    const release = await remoteRes.json();
+    const latestCode = Number(String(release.tag_name || '').match(/^v\\d+\\.\\d+\\.(\\d+)$/)?.[1] || 0);
+    const installedCode = Number(local.versionCode || 0);
+    const apk = (release.assets || []).find(item => item.name === 'NEXORA-AI-DRAMA.apk');
+    updateInfo = {status:latestCode > installedCode && apk ? 'available' : 'current',
+      installed:local.versionName || 'Unknown', latest:release.tag_name || 'Unknown',
+      url:apk?.browser_download_url || release.html_url || '',
+      message:latestCode > installedCode && apk ? 'A new version is ready.' : 'Your app is up to date!'};
+  } catch {
+    updateInfo = {...updateInfo,status:'error',message:'Could not check for updates. Please try again.'};
+  }
+  const badge=document.querySelector('#updateBadge');
+  if(badge) badge.textContent=updateInfo.status==='available'?'UPDATE':updateInfo.status==='current'?'LATEST':updateInfo.status==='checking'?'CHECKING':'RETRY';
+  const status=document.querySelector('#updateStatus');
+  if(status) status.textContent=updateInfo.message;
+  const versions=document.querySelector('#updateVersions');
+  if(versions) versions.textContent=`Installed: ${updateInfo.installed||'—'} · Latest: ${updateInfo.latest||'—'}`;
+  const action=document.querySelector('#updateAction');
+  if(action) { action.hidden=updateInfo.status!=='available'; action.onclick=()=>{if(updateInfo.url) window.open(updateInfo.url,'_blank','noopener');}; }
+}
+
 const KEY = 'nexora-drama-demo-v2';
 const seed = [
   {
@@ -183,6 +214,7 @@ function shell() {
   <button class="drawer-link" data-view="feed">▶ &nbsp; Discover</button>
   <button class="drawer-link" data-view="search">⌕ &nbsp; Search</button>
   <button class="drawer-link" data-view="saved">♥ &nbsp; Saved dramas</button>
+  <button class="drawer-link" data-view="updates">↻ &nbsp; App updates <span id="updateBadge">CHECKING</span></button>
   <div class="drawer-divider"></div>
   <a class="drawer-link" href="https://cedrickdavebausinbajar-afk.github.io/nexora-official-website/" target="_blank" rel="noopener">◎ &nbsp; Official website ↗</a>
   <a class="drawer-link" href="https://t.me/nexorastudioteam" target="_blank" rel="noopener">✈ &nbsp; Telegram ↗</a>
@@ -212,11 +244,19 @@ ${view==='feed'?`<section class="welcome-strip"><div class="welcome-copy"><span 
   document.querySelector('#adminOpen').onclick = () => { closeMenu(); adminGate(); };
   document.onkeydown = e => { if (e.key === 'Escape' && !drawer.hidden) { closeMenu(); document.querySelector('#menuOpen')?.focus(); } };
   renderScreen();
+  checkForUpdates();
 }
 function render() { shell(); }
 function renderScreen() {
   const screen = document.querySelector('#screen');
   if (!screen) return;
+  if (view === 'updates') {
+    screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">Updates download from the official NEXORA AI DRAMA release. Android will ask you to confirm installation; updates cannot be installed silently.</small></section>`;
+    document.querySelector('#checkUpdates').onclick=()=>{document.querySelector('#updateStatus').textContent='Checking for updates…';checkForUpdates();};
+    document.querySelector('#updateAction').onclick=()=>{if(updateInfo.url)window.open(updateInfo.url,'_blank','noopener');};
+    checkForUpdates();
+    return;
+  }
   if (view === 'search') {
     screen.innerHTML = `<section class="panel"><h1>Find your next story</h1><input id="q" placeholder="Search drama titles or categories"><div id="results"></div></section>`;
     const q = document.querySelector('#q');
