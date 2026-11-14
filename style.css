@@ -16,3 +16,11 @@ button,input,select{font:inherit}button{cursor:pointer}.top{height:72px;padding:
 .rowcard .gold-outline{margin-top:8px}
 .credit a{color:var(--gold)}
 @media(max-width:540px){.player .meta{bottom:76px;left:14px;right:74px}.player .meta h2{font-size:21px}.player .actions{bottom:92px;right:10px}.player video{object-fit:contain}}
+
+
+.play-overlay{position:absolute;z-index:7;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0006;pointer-events:none}
+.play-overlay button{pointer-events:auto;border:1px solid #f0d889;border-radius:999px;background:linear-gradient(120deg,#a47b2e,#f0d889);color:#1b1408;font-weight:800;letter-spacing:1px;padding:15px 25px;box-shadow:0 5px 24px #0009}
+.play-overlay small{color:#fff;text-shadow:0 1px 5px #000;font-size:12px}
+.play-overlay.playing{display:none}
+.video-error button{display:block;margin-top:8px;border:1px solid #f0d889;border-radius:4px;background:#d7b45a;color:#17120a;padding:7px 14px;font-weight:700}
+#startPlayback:disabled{opacity:.65}
