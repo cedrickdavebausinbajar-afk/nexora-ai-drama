@@ -51,6 +51,10 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x android/gradlew
 
+      - name: Write web app version metadata
+        run: |
+          node -e "const fs=require('fs'); const n=process.env.GITHUB_RUN_NUMBER; fs.writeFileSync('public/app-version.json', JSON.stringify({versionName:'1.0.'+n,versionCode:Number(n)}));"
+
       - name: Set Android app version from build number
         run: |
           python - <<'PY'
@@ -59,12 +63,11 @@ jobs:
           p = Path("android/app/build.gradle")
           data = p.read_text()
           code = os.environ["GITHUB_RUN_NUMBER"]
-          data, a = re.subn(r"versionCode\\s+\\d+", f"versionCode {code}", data, count=1)
-          data, b = re.subn(r'versionName\\s+"[^"]+"', f'versionName "1.0.{code}"', data, count=1)
+          data, a = re.subn(r"versionCode\s+\d+", f"versionCode {code}", data, count=1)
+          data, b = re.subn(r'versionName\s+"[^"]+"', f'versionName "1.0.{code}"', data, count=1)
           if a != 1 or b != 1:
               raise SystemExit("Could not set Android version fields safely")
           p.write_text(data)
-          Path("public/app-version.json").write_text('{"versionName":"1.0.'+code+'","versionCode":'+code+'}\\n')
           PY
 
       - name: Build debug APK
@@ -84,7 +87,6 @@ jobs:
             exit 0
           fi
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-key.jks
-          sed -i -E "s/versionCode[[:space:]]+1/versionCode ${GITHUB_RUN_NUMBER}/" android/app/build.gradle
           cd android
           ./gradlew assembleRelease \
             -Pandroid.injected.signing.store.file="$PWD/release-key.jks" \
