@@ -49,12 +49,39 @@ const isDemo = x => String(x.id).endsWith('-demo');
 function shell() {
   app.innerHTML = `
 <header class="top"><div class="brand"><span class="mark">N</span><div><b>NEXORA</b><small>AI DRAMA</small></div></div>
-<button class="gold-outline" id="adminOpen">OWNER</button></header>
+<button class="gold-outline menu-toggle" id="menuOpen" aria-expanded="false" aria-controls="menuDrawer">☰ MENU</button></header>
+<div class="menu-backdrop" id="menuBackdrop" hidden></div>
+<aside class="menu-drawer" id="menuDrawer" aria-label="Main menu" hidden>
+  <div class="drawer-head"><div><b>NEXORA</b><small>AI DRAMA MENU</small></div><button class="drawer-close" id="menuClose" aria-label="Close menu">×</button></div>
+  <button class="drawer-link" data-view="feed">▶ &nbsp; Discover</button>
+  <button class="drawer-link" data-view="search">⌕ &nbsp; Search</button>
+  <button class="drawer-link" data-view="saved">♥ &nbsp; Saved dramas</button>
+  <div class="drawer-divider"></div>
+  <a class="drawer-link" href="https://cedrickdavebausinbajar-afk.github.io/nexora-official-website/" target="_blank" rel="noopener">◎ &nbsp; Official website ↗</a>
+  <a class="drawer-link" href="https://t.me/nexorastudioteam" target="_blank" rel="noopener">✈ &nbsp; Telegram ↗</a>
+  <a class="drawer-link" href="https://www.facebook.com/profile.php?id=61596591209056" target="_blank" rel="noopener">f &nbsp; Facebook ↗</a>
+  <button class="drawer-link owner-link" id="adminOpen">♛ &nbsp; Owner</button>
+  <p class="drawer-foot">© 2026 NEXORA AI DRAMA</p>
+</aside>
 <nav class="tabs"><button class="${view==='feed'?'active':''}" data-view="feed">DISCOVER</button><button class="${view==='search'?'active':''}" data-view="search">SEARCH</button><button class="${view==='saved'?'active':''}" data-view="saved">SAVED</button></nav>
 <main id="screen"></main>
 <footer>© ${new Date().getFullYear()} NEXORA AI DRAMA <span>Demo films by Blender Foundation · CC BY 3.0 · Watch responsibly</span></footer>`;
-  app.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; render(); });
-  document.querySelector('#adminOpen').onclick = adminGate;
+  const drawer = document.querySelector('#menuDrawer');
+  const backdrop = document.querySelector('#menuBackdrop');
+  const closeMenu = () => {
+    drawer.hidden = true;
+    backdrop.hidden = true;
+    document.querySelector('#menuOpen').setAttribute('aria-expanded', 'false');
+  };
+  document.querySelector('#menuOpen').onclick = () => {
+    drawer.hidden = false;
+    backdrop.hidden = false;
+    document.querySelector('#menuOpen').setAttribute('aria-expanded', 'true');
+  };
+  document.querySelector('#menuClose').onclick = closeMenu;
+  backdrop.onclick = closeMenu;
+  app.querySelectorAll('.drawer-link[data-view]').forEach(b => b.onclick = () => { closeMenu(); view = b.dataset.view; render(); });
+  document.querySelector('#adminOpen').onclick = () => { closeMenu(); adminGate(); };
   renderScreen();
 }
 function render() { shell(); }
