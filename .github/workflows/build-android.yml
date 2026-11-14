@@ -39,6 +39,10 @@ jobs:
       - name: Install web dependencies
         run: npm install
 
+      - name: Write web app version metadata
+        run: |
+          node -e "const fs=require('fs'); const n=process.env.GITHUB_RUN_NUMBER; fs.writeFileSync('public/app-version.json', JSON.stringify({versionName:'1.0.'+n,versionCode:Number(n)}));"
+
       - name: Build web app
         run: npm run build
 
@@ -50,10 +54,6 @@ jobs:
 
       - name: Make Gradle wrapper executable
         run: chmod +x android/gradlew
-
-      - name: Write web app version metadata
-        run: |
-          node -e "const fs=require('fs'); const n=process.env.GITHUB_RUN_NUMBER; fs.writeFileSync('public/app-version.json', JSON.stringify({versionName:'1.0.'+n,versionCode:Number(n)}));"
 
       - name: Set Android app version from build number
         run: |
