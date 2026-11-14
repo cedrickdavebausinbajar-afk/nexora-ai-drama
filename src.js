@@ -4,6 +4,32 @@ import { Browser } from '@capacitor/browser';
 const app = document.querySelector('#app');
 const APP_REPO = 'cedrickdavebausinbajar-afk/nexora-ai-drama';
 let updateInfo = {status:'checking', installed:'', latest:'', url:'', message:'Checking for updates…'};
+let updatePromptShown = false;
+function showUpdatePopup() {
+  if (updateInfo.status !== 'available' || updatePromptShown) return;
+  if (localStorage.getItem('nexora-update-dismissed') === updateInfo.latest) return;
+  updatePromptShown = true;
+  const popup = document.createElement('div');
+  popup.id = 'updatePopup';
+  popup.className = 'update-popup-backdrop';
+  popup.innerHTML = `<section class="update-popup-card" role="dialog" aria-modal="true" aria-labelledby="updatePopupTitle">
+    <div class="update-popup-icon">↻</div>
+    <div class="eyebrow">NEXORA AI DRAMA UPDATE</div>
+    <h2 id="updatePopupTitle">A new version is ready</h2>
+    <p>Update to ${esc(updateInfo.latest)} for the latest NEXORA AI DRAMA experience.</p>
+    <div class="update-popup-version">Installed: ${esc(updateInfo.installed)} <span>→</span> Latest: ${esc(updateInfo.latest)}</div>
+    <button class="gold update-popup-primary" id="popupUpdateNow">UPDATE NOW</button>
+    <button class="update-popup-later" id="popupUpdateLater">Maybe later</button>
+    <small>Android will ask you to confirm the installation.</small>
+  </section>`;
+  document.body.appendChild(popup);
+  popup.querySelector('#popupUpdateNow').onclick = () => { if (updateInfo.url) Browser.open({url:updateInfo.url}); };
+  popup.querySelector('#popupUpdateLater').onclick = () => {
+    localStorage.setItem('nexora-update-dismissed', updateInfo.latest);
+    popup.remove();
+  };
+}
+
 async function checkForUpdates() {
   try {
     const [localRes, remoteRes] = await Promise.all([
@@ -31,6 +57,7 @@ async function checkForUpdates() {
   if(versions) versions.textContent=`Installed: ${updateInfo.installed||'—'} · Latest: ${updateInfo.latest||'—'}`;
   const action=document.querySelector('#updateAction');
   if(action) { action.hidden=updateInfo.status!=='available'; action.onclick=()=>{if(updateInfo.url) Browser.open({url:updateInfo.url});}; }
+  showUpdatePopup();
 }
 
 const KEY = 'nexora-drama-demo-v2';
@@ -254,7 +281,7 @@ function renderScreen() {
   if (view === 'updates') {
     screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">Updates download from the official NEXORA AI DRAMA release. Android will ask you to confirm installation; updates cannot be installed silently.</small></section>`;
     document.querySelector('#checkUpdates').onclick=()=>{document.querySelector('#updateStatus').textContent='Checking for updates…';checkForUpdates();};
-    document.querySelector('#updateAction').onclick=()=>{if(updateInfo.url)window.open(updateInfo.url,'_blank','noopener');};
+    document.querySelector('#updateAction').onclick=()=>{if(updateInfo.url)Browser.open({url:updateInfo.url});};
     checkForUpdates();
     return;
   }
