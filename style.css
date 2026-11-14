@@ -217,3 +217,24 @@ footer span{color:#766b56}
 .update-popup-primary{width:100%;min-height:48px;margin:3px 0 8px}
 .update-popup-later{display:block;width:100%;padding:12px;border:0;background:transparent;color:#c9c0ad;font:inherit;cursor:pointer}
 .update-popup-card small{display:block;margin-top:7px;color:#938b7b;font-size:10px}
+
+
+/* NEXORA ORIGINAL AI DRAMA CATALOG */
+.originals-head>p{max-width:720px;color:#c9c0ad;line-height:1.7}
+.original-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:22px}
+.original-card{min-height:170px;display:flex;flex-direction:column;align-items:flex-start;gap:10px;text-align:left;padding:17px;border:1px solid #d8b45e55;border-radius:15px;background:linear-gradient(145deg,#211a0d,#0c0c0b);color:#f8f5ed;box-shadow:0 10px 28px #0007;cursor:pointer;transition:transform .2s,border-color .2s}
+.original-card:hover{transform:translateY(-2px);border-color:#f5dfa0}
+.original-card>b{font:500 20px/1.12 Georgia,'Times New Roman',serif;color:#f5e8c7}
+.original-card>small{color:#c5b58c;font-size:11px}
+.original-label{font-size:8px;letter-spacing:2px;font-weight:900;color:#e4c77d}
+.original-status{margin-top:auto;padding-top:8px;color:#d8b45e;font-size:8px;font-weight:900;letter-spacing:1px}
+.original-detail h1{font-size:clamp(28px,6vw,42px);margin-top:20px}
+.production-note{display:flex;flex-direction:column;gap:6px;padding:15px;margin:22px 0;border:1px solid #a77d31;border-left:3px solid #d8b45e;border-radius:9px;background:#211a0d}
+.production-note b{color:#f0d889;font-size:11px;letter-spacing:1.5px}
+.production-note span{color:#c9c0ad;font-size:12px;line-height:1.6}
+.episode-plan{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 2px;border-bottom:1px solid #d8b45e2b}
+.episode-plan div{display:flex;flex-direction:column;gap:5px}
+.episode-plan div b{font-size:9px;letter-spacing:1.5px;color:#d8b45e}
+.episode-plan strong{font:500 17px Georgia,'Times New Roman',serif}
+.episode-plan>span{flex:0 0 auto;color:#a99a75;font-size:8px;letter-spacing:1px;font-weight:900}
+@media(max-width:540px){.original-grid{grid-template-columns:1fr}.original-card{min-height:145px}.episode-plan{align-items:flex-start}.episode-plan>span{padding-top:3px}}
