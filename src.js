@@ -12,7 +12,7 @@ async function checkForUpdates() {
     if (!localRes.ok || !remoteRes.ok) throw new Error('Update service unavailable');
     const local = await localRes.json();
     const release = await remoteRes.json();
-    const latestCode = Number(String(release.tag_name || '').match(/^v\\d+\\.\\d+\\.(\\d+)$/)?.[1] || 0);
+    const latestCode = Number(String(release.tag_name || '').match(/^v\d+\.\d+\.(\d+)$/)?.[1] || 0);
     const installedCode = Number(local.versionCode || 0);
     const apk = (release.assets || []).find(item => item.name === 'NEXORA-AI-DRAMA.apk');
     updateInfo = {status:latestCode > installedCode && apk ? 'available' : 'current',
