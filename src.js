@@ -56,7 +56,10 @@ const seed = [
 function readItems() {
   try {
     const stored = JSON.parse(localStorage.getItem(KEY) || 'null');
-    return Array.isArray(stored) && stored.length ? stored : seed;
+    if (!Array.isArray(stored) || !stored.length) return seed;
+    // Merge newly shipped catalog entries into existing installs without deleting owner-added videos.
+    const known = new Set(stored.map(x => x.id));
+    return [...seed, ...stored.filter(x => !seed.some(s => s.id === x.id))];
   } catch {
     return seed;
   }
