@@ -151,8 +151,7 @@ function renderAdmin() {
     const x = Object.fromEntries(f.entries());
     x.id = crypto.randomUUID();
     x.license = 'Owner-confirmed permission';
-    items = items.filter(i => !isDemo(i));
-    items.push(x);
+        items.push(x);
     save();
     renderAdmin();
   };
