@@ -240,7 +240,7 @@ function renderScreen() {
   }
   active = Math.min(active, items.length - 1);
   const x = items[active];
-  const peerTubeId = String(x.url || '').match(/(?:webseed|download\\/videos)\\/([0-9a-f-]{36})/i)?.[1];
+  const peerTubeId = String(x.url || '').match(/(?:webseed|download\/videos)\/([0-9a-f-]{36})/i)?.[1];
   const peerTubeEmbed = peerTubeId
     ? `https://video.blender.org/videos/embed/${peerTubeId}?p2p=0&warningTitle=0`
     : null;
