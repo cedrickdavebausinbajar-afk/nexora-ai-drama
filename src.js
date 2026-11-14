@@ -211,6 +211,30 @@ const seed = [
   }
 ];
 
+
+const originalSeries = [
+{id:'love-behind-the-lies',title:'LOVE BEHIND THE LIES',genre:'Romance · Mystery',logline:'A bride discovers that the man she married has been protecting the secret that destroyed her family.',episodes:['The Wedding Secret','A Photograph from the Past','The Stranger at the Gate','Promises Under Oath','The Lie Between Us']},
+{id:'billionaires-secret-wife',title:"THE BILLIONAIRE'S SECRET WIFE",genre:'Romance · Drama',logline:'A billionaire hides his marriage to a woman who refuses to be treated like a secret.',episodes:['The Hidden Ring','Terms of the Marriage','A Wife in the Shadows','The Gala Reveal','No More Secrets']},
+{id:'married-to-my-enemy',title:'MARRIED TO MY ENEMY',genre:'Romance · Revenge',logline:'Two business rivals enter a marriage of convenience, unaware their families share a painful history.',episodes:['The Hostile Proposal','One Roof, Two Enemies','The Family File','A Dangerous Alliance','The First Real Kiss']},
+{id:'ceos-hidden-daughter',title:"THE CEO'S HIDDEN DAUGHTER",genre:'Family · Mystery',logline:'A young woman takes a job at a powerful company and discovers the CEO may be the father she never knew.',episodes:['The New Assistant','The Childhood Locket','A Name on the Birth Record','The Boardroom Test','The Truth Comes Home']},
+{id:'revenge-forgotten-heiress',title:'REVENGE OF THE FORGOTTEN HEIRESS',genre:'Revenge · Drama',logline:'After being erased from her own family, an heiress returns with a new identity and a plan.',episodes:['The Girl They Erased','A New Identity','The First Move','The Cost of Revenge','The Heiress Returns']},
+{id:'my-fake-husband',title:'MY FAKE HUSBAND',genre:'Romance · Comedy',logline:'A practical woman hires a charming stranger to pose as her husband, but their contract gets complicated.',episodes:['The Husband for Hire','Rules of the House','Meet the In-Laws','The Contract Clause','Falling Off Script']},
+{id:'secret-surrogate',title:'THE SECRET SURROGATE',genre:'Family · Thriller',logline:'A surrogate agrees to keep her identity private until a missing medical file puts everyone at risk.',episodes:['The Agreement','A Sealed Envelope','The Wrong Appointment','A Mother’s Promise','The Missing File']},
+{id:'love-that-betrayed-me',title:'A LOVE THAT BETRAYED ME',genre:'Romance · Drama',logline:'A woman rebuilding her life meets the one person connected to the betrayal she has never forgiven.',episodes:['The Last Message','Starting Over','The Familiar Stranger','What Really Happened','Choosing Tomorrow']},
+{id:'billionaires-contract-bride',title:"THE BILLIONAIRE'S CONTRACT BRIDE",genre:'Romance · Drama',logline:'A contract marriage meant to save two fortunes becomes a test of trust, loyalty, and love.',episodes:['The One-Year Deal','Separate Bedrooms','The Public Couple','A Clause Broken','Beyond the Contract']},
+{id:'twins-of-destiny',title:'TWINS OF DESTINY',genre:'Family · Mystery',logline:'Separated at birth, twin sisters unknowingly compete for the same future and the same family truth.',episodes:['Two Birth Certificates','The Accidental Meeting','A Mother’s Secret','Switched Lives','Together at Last']},
+{id:'wrong-bride',title:'THE WRONG BRIDE',genre:'Romance · Mystery',logline:'A wedding-day mix-up sends an ordinary woman into a powerful family’s world and uncovers a deliberate deception.',episodes:['The Wrong Aisle','A Different Groom','The Missing Invitation','The Wedding Plot','The Choice']},
+{id:'his-double-life',title:'HIS DOUBLE LIFE',genre:'Thriller · Romance',logline:'A wife begins to suspect her seemingly ordinary husband is living another life after dark.',episodes:['The Second Phone','An Unknown Address','The Man in the Photograph','Midnight Confession','Two Lives Collide']},
+{id:'last-promise',title:'THE LAST PROMISE',genre:'Romance · Family',logline:'Two childhood friends reunite to fulfill a promise made years ago, before time runs out.',episodes:['The Promise Letter','Back to the Coast','An Old Photograph','The Final Summer','Always Remember']},
+{id:'secret-millionaire',title:'THE SECRET MILLIONAIRE',genre:'Romance · Comedy',logline:'A quiet millionaire keeps his wealth hidden while searching for someone who loves him without it.',episodes:['The Ordinary Man','A Job Interview','The Charity Dinner','The Secret Exposed','Love Without a Price']},
+{id:'love-after-divorce',title:'LOVE AFTER DIVORCE',genre:'Romance · Drama',logline:'Freshly divorced, a woman rebuilds her career and discovers that a second chance can come from an unexpected place.',episodes:['The Signature','A New Beginning','The Difficult Reunion','Learning to Trust','A Different Forever']},
+{id:'house-of-secrets',title:'THE HOUSE OF SECRETS',genre:'Mystery · Family',logline:'When siblings inherit an old mansion, hidden rooms reveal a family history no one was meant to know.',episodes:['The Inheritance','The Locked Room','Voices in the Hall','The Family Portrait','Beneath the House']},
+{id:'my-ex-billionaire',title:'MY EX IS A BILLIONAIRE',genre:'Romance · Revenge',logline:'Years after a painful breakup, a woman discovers her ex has become a billionaire—and still remembers everything.',episodes:['The Unexpected Reunion','The New CEO','An Old Debt','The Truth Behind Goodbye','Not for Sale']},
+{id:'ceos-revenge',title:"THE CEO'S REVENGE",genre:'Business · Thriller',logline:'A betrayed executive returns to reclaim a company, but the evidence points to someone close to him.',episodes:['The Boardroom Betrayal','The Comeback Plan','A Hidden Account','The Insider','The Final Vote']},
+{id:'second-chance-love',title:'A SECOND CHANCE AT LOVE',genre:'Romance · Drama',logline:'Two former sweethearts meet again as guardians of the same child and must face the choices that separated them.',episodes:['The Reunion','A Shared Responsibility','The Unsent Letter','Old Wounds','A New Promise']},
+{id:'missing-heiress',title:'THE MISSING HEIRESS',genre:'Mystery · Drama',logline:'A small-town artist is drawn into a wealthy family’s search for a missing heiress—and begins to question her own past.',episodes:['The Missing Portrait','A Familiar Birthmark','The Family Search','A Name Revealed','Homecoming']}
+];
+
 const removedSeedIds = new Set(['sita-sings-the-blues-feature']);
 function readItems() {
   try {
@@ -228,6 +252,7 @@ let liked = new Set();
 try { liked = new Set(JSON.parse(localStorage.getItem('nexora-liked') || '[]')); } catch {}
 let active = 0;
 let view = 'feed';
+let selectedSeries = null;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const save = () => localStorage.setItem(KEY, JSON.stringify(items));
 const builtInIds = new Set(seed.map(x => x.id));
@@ -242,6 +267,7 @@ function shell() {
   <div class="drawer-head"><div><b>NEXORA</b><small>AI DRAMA MENU</small></div><button class="drawer-close" id="menuClose" aria-label="Close menu">×</button></div>
   <button class="drawer-link" data-view="feed">▶ &nbsp; Discover</button>
   <button class="drawer-link" data-view="search">⌕ &nbsp; Search</button>
+  <button class="drawer-link" data-view="originals">✦ &nbsp; Original AI dramas <span>20 SERIES</span></button>
   <button class="drawer-link" data-view="saved">♥ &nbsp; Saved dramas</button>
   <button class="drawer-link" data-view="updates">↻ &nbsp; App updates <span id="updateBadge">CHECKING</span></button>
   <div class="drawer-divider"></div>
@@ -284,6 +310,17 @@ function renderScreen() {
     document.querySelector('#checkUpdates').onclick=()=>{document.querySelector('#updateStatus').textContent='Checking for updates…';checkForUpdates();};
     document.querySelector('#updateAction').onclick=()=>{if(updateInfo.url)Browser.open({url:updateInfo.url});};
     checkForUpdates();
+    return;
+  }
+  if (view === 'originals') {
+    const s = selectedSeries && originalSeries.find(x => x.id === selectedSeries);
+    if (s) {
+      screen.innerHTML = `<section class="panel original-detail"><button class="gold-outline" id="seriesBack">← ALL ORIGINALS</button><div class="eyebrow">NEXORA ORIGINAL · ${esc(s.genre)}</div><h1>${esc(s.title)}</h1><p>${esc(s.logline)}</p><div class="production-note"><b>VIDEO EPISODES IN PRODUCTION</b><span>These are original series concepts and episode plans. Finished video files are not available yet.</span></div><h2>Episode guide</h2>${s.episodes.map((ep,i)=>`<article class="episode-plan"><div><b>EPISODE ${i+1}</b><strong>${esc(ep)}</strong></div><span>COMING SOON</span></article>`).join('')}</section>`;
+      document.querySelector('#seriesBack').onclick=()=>{selectedSeries=null;renderScreen();};
+    } else {
+      screen.innerHTML = `<section class="panel originals-head"><div class="eyebrow">MADE FOR NEXORA</div><h1>Original AI Dramas</h1><p>20 original series concepts with episode guides. Video production is the next stage; no unfinished title is presented as a playable episode.</p><div class="original-grid">${originalSeries.map(s=>`<button class="original-card" data-series="${s.id}"><span class="original-label">NEXORA ORIGINAL</span><b>${esc(s.title)}</b><small>${esc(s.genre)}</small><span class="original-status">5 EPISODES PLANNED · IN PRODUCTION</span></button>`).join('')}</div></section>`;
+      screen.querySelectorAll('[data-series]').forEach(b=>b.onclick=()=>{selectedSeries=b.dataset.series;renderScreen();});
+    }
     return;
   }
   if (view === 'search') {
