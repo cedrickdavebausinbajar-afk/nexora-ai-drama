@@ -64,7 +64,7 @@ jobs:
           data = p.read_text()
           code = os.environ["GITHUB_RUN_NUMBER"]
           data, a = re.subn(r"versionCode\s+\d+", f"versionCode {code}", data, count=1)
-          data, b = re.subn(r'versionName\s+"[^"]+"', f'versionName "1.0.{code}"', data, count=1)
+          data, b = re.subn(r"versionName\s+.*", f"versionName '1.0.{code}'", data, count=1)
           if a != 1 or b != 1:
               raise SystemExit("Could not set Android version fields safely")
           p.write_text(data)
