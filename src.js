@@ -63,6 +63,18 @@ async function checkForUpdates() {
 const KEY = 'nexora-drama-demo-v2';
 const seed = [
   {
+    "id": "sita-sings-the-blues-feature",
+    "title": "Sita Sings the Blues",
+    "episode": "FULL FEATURE FILM · 82 MIN",
+    "category": "Animation / Musical",
+    "creator": "Nina Paley",
+    "source": "https://www.sitasingstheblues.com/watch.html",
+    "license": "Creative Commons Attribution-ShareAlike 3.0 US (see official film page)",
+    "url": "https://www.youtube.com/watch?v=RzTg7YXuy34",
+    "poster": "https://img.youtube.com/vi/RzTg7YXuy34/hqdefault.jpg",
+    "description": "The complete feature-length animated musical retelling of the Ramayana, officially linked from the filmmaker's watch page."
+  },
+  {
     "id": "sintel-demo",
     "title": "Sintel: The Dragon Search",
     "episode": "COMPLETE SHORT FILM",
@@ -313,10 +325,13 @@ function renderScreen() {
   const peerTubeEmbed = peerTubeId
     ? `https://video.blender.org/videos/embed/${peerTubeId}?p2p=0&warningTitle=0`
     : null;
+  const youtubeId = String(x.url || '').match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/)?.[1];
+  const youtubeEmbed = youtubeId ? `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0` : null;
+  const embeddedPlayer = peerTubeEmbed || youtubeEmbed;
   screen.innerHTML = `<section class="player-wrap">
 <div class="player" id="player">
-  ${peerTubeEmbed
-    ? `<iframe class="peer-player" src="${peerTubeEmbed}" title="Watch ${esc(x.title)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>`
+  ${embeddedPlayer
+    ? `<iframe class="peer-player" src="${embeddedPlayer}" title="Watch ${esc(x.title)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>`
     : `<video id="dramaVideo" controls playsinline webkit-playsinline preload="metadata" poster="${esc(x.poster||'')}">
       <source src="${esc(x.url||'')}" type="video/mp4">
       Your device cannot play this video.
