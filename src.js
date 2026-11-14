@@ -63,18 +63,6 @@ async function checkForUpdates() {
 const KEY = 'nexora-drama-demo-v2';
 const seed = [
   {
-    "id": "sita-sings-the-blues-feature",
-    "title": "Sita Sings the Blues",
-    "episode": "FULL FEATURE FILM · 82 MIN",
-    "category": "Animation / Musical",
-    "creator": "Nina Paley",
-    "source": "https://www.sitasingstheblues.com/watch.html",
-    "license": "Creative Commons Attribution-ShareAlike 3.0 US (see official film page)",
-    "url": "https://www.youtube.com/watch?v=RzTg7YXuy34",
-    "poster": "https://img.youtube.com/vi/RzTg7YXuy34/hqdefault.jpg",
-    "description": "The complete feature-length animated musical retelling of the Ramayana, officially linked from the filmmaker's watch page."
-  },
-  {
     "id": "sintel-demo",
     "title": "Sintel: The Dragon Search",
     "episode": "COMPLETE SHORT FILM",
@@ -223,13 +211,14 @@ const seed = [
   }
 ];
 
+const removedSeedIds = new Set(['sita-sings-the-blues-feature']);
 function readItems() {
   try {
     const stored = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (!Array.isArray(stored) || !stored.length) return seed;
-    // Merge newly shipped catalog entries into existing installs without deleting owner-added videos.
-    const known = new Set(stored.map(x => x.id));
-    return [...seed, ...stored.filter(x => !seed.some(s => s.id === x.id))];
+    // Remove explicitly retired built-in titles from existing installs while preserving owner-added videos.
+    const retained = stored.filter(x => !removedSeedIds.has(x.id));
+    return [...seed, ...retained.filter(x => !seed.some(s => s.id === x.id))];
   } catch {
     return seed;
   }
