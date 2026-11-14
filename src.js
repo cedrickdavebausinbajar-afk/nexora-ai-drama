@@ -121,7 +121,19 @@ async function checkForUpdates() {
 }
 
 const KEY = 'nexora-drama-demo-v2';
-const seed = [];
+const seed = [
+  {
+    id: 'youtube-drama-xhRvCWXHPsI',
+    title: 'FEATURED YOUTUBE DRAMA',
+    episode: 'FEATURED VIDEO',
+    category: 'Drama',
+    creator: 'Original YouTube creator',
+    source: 'https://www.youtube.com/watch?v=xhRvCWXHPsI',
+    license: 'Official YouTube embed · original creator attribution',
+    url: 'https://www.youtube.com/watch?v=xhRvCWXHPsI',
+    description: 'A drama video embedded from its original YouTube page. Playback depends on the creator allowing embedding.'
+  }
+];
 
 
 const originalSeries = [
