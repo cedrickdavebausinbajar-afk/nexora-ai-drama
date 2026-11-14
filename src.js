@@ -4,52 +4,151 @@ const app = document.querySelector('#app');
 const KEY = 'nexora-drama-demo-v2';
 const seed = [
   {
-    id: 'sintel-demo',
-    title: 'Sintel: The Dragon Search',
-    episode: 'COMPLETE SHORT FILM',
-    category: 'Fantasy',
-    creator: 'Blender Foundation',
-    source: 'https://durian.blender.org/',
-    license: 'Creative Commons Attribution 3.0',
-    url: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
-    poster: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/Sintel.jpg',
-    description: 'An animated fantasy adventure. Official open movie by the Blender Foundation.'
+    "id": "sintel-demo",
+    "title": "Sintel: The Dragon Search",
+    "episode": "COMPLETE SHORT FILM",
+    "category": "Fantasy",
+    "creator": "Blender Foundation",
+    "source": "https://durian.blender.org/",
+    "license": "Creative Commons Attribution 3.0",
+    "url": "https://video.blender.org/static/webseed/0eb052d0-fd51-43e6-aa33-ecdbf77a5d40-720.mp4",
+    "poster": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/Sintel.jpg",
+    "description": "An animated fantasy adventure. Official open movie by the Blender Foundation."
   },
   {
-    id: 'elephants-dream-open',
-    title: 'Elephants Dream',
-    episode: 'FULL OPEN MOVIE',
-    category: 'Fantasy',
-    creator: 'Blender Foundation',
-    source: 'https://orange.blender.org/',
-    license: 'Creative Commons Attribution 2.5',
-    url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    poster: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg',
-    description: 'An experimental animated science-fiction film from the Blender Foundation.'
+    "id": "elephants-dream-open",
+    "title": "Elephants Dream",
+    "episode": "FULL OPEN MOVIE",
+    "category": "Fantasy",
+    "creator": "Blender Foundation",
+    "source": "https://orange.blender.org/",
+    "license": "Creative Commons Attribution 2.5",
+    "url": "https://video.blender.org/static/webseed/cccc3e60-0291-4ecc-aa56-39b2e2c7d0d5-720.mp4",
+    "poster": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg",
+    "description": "An experimental animated science-fiction film from the Blender Foundation."
   },
   {
-    id: 'big-buck-bunny-full-open',
-    title: 'Big Buck Bunny — Full Movie',
-    episode: 'FULL OPEN MOVIE',
-    category: 'Family',
-    creator: 'Blender Foundation',
-    source: 'https://peach.blender.org/',
-    license: 'Creative Commons Attribution 3.0',
-    url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    poster: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
-    description: 'The complete open animated comedy short from the Blender Foundation.'
+    "id": "big-buck-bunny-full-open",
+    "title": "Big Buck Bunny — Full Movie",
+    "episode": "FULL OPEN MOVIE",
+    "category": "Family",
+    "creator": "Blender Foundation",
+    "source": "https://peach.blender.org/",
+    "license": "Creative Commons Attribution 3.0",
+    "url": "https://video.blender.org/static/webseed/bf1f3fb5-b119-4f9f-9930-8e20e892b898-720.mp4",
+    "poster": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg",
+    "description": "The complete open animated comedy short from the Blender Foundation."
   },
   {
-    id: 'big-buck-bunny-demo',
-    title: 'Big Buck Bunny',
-    episode: 'COMPLETE SHORT FILM',
-    category: 'Family',
-    creator: 'Blender Foundation',
-    source: 'https://peach.blender.org/',
-    license: 'Creative Commons Attribution 3.0',
-    url: 'https://media.w3.org/2010/05/bunny/trailer.mp4',
-    poster: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
-    description: 'A playful animated short about a gentle giant bunny. Open movie by the Blender Foundation.'
+    "id": "big-buck-bunny-demo",
+    "title": "Big Buck Bunny",
+    "episode": "TRAILER",
+    "category": "Family",
+    "creator": "Blender Foundation",
+    "source": "https://peach.blender.org/",
+    "license": "Creative Commons Attribution 3.0",
+    "url": "https://media.w3.org/2010/05/bunny/trailer.mp4",
+    "poster": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg",
+    "description": "Trailer for the open animated comedy short."
+  },
+  {
+    "id": "tears-of-steel-open",
+    "title": "Tears of Steel",
+    "episode": "COMPLETE SHORT FILM",
+    "category": "Sci-Fi / Action",
+    "creator": "Blender Institute",
+    "source": "https://mango.blender.org/",
+    "license": "Creative Commons Attribution 3.0",
+    "url": "https://video.blender.org/static/webseed/8533ea43-4271-4a57-9694-e9d0b35e1aa1-720.mp4",
+    "description": "Live-action science-fiction short with visual effects."
+  },
+  {
+    "id": "spring-open",
+    "title": "Spring",
+    "episode": "COMPLETE SHORT FILM",
+    "category": "Fantasy",
+    "creator": "Blender Studio",
+    "source": "https://studio.blender.org/films/spring/",
+    "license": "Creative Commons Attribution (verify version on source page)",
+    "url": "https://video.blender.org/static/webseed/3d95fb3d-c866-42c5-aa45-cf92f48ccb95-720.mp4",
+    "description": "A shepherd girl and her dog face ancient spirits in the mountains."
+  },
+  {
+    "id": "sprite-fright-open",
+    "title": "Sprite Fright",
+    "episode": "COMPLETE SHORT FILM",
+    "category": "Horror / Comedy",
+    "creator": "Blender Studio",
+    "source": "https://studio.blender.org/films/sprite-fright/",
+    "license": "Creative Commons Attribution (verify version on source page)",
+    "url": "https://video.blender.org/download/videos/a69d68a5-a0e0-4a80-9d66-49f093c97aaf-720.mp4",
+    "description": "Five teenagers encounter mysterious mushroom creatures in a forest."
+  },
+  {
+    "id": "cosmos-laundromat-open",
+    "title": "Cosmos Laundromat: First Cycle",
+    "episode": "PILOT FILM",
+    "category": "Fantasy",
+    "creator": "Blender Institute",
+    "source": "https://studio.blender.org/projects/cosmos-laundromat/",
+    "license": "Creative Commons Attribution 3.0",
+    "url": "https://video.blender.org/static/webseed/f507dfdc-e73e-45a4-9778-d758cbe1ce96-720.mp4",
+    "description": "A sheep is offered a journey through many possible lives."
+  },
+  {
+    "id": "agent-327-open",
+    "title": "Agent 327: Operation Barbershop",
+    "episode": "COMPLETE SHORT FILM",
+    "category": "Comedy / Action",
+    "creator": "Blender Studio",
+    "source": "https://studio.blender.org/films/agent-327/",
+    "license": "Creative Commons Attribution (verify version on source page)",
+    "url": "https://video.blender.org/static/webseed/264ff760-803e-430e-8d81-15648e904183-720.mp4",
+    "description": "A secret agent visits a barbershop in this spy-comedy short."
+  },
+  {
+    "id": "coffee-run-open",
+    "title": "Coffee Run",
+    "episode": "COMPLETE SHORT FILM",
+    "category": "Drama",
+    "creator": "Blender Studio",
+    "source": "https://studio.blender.org/films/coffee-run/",
+    "license": "Creative Commons Attribution (verify version on source page)",
+    "url": "https://video.blender.org/static/webseed/ff8fe61b-026f-4f07-b66b-2a790d6f6ab1-720.mp4",
+    "description": "A young woman moves through memories of a past relationship."
+  },
+  {
+    "id": "caminandes-llamigos-open",
+    "title": "Caminandes 3: Llamigos",
+    "episode": "EPISODE 3",
+    "category": "Comedy",
+    "creator": "Blender Studio",
+    "source": "https://studio.blender.org/films/caminandes/",
+    "license": "Creative Commons Attribution (verify version on source page)",
+    "url": "https://video.blender.org/static/webseed/23f3ef79-15dc-44c5-aa45-cf92e78a4509-720.mp4",
+    "description": "Two llamas compete over a patch of Patagonian grass."
+  },
+  {
+    "id": "glass-half-open",
+    "title": "Glass Half",
+    "episode": "COMPLETE SHORT FILM",
+    "category": "Comedy",
+    "creator": "Blender Studio",
+    "source": "https://studio.blender.org/films/glass-half/",
+    "license": "Creative Commons Attribution (verify version on source page)",
+    "url": "https://video.blender.org/static/webseed/64222c8a-c4c7-4b3b-9850-7fb2078edcf6-720.mp4",
+    "description": "An animated comedy short from Blender Studio."
+  },
+  {
+    "id": "caminandes-gran-dillama-open",
+    "title": "Caminandes 2: Gran Dillama",
+    "episode": "EPISODE 2",
+    "category": "Comedy",
+    "creator": "Blender Studio",
+    "source": "https://studio.blender.org/films/caminandes/",
+    "license": "Creative Commons Attribution (verify version on source page)",
+    "url": "https://video.blender.org/static/webseed/fb70d459-48d2-4db5-adba-813c84f9200a-720.mp4",
+    "description": "Koro the llama struggles to get a berry in the Patagonian winter."
   }
 ];
 
@@ -93,7 +192,7 @@ function shell() {
 </aside>
 <nav class="tabs"><button class="${view==='feed'?'active':''}" data-view="feed">DISCOVER</button><button class="${view==='search'?'active':''}" data-view="search">SEARCH</button><button class="${view==='saved'?'active':''}" data-view="saved">SAVED</button></nav>
 <main id="screen"></main>
-<footer>© ${new Date().getFullYear()} NEXORA AI DRAMA <span>Demo films by Blender Foundation · CC BY 3.0 · Watch responsibly</span></footer>`;
+<footer>© ${new Date().getFullYear()} NEXORA AI DRAMA <span>Open films · creator credits and license details shown per title · Watch responsibly</span></footer>`;
   const drawer = document.querySelector('#menuDrawer');
   const backdrop = document.querySelector('#menuBackdrop');
   const closeMenu = () => {
@@ -157,7 +256,7 @@ function renderScreen() {
   <div id="videoError" class="video-error" hidden>Video could not load. Check your internet connection, then tap RETRY.<button id="retryVideo" type="button">RETRY</button></div>
 </div>
 <div class="feed-controls"><button id="prev" ${active===0?'disabled':''}>↑ PREVIOUS</button><span>${active+1} / ${items.length}</span><button id="nextText" ${active===items.length-1?'disabled':''}>NEXT ↓</button></div>
-<p class="credit">Credit: ${esc(x.creator||'Not provided')} · ${esc(x.license||'Authorized content')}. <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">License details</a></p>
+<p class="credit">Credit: ${esc(x.creator||'Not provided')} · ${esc(x.license||'Authorized content')}. <a href="${esc(x.source||'#')}" target="_blank" rel="noopener">Source and license details ↗</a></p>
 </section>`;
   const video = document.querySelector('#dramaVideo');
   const overlay = document.querySelector('#playOverlay');
