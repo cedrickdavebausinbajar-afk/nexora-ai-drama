@@ -16,6 +16,30 @@ const seed = [
     description: 'An animated fantasy adventure. Official open movie by the Blender Foundation.'
   },
   {
+    id: 'elephants-dream-open',
+    title: 'Elephants Dream',
+    episode: 'FULL OPEN MOVIE',
+    category: 'Fantasy',
+    creator: 'Blender Foundation',
+    source: 'https://orange.blender.org/',
+    license: 'Creative Commons Attribution 2.5',
+    url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    poster: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg',
+    description: 'An experimental animated science-fiction film from the Blender Foundation.'
+  },
+  {
+    id: 'big-buck-bunny-full-open',
+    title: 'Big Buck Bunny — Full Movie',
+    episode: 'FULL OPEN MOVIE',
+    category: 'Family',
+    creator: 'Blender Foundation',
+    source: 'https://peach.blender.org/',
+    license: 'Creative Commons Attribution 3.0',
+    url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    poster: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
+    description: 'The complete open animated comedy short from the Blender Foundation.'
+  },
+  {
     id: 'big-buck-bunny-demo',
     title: 'Big Buck Bunny',
     episode: 'COMPLETE SHORT FILM',
@@ -48,7 +72,7 @@ const isDemo = x => String(x.id).endsWith('-demo');
 
 function shell() {
   app.innerHTML = `
-<header class="top"><div class="brand"><span class="mark">N</span><div><b>NEXORA</b><small>AI DRAMA</small></div></div>
+<header class="top"><div class="brand"><img class="brand-logo" src="/nexora-logo.svg" alt="NEXORA logo"><div><b>NEXORA</b><small>AI DRAMA</small></div></div>
 <button class="gold-outline menu-toggle" id="menuOpen" aria-expanded="false" aria-controls="menuDrawer">☰ MENU</button></header>
 <div class="menu-backdrop" id="menuBackdrop" hidden></div>
 <aside class="menu-drawer" id="menuDrawer" aria-label="Main menu" hidden>
@@ -196,7 +220,7 @@ function adminGate() {
   else if (pin !== null) alert('Incorrect demo PIN.');
 }
 function renderAdmin() {
-  app.innerHTML = `<header class="top"><div class="brand"><span class="mark">N</span><div><b>NEXORA</b><small>PRIVATE OWNER PANEL · DEMO</small></div></div><button class="gold-outline" id="back">VIEW APP</button></header>
+  app.innerHTML = `<header class="top"><div class="brand"><img class="brand-logo" src="/nexora-logo.svg" alt="NEXORA logo"><div><b>NEXORA</b><small>PRIVATE OWNER PANEL · DEMO</small></div></div><button class="gold-outline" id="back">VIEW APP</button></header>
 <main class="admin"><section class="panel"><div class="eyebrow">CONTENT MANAGEMENT</div><h1>Owner dashboard</h1><p class="muted">Add video links only when you have written permission or a license for in-app playback.</p>
 <form id="addForm"><label>Drama title<input name="title" required placeholder="e.g. The Secret Heiress"></label><div class="two"><label>Episode<input name="episode" placeholder="Episode 1"></label><label>Category<select name="category"><option>Romance</option><option>Revenge</option><option>Family</option><option>Comedy</option><option>Action</option><option>Thriller</option><option>Fantasy</option><option>Other</option></select></label></div>
 <label>Direct video URL (MP4 or supported stream)<input name="url" type="url" required placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional)<input name="poster" type="url" placeholder="https://..."></label>
