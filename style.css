@@ -192,3 +192,28 @@ footer span{color:#766b56}
 .update-actions { display:flex; flex-wrap:wrap; gap:12px; margin:22px 0; }
 .update-actions button { min-height:46px; padding:0 20px; }
 #updateBadge { margin-left:auto; color:#d6b15c; font-size:.68rem; letter-spacing:.08em; }
+
+
+/* Startup update popup */
+.update-popup-backdrop{
+  position:fixed;inset:0;z-index:9999;display:grid;place-items:center;
+  padding:22px;background:rgba(0,0,0,.78);backdrop-filter:blur(9px);
+}
+.update-popup-card{
+  width:min(100%,410px);padding:30px 24px 22px;text-align:center;
+  color:#f7f1e4;background:linear-gradient(155deg,#211a0d,#11100d 58%,#080808);
+  border:1px solid #d8b45e88;border-radius:22px;
+  box-shadow:0 24px 90px #000c,inset 0 1px #fff2;
+}
+.update-popup-icon{
+  width:54px;height:54px;margin:0 auto 17px;display:grid;place-items:center;
+  border:1px solid #d8b45e88;border-radius:50%;color:#e5c574;font-size:30px;
+  background:#d8b45e12;
+}
+.update-popup-card h2{font:500 29px/1.1 Georgia,'Times New Roman',serif;margin:12px 0;color:#f8edcf}
+.update-popup-card p{color:#c9c0ad;font-size:13px;line-height:1.65}
+.update-popup-version{margin:18px 0;padding:11px;border:1px solid #d8b45e33;border-radius:10px;color:#e3d4ae;font-size:12px}
+.update-popup-version span{padding:0 8px;color:#d8b45e}
+.update-popup-primary{width:100%;min-height:48px;margin:3px 0 8px}
+.update-popup-later{display:block;width:100%;padding:12px;border:0;background:transparent;color:#c9c0ad;font:inherit;cursor:pointer}
+.update-popup-card small{display:block;margin-top:7px;color:#938b7b;font-size:10px}
