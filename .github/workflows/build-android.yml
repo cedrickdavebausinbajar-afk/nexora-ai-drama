@@ -110,7 +110,7 @@ jobs:
           manifest = base / "AndroidManifest.xml"
           text = manifest.read_text()
           if "REQUEST_INSTALL_PACKAGES" not in text:
-              text = text.replace("<application", '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\\n    <application', 1)
+              text = text.replace("<application", '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />' + chr(10) + '    <application', 1)
           provider = '<provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/nexora_file_paths" /></provider>'
           if "nexora_file_paths" not in text:
               text = text.replace("</application>", provider + "</application>")
