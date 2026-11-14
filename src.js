@@ -11,7 +11,7 @@ const seed = [
     creator: 'Blender Foundation',
     source: 'https://durian.blender.org/',
     license: 'Creative Commons Attribution 3.0',
-    url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
+    url: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
     poster: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/Sintel.jpg',
     description: 'An animated fantasy adventure. Official open movie by the Blender Foundation.'
   },
@@ -23,7 +23,7 @@ const seed = [
     creator: 'Blender Foundation',
     source: 'https://peach.blender.org/',
     license: 'Creative Commons Attribution 3.0',
-    url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    url: 'https://media.w3.org/2010/05/bunny/trailer.mp4',
     poster: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
     description: 'A playful animated short about a gentle giant bunny. Open movie by the Blender Foundation.'
   }
@@ -87,24 +87,57 @@ function renderScreen() {
   const x = items[active];
   screen.innerHTML = `<section class="player-wrap">
 <div class="player" id="player">
-  <video id="dramaVideo" controls autoplay muted playsinline webkit-playsinline preload="metadata" poster="${esc(x.poster||'')}">
-    <source src="${esc(x.url||'')}" type="video/mp4">
+  <video id="dramaVideo" controls playsinline webkit-playsinline preload="auto" poster="\${esc(x.poster||'')}">
+    <source src="\${esc(x.url||'')}" type="video/mp4">
     Your device cannot play this video.
   </video>
+  <div class="play-overlay" id="playOverlay"><button type="button" id="startPlayback">▶ PLAY VIDEO</button><small id="playStatus">Tap to start watching</small></div>
   <div class="shade"></div>
   <div class="meta"><span class="tag">${esc(x.category||'DRAMA')}</span><h2>${esc(x.title)}</h2>
   <p>${esc(x.episode||'EPISODE 1')} · ${esc(x.creator||'Creator not listed')}</p>
   ${x.source?`<a href="${esc(x.source)}" target="_blank" rel="noopener">Creator / film website ↗</a>`:''}
   <small class="license">${esc(x.license||'Creator-authorized video')}</small></div>
   <div class="actions"><button id="like" class="action">${liked.has(x.id)?'♥':'♡'}<small>SAVE</small></button><button id="share" class="action">↗<small>SHARE</small></button></div>
-  <div id="videoError" class="video-error" hidden>Video could not load. Check your internet connection and try again.</div>
+  <div id="videoError" class="video-error" hidden>Video could not load. Check your internet connection, then tap RETRY.<button id="retryVideo" type="button">RETRY</button></div>
 </div>
 <div class="feed-controls"><button id="prev" ${active===0?'disabled':''}>↑ PREVIOUS</button><span>${active+1} / ${items.length}</span><button id="nextText" ${active===items.length-1?'disabled':''}>NEXT ↓</button></div>
 <p class="credit">Credit: ${esc(x.creator||'Not provided')} · ${esc(x.license||'Authorized content')}. <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">License details</a></p>
 </section>`;
   const video = document.querySelector('#dramaVideo');
-  video.addEventListener('error', () => { document.querySelector('#videoError').hidden = false; });
-  video.play().catch(() => {});
+  const overlay = document.querySelector('#playOverlay');
+  const status = document.querySelector('#playStatus');
+  const errorBox = document.querySelector('#videoError');
+  const startButton = document.querySelector('#startPlayback');
+  const startPlayback = async () => {
+    errorBox.hidden = true;
+    status.textContent = 'Loading video…';
+    startButton.disabled = true;
+    try {
+      await video.play();
+      overlay.classList.add('playing');
+    } catch (err) {
+      startButton.disabled = false;
+      status.textContent = 'Tap PLAY VIDEO to try again';
+      if (video.error) errorBox.hidden = false;
+    }
+  };
+  startButton.onclick = startPlayback;
+  video.addEventListener('playing', () => { overlay.classList.add('playing'); errorBox.hidden = true; });
+  video.addEventListener('waiting', () => { status.textContent = 'Buffering…'; });
+  video.addEventListener('canplay', () => { status.textContent = 'Ready to play'; startButton.disabled = false; });
+  video.addEventListener('pause', () => { overlay.classList.remove('playing'); });
+  video.addEventListener('ended', () => { overlay.classList.remove('playing'); status.textContent = 'Video finished'; });
+  video.addEventListener('error', () => {
+    errorBox.hidden = false;
+    overlay.classList.remove('playing');
+    status.textContent = 'Unable to load video';
+    startButton.disabled = false;
+  });
+  document.querySelector('#retryVideo').onclick = () => {
+    errorBox.hidden = true;
+    status.textContent = 'Retrying…';
+    video.load();
+  };
   document.querySelector('#like').onclick = () => {
     liked.has(x.id) ? liked.delete(x.id) : liked.add(x.id);
     localStorage.setItem('nexora-liked', JSON.stringify([...liked]));
