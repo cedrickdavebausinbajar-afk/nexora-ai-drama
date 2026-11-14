@@ -242,7 +242,7 @@ function renderScreen() {
   const x = items[active];
   screen.innerHTML = `<section class="player-wrap">
 <div class="player" id="player">
-  <video id="dramaVideo" controls playsinline webkit-playsinline preload="auto" poster="${esc(x.poster||'')}">
+  <video id="dramaVideo" controls playsinline webkit-playsinline preload="metadata" poster="${esc(x.poster||'')}">
     <source src="${esc(x.url||'')}" type="video/mp4">
     Your device cannot play this video.
   </video>
