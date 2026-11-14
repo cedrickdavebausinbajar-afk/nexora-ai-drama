@@ -267,6 +267,7 @@ function shell() {
   <div class="drawer-head"><div><b>NEXORA</b><small>AI DRAMA MENU</small></div><button class="drawer-close" id="menuClose" aria-label="Close menu">×</button></div>
   <button class="drawer-link" data-view="feed">▶ &nbsp; Discover</button>
   <button class="drawer-link" data-view="search">⌕ &nbsp; Search</button>
+  <button class="drawer-link" data-view="shorts">▶ &nbsp; Drama Shorts <span>VERTICAL FEED</span></button>
   <button class="drawer-link" data-view="originals">✦ &nbsp; Original AI dramas <span>20 SERIES</span></button>
   <button class="drawer-link" data-view="saved">♥ &nbsp; Saved dramas</button>
   <button class="drawer-link" data-view="updates">↻ &nbsp; App updates <span id="updateBadge">CHECKING</span></button>
@@ -310,6 +311,25 @@ function renderScreen() {
     document.querySelector('#checkUpdates').onclick=()=>{document.querySelector('#updateStatus').textContent='Checking for updates…';checkForUpdates();};
     document.querySelector('#updateAction').onclick=()=>{if(updateInfo.url)Browser.open({url:updateInfo.url});};
     checkForUpdates();
+    return;
+  }
+  if (view === 'shorts') {
+    const playable = items.filter(x => /^https:\/\//i.test(String(x.url || '')) && /\.mp4(?:[?#]|$)/i.test(String(x.url)));
+    screen.innerHTML = `<section class="shorts-head"><div class="eyebrow">NEXORA · VERTICAL STORIES</div><h1>Drama Shorts</h1><p>Swipe up for the next short. Videos shown here are creator-credited catalogue entries; only videos you are authorized to publish should be added.</p></section>
+      ${playable.length ? `<div class="shorts-feed">${playable.map((x,i)=>`<article class="short-card" data-short-index="${i}">
+        <video class="short-video" src="${esc(x.url)}" ${x.poster ? `poster="${esc(x.poster)}"` : ''} controls playsinline muted loop preload="metadata"></video>
+        <div class="short-shade"></div><div class="short-meta"><span class="short-tag">NEXORA SHORTS</span><h2>${esc(x.title)}</h2><p>${esc(x.episode || x.category || 'Drama')}</p><small>Creator: ${esc(x.creator || 'Not listed')}</small>${x.source ? `<a href="${esc(x.source)}" target="_blank" rel="noopener">VIEW ORIGINAL SOURCE ↗</a>` : ''}</div>
+        <span class="short-counter">${i+1} / ${playable.length}</span>
+      </article>`).join('')}</div>` : `<div class="panel empty"><h2>No short videos available yet</h2><p class="muted">Add an authorized vertical MP4 video in the Owner section. TikTok videos are not copied automatically.</p></div>`}`;
+    const cards=[...screen.querySelectorAll('.short-card')];
+    if ('IntersectionObserver' in window) {
+      const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{
+        const video=entry.target.querySelector('video');
+        if(entry.isIntersecting && entry.intersectionRatio>.65){video?.play().catch(()=>{});}
+        else if(video){video.pause();}
+      }),{threshold:[.25,.65,.9]});
+      cards.forEach(card=>observer.observe(card));
+    }
     return;
   }
   if (view === 'originals') {
