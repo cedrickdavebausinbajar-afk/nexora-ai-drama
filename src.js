@@ -124,7 +124,7 @@ const KEY = 'nexora-drama-demo-v2';
 const seed = [
   {
     id: 'youtube-drama-xhRvCWXHPsI',
-    title: 'FEATURED YOUTUBE DRAMA',
+    title: 'THE MAFIA HIRED A NANNY',
     episode: 'FEATURED VIDEO',
     category: 'Drama',
     creator: 'Original YouTube creator',
