@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-android:
@@ -51,6 +51,22 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x android/gradlew
 
+      - name: Set Android app version from build number
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os, re
+          p = Path("android/app/build.gradle")
+          data = p.read_text()
+          code = os.environ["GITHUB_RUN_NUMBER"]
+          data, a = re.subn(r"versionCode\\s+\\d+", f"versionCode {code}", data, count=1)
+          data, b = re.subn(r'versionName\\s+"[^"]+"', f'versionName "1.0.{code}"', data, count=1)
+          if a != 1 or b != 1:
+              raise SystemExit("Could not set Android version fields safely")
+          p.write_text(data)
+          Path("public/app-version.json").write_text('{"versionName":"1.0.'+code+'","versionCode":'+code+'}\\n')
+          PY
+
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug
@@ -76,6 +92,23 @@ jobs:
             -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
             -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
           rm -f release-key.jks
+
+      - name: Prepare stable APK download
+        if: ${{ success() && hashFiles('android/app/build/outputs/apk/release/app-release.apk') != '' }}
+        run: cp android/app/build/outputs/apk/release/app-release.apk NEXORA-AI-DRAMA.apk
+
+      - name: Publish official app release for in-app updates
+        if: ${{ success() && hashFiles('NEXORA-AI-DRAMA.apk') != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: NEXORA AI DRAMA v1.0.${{ github.run_number }}
+          body: |
+            Official NEXORA AI DRAMA Android update.
+            Version code: ${{ github.run_number }}
+            Install over your existing NEXORA AI DRAMA app. Android will ask you to confirm.
+          files: NEXORA-AI-DRAMA.apk
+          make_latest: true
 
       - name: Upload signed release APK
         if: ${{ success() && hashFiles('android/app/build/outputs/apk/release/app-release.apk') != '' }}
