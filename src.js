@@ -311,6 +311,7 @@ function renderScreen() {
   const embeddedPlayer = peerTubeEmbed || youtubeEmbed;
   screen.innerHTML = `<section class="player-wrap">
 <div class="player" id="player">
+  <button type="button" id="fullscreenPlayer" class="fullscreen-player" aria-label="Enter full screen" title="Full screen">⛶ <span>FULL SCREEN</span></button>
   ${embeddedPlayer
     ? `<iframe class="peer-player" src="${embeddedPlayer}" title="Watch ${esc(x.title)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>`
     : `<video id="dramaVideo" controls playsinline webkit-playsinline preload="metadata" poster="${esc(x.poster||'')}">
@@ -329,6 +330,37 @@ function renderScreen() {
 <div class="feed-controls"><button id="prev" ${active===0?'disabled':''}>↑ PREVIOUS</button><span>${active+1} / ${items.length}</span><button id="nextText" ${active===items.length-1?'disabled':''}>NEXT ↓</button></div>
 <p class="credit">Credit: ${esc(x.creator||'Not provided')} · ${esc(x.license||'Authorized content')}. <a href="${esc(x.source||'#')}" target="_blank" rel="noopener">Source and license details ↗</a></p>
 </section>`;
+  const playerFrame = document.querySelector('#player');
+  const fullscreenButton = document.querySelector('#fullscreenPlayer');
+  if (fullscreenButton && playerFrame) {
+    const syncFullscreenLabel = () => {
+      const activeFullscreen = document.fullscreenElement === playerFrame || document.webkitFullscreenElement === playerFrame;
+      fullscreenButton.innerHTML = activeFullscreen ? '⛶ <span>EXIT FULL SCREEN</span>' : '⛶ <span>FULL SCREEN</span>';
+      fullscreenButton.setAttribute('aria-label', activeFullscreen ? 'Exit full screen' : 'Enter full screen');
+    };
+    fullscreenButton.onclick = async () => {
+      try {
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } else if (playerFrame.requestFullscreen) {
+          await playerFrame.requestFullscreen();
+        } else if (playerFrame.webkitRequestFullscreen) {
+          playerFrame.webkitRequestFullscreen();
+        } else {
+          const nativeVideo = playerFrame.querySelector('video');
+          if (nativeVideo?.webkitEnterFullscreen) nativeVideo.webkitEnterFullscreen();
+          else if (nativeVideo) { nativeVideo.controls = true; await nativeVideo.play(); }
+        }
+      } catch (err) {
+        const nativeVideo = playerFrame.querySelector('video');
+        if (nativeVideo?.webkitEnterFullscreen) nativeVideo.webkitEnterFullscreen();
+      }
+      syncFullscreenLabel();
+    };
+    document.addEventListener('fullscreenchange', syncFullscreenLabel);
+    document.addEventListener('webkitfullscreenchange', syncFullscreenLabel);
+  }
   const video = document.querySelector('#dramaVideo');
   if (video) {
     const overlay = document.querySelector('#playOverlay');
