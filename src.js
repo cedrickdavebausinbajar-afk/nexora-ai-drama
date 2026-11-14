@@ -71,7 +71,8 @@ let active = 0;
 let view = 'feed';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const save = () => localStorage.setItem(KEY, JSON.stringify(items));
-const isDemo = x => String(x.id).endsWith('-demo');
+const builtInIds = new Set(seed.map(x => x.id));
+const isDemo = x => builtInIds.has(x.id);
 
 function shell() {
   app.innerHTML = `
@@ -107,8 +108,9 @@ function shell() {
   };
   document.querySelector('#menuClose').onclick = closeMenu;
   backdrop.onclick = closeMenu;
-  app.querySelectorAll('.drawer-link[data-view]').forEach(b => b.onclick = () => { closeMenu(); view = b.dataset.view; render(); });
+  app.querySelectorAll('.drawer-link[data-view], .tabs [data-view]').forEach(b => b.onclick = () => { closeMenu(); view = b.dataset.view; render(); });
   document.querySelector('#adminOpen').onclick = () => { closeMenu(); adminGate(); };
+  document.onkeydown = e => { if (e.key === 'Escape' && !drawer.hidden) { closeMenu(); document.querySelector('#menuOpen')?.focus(); } };
   renderScreen();
 }
 function render() { shell(); }
@@ -190,6 +192,7 @@ function renderScreen() {
   document.querySelector('#retryVideo').onclick = () => {
     errorBox.hidden = true;
     status.textContent = 'Retrying…';
+    startButton.disabled = false;
     video.load();
   };
   document.querySelector('#like').onclick = () => {
@@ -207,6 +210,8 @@ function renderScreen() {
   const prev = () => { if (active > 0) { active--; renderScreen(); } };
   document.querySelector('#nextText').onclick = next;
   document.querySelector('#prev').onclick = prev;
+  // Keep the current screen at the top after changing episodes on mobile.
+  document.querySelector('#screen')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 function card(x) {
   return `<article class="rowcard"><img class="mini-poster" src="${esc(x.poster||'')}" alt="" onerror="this.style.display='none'"><div><b>${esc(x.title)}</b><small>${esc(x.category)} · ${esc(x.episode||'')}</small><p>${esc(x.creator||'Creator not listed')}</p><button class="gold-outline" data-play="${esc(x.id)}">WATCH</button></div></article>`;
@@ -236,6 +241,10 @@ function renderAdmin() {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const x = Object.fromEntries(f.entries());
+    if (!/^https:\/\//i.test(x.url) || !/^https:\/\//i.test(x.source) || (x.poster && !/^https:\/\//i.test(x.poster))) {
+      alert('Please use secure HTTPS links for the video, source, and poster.');
+      return;
+    }
     x.id = crypto.randomUUID();
     x.license = 'Owner-confirmed permission';
         items.push(x);
