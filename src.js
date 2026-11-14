@@ -1,5 +1,62 @@
 import './style.css';
 import { Browser } from '@capacitor/browser';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { FileTransfer } from '@capacitor/file-transfer';
+
+const ApkInstaller = registerPlugin('ApkInstaller');
+const UPDATE_APK_PATH = 'nexora-ai-drama-update.apk';
+let updateDownload = {status:'idle', path:'', message:''};
+let updateDownloadPromise = null;
+async function downloadUpdate() {
+  if (updateDownloadPromise) return updateDownloadPromise;
+  if (!updateInfo.url) throw new Error('The official APK download is not available.');
+  updateDownload.status = 'downloading';
+  updateDownload.message = 'Downloading update into app storage…';
+  refreshUpdateUI();
+  updateDownloadPromise = (async () => {
+    try {
+      const target = await Filesystem.getUri({directory:Directory.Cache, path:UPDATE_APK_PATH});
+      try { await Filesystem.deleteFile({directory:Directory.Cache, path:UPDATE_APK_PATH}); } catch {}
+      const result = await FileTransfer.downloadFile({url:updateInfo.url, path:target.uri, progress:true});
+      updateDownload = {status:'ready', path:result.path || target.uri, message:'Update downloaded. Ready to install.'};
+      refreshUpdateUI();
+      return updateDownload;
+    } catch (error) {
+      updateDownload = {status:'error', path:'', message:'Download failed. Check your connection and try again.'};
+      refreshUpdateUI();
+      throw error;
+    } finally { updateDownloadPromise = null; }
+  })();
+  return updateDownloadPromise;
+}
+function refreshUpdateUI() {
+  const status = document.querySelector('#updateStatus');
+  if (status && updateDownload.status !== 'idle') status.textContent = updateDownload.message;
+  const action = document.querySelector('#updateAction');
+  if (action && updateInfo.status === 'available') {
+    action.hidden = false;
+    action.textContent = updateDownload.status === 'ready' ? 'INSTALL UPDATE' : updateDownload.status === 'downloading' ? 'DOWNLOADING…' : 'DOWNLOAD UPDATE';
+    action.disabled = updateDownload.status === 'downloading';
+  }
+  const popupAction = document.querySelector('#popupUpdateNow');
+  if (popupAction && updateInfo.status === 'available') {
+    popupAction.textContent = updateDownload.status === 'ready' ? 'INSTALL UPDATE' : updateDownload.status === 'downloading' ? 'DOWNLOADING…' : 'DOWNLOAD UPDATE';
+    popupAction.disabled = updateDownload.status === 'downloading';
+  }
+}
+async function startUpdateFlow() {
+  try {
+    if (!Capacitor.isNativePlatform()) { if (updateInfo.url) await Browser.open({url:updateInfo.url}); return; }
+    if (updateDownload.status !== 'ready') await downloadUpdate();
+    const result = await ApkInstaller.install({filePath:updateDownload.path});
+    if (result?.needsPermission) {
+      alert('Allow NEXORA AI DRAMA to install updates on the next Android screen, then return to the app and tap INSTALL UPDATE again.');
+    }
+  } catch (error) {
+    alert(updateDownload.message || 'The update could not be started. Please try again.');
+  }
+}
 
 const app = document.querySelector('#app');
 const APP_REPO = 'cedrickdavebausinbajar-afk/nexora-ai-drama';
@@ -23,7 +80,7 @@ function showUpdatePopup() {
     <small>Android will ask you to confirm the installation.</small>
   </section>`;
   document.body.appendChild(popup);
-  popup.querySelector('#popupUpdateNow').onclick = () => { if (updateInfo.url) Browser.open({url:updateInfo.url}); };
+  popup.querySelector('#popupUpdateNow').onclick = startUpdateFlow;
   popup.querySelector('#popupUpdateLater').onclick = () => {
     localStorage.setItem('nexora-update-dismissed', updateInfo.latest);
     popup.remove();
@@ -58,6 +115,9 @@ async function checkForUpdates() {
   const action=document.querySelector('#updateAction');
   if(action) { action.hidden=updateInfo.status!=='available'; action.onclick=()=>{if(updateInfo.url) Browser.open({url:updateInfo.url});}; }
   showUpdatePopup();
+  if (updateInfo.status === 'available' && Capacitor.isNativePlatform() && updateDownload.status === 'idle') {
+    downloadUpdate().catch(() => {});
+  }
 }
 
 const KEY = 'nexora-drama-demo-v2';
@@ -307,9 +367,9 @@ function renderScreen() {
   const screen = document.querySelector('#screen');
   if (!screen) return;
   if (view === 'updates') {
-    screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">Updates download from the official NEXORA AI DRAMA release. Android will ask you to confirm installation; updates cannot be installed silently.</small></section>`;
-    document.querySelector('#checkUpdates').onclick=()=>{document.querySelector('#updateStatus').textContent='Checking for updates…';checkForUpdates();};
-    document.querySelector('#updateAction').onclick=()=>{if(updateInfo.url)Browser.open({url:updateInfo.url});};
+    screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">When a new version is found, NEXORA downloads it into private app storage automatically. Android will ask you to confirm installation. Old APKs are not added to your Downloads folder.</small></section>`;
+    document.querySelector('#checkUpdates').onclick=()=>{updateDownload={status:'idle',path:'',message:''};document.querySelector('#updateStatus').textContent='Checking for updates…';checkForUpdates();};
+    document.querySelector('#updateAction').onclick=startUpdateFlow;
     checkForUpdates();
     return;
   }
