@@ -7,8 +7,16 @@ Separate project identity:
 - Front end: Vite + vanilla JavaScript
 - Android wrapper: Capacitor 7
 
-## Android build
-GitHub Actions builds a debug APK on pushes to `main`. Download the `NEXORA-AI-DRAMA-debug` artifact from the Actions run when it succeeds.
+## Android builds
+GitHub Actions builds a debug APK on pushes to `main`. If all four release-signing repository secrets are configured, it also builds and uploads a signed release APK as `NEXORA-AI-DRAMA-release`.
+
+Required GitHub Actions secrets:
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_PASSWORD`
+
+Keep the keystore private and back it up securely. Every future release must use the same keystore and package ID, with a higher version code, for Android in-place updates.
 
 ## Run locally
 1. Install Node.js 20 or newer.
@@ -23,7 +31,6 @@ npx cap add android
 npx cap sync android
 npx cap open android
 ```
-Build the signed APK from Android Studio after configuring the release signing key.
 
 ## Important: prototype limitations
 This first version is a UI and interaction prototype. The owner demo PIN is `2468` and is **not secure**. Video entries are stored only in the current browser's local storage and do not sync to other devices. Do not publish this demo admin panel or use it to store sensitive information.
