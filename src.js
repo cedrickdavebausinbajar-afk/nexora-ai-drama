@@ -121,155 +121,7 @@ async function checkForUpdates() {
 }
 
 const KEY = 'nexora-drama-demo-v2';
-const seed = [
-  {
-    "id": "sintel-demo",
-    "title": "Sintel: The Dragon Search",
-    "episode": "COMPLETE SHORT FILM",
-    "category": "Fantasy",
-    "creator": "Blender Foundation",
-    "source": "https://durian.blender.org/",
-    "license": "Creative Commons Attribution 3.0",
-    "url": "https://video.blender.org/static/webseed/0eb052d0-fd51-43e6-aa33-ecdbf77a5d40-720.mp4",
-    "poster": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/Sintel.jpg",
-    "description": "An animated fantasy adventure. Official open movie by the Blender Foundation."
-  },
-  {
-    "id": "elephants-dream-open",
-    "title": "Elephants Dream",
-    "episode": "FULL OPEN MOVIE",
-    "category": "Fantasy",
-    "creator": "Blender Foundation",
-    "source": "https://orange.blender.org/",
-    "license": "Creative Commons Attribution 2.5",
-    "url": "https://video.blender.org/static/webseed/cccc3e60-0291-4ecc-aa56-39b2e2c7d0d5-720.mp4",
-    "poster": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg",
-    "description": "An experimental animated science-fiction film from the Blender Foundation."
-  },
-  {
-    "id": "big-buck-bunny-full-open",
-    "title": "Big Buck Bunny — Full Movie",
-    "episode": "FULL OPEN MOVIE",
-    "category": "Family",
-    "creator": "Blender Foundation",
-    "source": "https://peach.blender.org/",
-    "license": "Creative Commons Attribution 3.0",
-    "url": "https://video.blender.org/static/webseed/bf1f3fb5-b119-4f9f-9930-8e20e892b898-720.mp4",
-    "poster": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg",
-    "description": "The complete open animated comedy short from the Blender Foundation."
-  },
-  {
-    "id": "big-buck-bunny-demo",
-    "title": "Big Buck Bunny",
-    "episode": "TRAILER",
-    "category": "Family",
-    "creator": "Blender Foundation",
-    "source": "https://peach.blender.org/",
-    "license": "Creative Commons Attribution 3.0",
-    "url": "https://media.w3.org/2010/05/bunny/trailer.mp4",
-    "poster": "https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg",
-    "description": "Trailer for the open animated comedy short."
-  },
-  {
-    "id": "tears-of-steel-open",
-    "title": "Tears of Steel",
-    "episode": "COMPLETE SHORT FILM",
-    "category": "Sci-Fi / Action",
-    "creator": "Blender Institute",
-    "source": "https://mango.blender.org/",
-    "license": "Creative Commons Attribution 3.0",
-    "url": "https://video.blender.org/static/webseed/8533ea43-4271-4a57-9694-e9d0b35e1aa1-720.mp4",
-    "description": "Live-action science-fiction short with visual effects."
-  },
-  {
-    "id": "spring-open",
-    "title": "Spring",
-    "episode": "COMPLETE SHORT FILM",
-    "category": "Fantasy",
-    "creator": "Blender Studio",
-    "source": "https://studio.blender.org/films/spring/",
-    "license": "Creative Commons Attribution (verify version on source page)",
-    "url": "https://video.blender.org/static/webseed/3d95fb3d-c866-42c5-aa45-cf92f48ccb95-720.mp4",
-    "description": "A shepherd girl and her dog face ancient spirits in the mountains."
-  },
-  {
-    "id": "sprite-fright-open",
-    "title": "Sprite Fright",
-    "episode": "COMPLETE SHORT FILM",
-    "category": "Horror / Comedy",
-    "creator": "Blender Studio",
-    "source": "https://studio.blender.org/films/sprite-fright/",
-    "license": "Creative Commons Attribution (verify version on source page)",
-    "url": "https://video.blender.org/download/videos/a69d68a5-a0e0-4a80-9d66-49f093c97aaf-720.mp4",
-    "description": "Five teenagers encounter mysterious mushroom creatures in a forest."
-  },
-  {
-    "id": "cosmos-laundromat-open",
-    "title": "Cosmos Laundromat: First Cycle",
-    "episode": "PILOT FILM",
-    "category": "Fantasy",
-    "creator": "Blender Institute",
-    "source": "https://studio.blender.org/projects/cosmos-laundromat/",
-    "license": "Creative Commons Attribution 3.0",
-    "url": "https://video.blender.org/static/webseed/f507dfdc-e73e-45a4-9778-d758cbe1ce96-720.mp4",
-    "description": "A sheep is offered a journey through many possible lives."
-  },
-  {
-    "id": "agent-327-open",
-    "title": "Agent 327: Operation Barbershop",
-    "episode": "COMPLETE SHORT FILM",
-    "category": "Comedy / Action",
-    "creator": "Blender Studio",
-    "source": "https://studio.blender.org/films/agent-327/",
-    "license": "Creative Commons Attribution (verify version on source page)",
-    "url": "https://video.blender.org/static/webseed/264ff760-803e-430e-8d81-15648e904183-720.mp4",
-    "description": "A secret agent visits a barbershop in this spy-comedy short."
-  },
-  {
-    "id": "coffee-run-open",
-    "title": "Coffee Run",
-    "episode": "COMPLETE SHORT FILM",
-    "category": "Drama",
-    "creator": "Blender Studio",
-    "source": "https://studio.blender.org/films/coffee-run/",
-    "license": "Creative Commons Attribution (verify version on source page)",
-    "url": "https://video.blender.org/static/webseed/ff8fe61b-026f-4f07-b66b-2a790d6f6ab1-720.mp4",
-    "description": "A young woman moves through memories of a past relationship."
-  },
-  {
-    "id": "caminandes-llamigos-open",
-    "title": "Caminandes 3: Llamigos",
-    "episode": "EPISODE 3",
-    "category": "Comedy",
-    "creator": "Blender Studio",
-    "source": "https://studio.blender.org/films/caminandes/",
-    "license": "Creative Commons Attribution (verify version on source page)",
-    "url": "https://video.blender.org/static/webseed/23f3ef79-15dc-44c5-aa45-cf92e78a4509-720.mp4",
-    "description": "Two llamas compete over a patch of Patagonian grass."
-  },
-  {
-    "id": "glass-half-open",
-    "title": "Glass Half",
-    "episode": "COMPLETE SHORT FILM",
-    "category": "Comedy",
-    "creator": "Blender Studio",
-    "source": "https://studio.blender.org/films/glass-half/",
-    "license": "Creative Commons Attribution (verify version on source page)",
-    "url": "https://video.blender.org/static/webseed/64222c8a-c4c7-4b3b-9850-7fb2078edcf6-720.mp4",
-    "description": "An animated comedy short from Blender Studio."
-  },
-  {
-    "id": "caminandes-gran-dillama-open",
-    "title": "Caminandes 2: Gran Dillama",
-    "episode": "EPISODE 2",
-    "category": "Comedy",
-    "creator": "Blender Studio",
-    "source": "https://studio.blender.org/films/caminandes/",
-    "license": "Creative Commons Attribution (verify version on source page)",
-    "url": "https://video.blender.org/static/webseed/fb70d459-48d2-4db5-adba-813c84f9200a-720.mp4",
-    "description": "Koro the llama struggles to get a berry in the Patagonian winter."
-  }
-];
+const seed = [];
 
 
 const originalSeries = [
@@ -293,9 +145,20 @@ const originalSeries = [
 {id:'ceos-revenge',title:"THE CEO'S REVENGE",genre:'Business · Thriller',logline:'A betrayed executive returns to reclaim a company, but the evidence points to someone close to him.',episodes:['The Boardroom Betrayal','The Comeback Plan','A Hidden Account','The Insider','The Final Vote']},
 {id:'second-chance-love',title:'A SECOND CHANCE AT LOVE',genre:'Romance · Drama',logline:'Two former sweethearts meet again as guardians of the same child and must face the choices that separated them.',episodes:['The Reunion','A Shared Responsibility','The Unsent Letter','Old Wounds','A New Promise']},
 {id:'missing-heiress',title:'THE MISSING HEIRESS',genre:'Mystery · Drama',logline:'A small-town artist is drawn into a wealthy family’s search for a missing heiress—and begins to question her own past.',episodes:['The Missing Portrait','A Familiar Birthmark','The Family Search','A Name Revealed','Homecoming']}
+,{id:'the-billionaire-next-door',title:'THE BILLIONAIRE NEXT DOOR',genre:'Romance · Mystery',logline:'A night-shift nurse befriends her quiet neighbor and discovers he is the missing heir at the center of a corporate scandal.',episodes:['The Quiet Neighbor','A Name on the News','The Locked Penthouse','A Dangerous Visitor','The Man Behind the Door']}
+,{id:'stolen-wedding-vows',title:'STOLEN WEDDING VOWS',genre:'Romance · Betrayal',logline:'A bride is left at the altar and learns her sister planned the betrayal to claim the family fortune.',episodes:['The Empty Altar','The Sister’s Secret','A Ring Returned','The Family Vote','Vows Rewritten']}
+,{id:'the-ceos-contract',title:'THE CEO’S CONTRACT',genre:'Romance · Business',logline:'A struggling designer signs a strict work contract with a demanding CEO, but one clause changes both their lives.',episodes:['The Impossible Deadline','Clause Number Seven','The Office Rumor','A Night of Truth','Beyond the Signature']}
+,{id:'daughter-of-the-maid',title:'DAUGHTER OF THE MAID',genre:'Family · Revenge',logline:'Raised in the home where her mother worked, a young woman returns years later to uncover why her birth was hidden.',episodes:['The Housekeeper’s Key','A Hidden Birth Record','The Family Dinner','A Mother’s Silence','The Name She Deserves']}
+,{id:'one-night-billionaire',title:'ONE NIGHT WITH A BILLIONAIRE',genre:'Romance · Drama',logline:'One unexpected night connects a hotel worker and a billionaire whose public engagement is built on a lie.',episodes:['The Wrong Suite','A Morning After','The Fake Engagement','The Press Conference','A Choice in Public']}
+,{id:'the-secret-inheritance',title:'THE SECRET INHERITANCE',genre:'Mystery · Family',logline:'A modest teacher inherits an estate with one condition: solve the mystery of the previous owner’s disappearance.',episodes:['The Lawyer’s Letter','The Locked Study','A Stranger’s Warning','The Missing Will','The Last Heir']}
+,{id:'my-husbands-other-family',title:'MY HUSBAND’S OTHER FAMILY',genre:'Drama · Mystery',logline:'A wife discovers her husband has been supporting another household and must decide what truth to reveal to their children.',episodes:['The Second Address','A Birthday Invitation','The Other Home','A Child’s Question','The Truth at Dinner']}
+,{id:'queen-of-the-boardroom',title:'QUEEN OF THE BOARDROOM',genre:'Business · Revenge',logline:'After being pushed out of her own startup, a founder returns as an investor to expose the people who stole it.',episodes:['The Founder’s Exit','A New Investor','The Hidden Ledger','The Vote of No Confidence','Back in Control']}
+,{id:'the-last-love-letter',title:'THE LAST LOVE LETTER',genre:'Romance · Mystery',logline:'A woman receives letters from an unknown sender that reveal the real story behind her late mother’s first love.',episodes:['A Letter Without a Name','The Old Bookshop','A Photograph in Blue','The Promise Kept','A Love Remembered']}
+,{id:'engaged-to-a-stranger',title:'ENGAGED TO A STRANGER',genre:'Romance · Comedy',logline:'To save a family business, two strangers agree to a fake engagement and discover they have more in common than they think.',episodes:['The Engagement Deal','Meet the Families','The Weekend Away','A Real Jealousy','Not Pretending Anymore']}
+
 ];
 
-const removedSeedIds = new Set(['sita-sings-the-blues-feature']);
+const removedSeedIds = new Set(["sintel-demo","elephants-dream-open","big-buck-bunny-full-open","big-buck-bunny-demo","tears-of-steel-open","spring-open","sprite-fright-open","cosmos-laundromat-open","agent-327-open","coffee-run-open","caminandes-llamigos-open","glass-half-open","caminandes-gran-dillama-open","sita-sings-the-blues-feature"]);
 function readItems() {
   try {
     const stored = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -328,7 +191,7 @@ function shell() {
   <button class="drawer-link" data-view="feed">▶ &nbsp; Discover</button>
   <button class="drawer-link" data-view="search">⌕ &nbsp; Search</button>
   <button class="drawer-link" data-view="shorts">▶ &nbsp; Drama Shorts <span>VERTICAL FEED</span></button>
-  <button class="drawer-link" data-view="originals">✦ &nbsp; Original AI dramas <span>20 SERIES</span></button>
+  <button class="drawer-link" data-view="originals">✦ &nbsp; Original AI dramas <span>30 SERIES</span></button>
   <button class="drawer-link" data-view="saved">♥ &nbsp; Saved dramas</button>
   <button class="drawer-link" data-view="updates">↻ &nbsp; App updates <span id="updateBadge">CHECKING</span></button>
   <div class="drawer-divider"></div>
@@ -398,7 +261,7 @@ function renderScreen() {
       screen.innerHTML = `<section class="panel original-detail"><button class="gold-outline" id="seriesBack">← ALL ORIGINALS</button><div class="eyebrow">NEXORA ORIGINAL · ${esc(s.genre)}</div><h1>${esc(s.title)}</h1><p>${esc(s.logline)}</p><div class="production-note"><b>VIDEO EPISODES IN PRODUCTION</b><span>These are original series concepts and episode plans. Finished video files are not available yet.</span></div><h2>Episode guide</h2>${s.episodes.map((ep,i)=>`<article class="episode-plan"><div><b>EPISODE ${i+1}</b><strong>${esc(ep)}</strong></div><span>COMING SOON</span></article>`).join('')}</section>`;
       document.querySelector('#seriesBack').onclick=()=>{selectedSeries=null;renderScreen();};
     } else {
-      screen.innerHTML = `<section class="panel originals-head"><div class="eyebrow">MADE FOR NEXORA</div><h1>Original AI Dramas</h1><p>20 original series concepts with episode guides. Video production is the next stage; no unfinished title is presented as a playable episode.</p><div class="original-grid">${originalSeries.map(s=>`<button class="original-card" data-series="${s.id}"><span class="original-label">NEXORA ORIGINAL</span><b>${esc(s.title)}</b><small>${esc(s.genre)}</small><span class="original-status">5 EPISODES PLANNED · IN PRODUCTION</span></button>`).join('')}</div></section>`;
+      screen.innerHTML = `<section class="panel originals-head"><div class="eyebrow">MADE FOR NEXORA</div><h1>Original AI Dramas</h1><p>30 original series concepts with episode guides. Video production is the next stage; no unfinished title is presented as a playable episode.</p><div class="original-grid">${originalSeries.map(s=>`<button class="original-card" data-series="${s.id}"><span class="original-label">NEXORA ORIGINAL</span><b>${esc(s.title)}</b><small>${esc(s.genre)}</small><span class="original-status">5 EPISODES PLANNED · IN PRODUCTION</span></button>`).join('')}</div></section>`;
       screen.querySelectorAll('[data-series]').forEach(b=>b.onclick=()=>{selectedSeries=b.dataset.series;renderScreen();});
     }
     return;
