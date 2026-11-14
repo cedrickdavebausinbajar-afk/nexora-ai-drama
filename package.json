@@ -14,7 +14,7 @@
     "@capacitor/core": "^7.4.3",
     "@capacitor/cli": "^7.4.3",
     "vite": "^6.4.1",
-    "@capacitor/filesystem": "^7.1.4",
-    "@capacitor/file-transfer": "^7.0.0"
+    "@capacitor/filesystem": "^7.1.9",
+    "@capacitor/file-transfer": "^1.0.12"
   }
 }
