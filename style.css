@@ -24,3 +24,19 @@ button,input,select{font:inherit}button{cursor:pointer}.top{height:72px;padding:
 .play-overlay.playing{display:none}
 .video-error button{display:block;margin-top:8px;border:1px solid #f0d889;border-radius:4px;background:#d7b45a;color:#17120a;padding:7px 14px;font-weight:700}
 #startPlayback:disabled{opacity:.65}
+
+
+/* NEXORA-style slide-out navigation menu */
+.menu-toggle{font-weight:800}
+.menu-backdrop{position:fixed;inset:0;background:#000b;z-index:19}
+.menu-drawer{position:fixed;z-index:20;top:0;right:0;width:min(320px,86vw);height:100dvh;padding:22px 18px;background:linear-gradient(160deg,#211a0c,#0b0b0b 48%);border-left:1px solid #80632b;box-shadow:-18px 0 55px #000b;display:flex;flex-direction:column;gap:5px}
+.menu-drawer[hidden],.menu-backdrop[hidden]{display:none}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;padding:8px 2px 22px;margin-bottom:8px;border-bottom:1px solid #493a1c;letter-spacing:2px}
+.drawer-head b{display:block;font-size:16px}
+.drawer-head small{display:block;color:var(--gold);font-size:10px;letter-spacing:3px}
+.drawer-close{width:36px;height:36px;border:1px solid #80632b;border-radius:50%;background:transparent;color:var(--gold);font-size:25px}
+.drawer-link{display:block;width:100%;padding:14px 12px;border:0;border-radius:5px;background:transparent;color:#eee5d2;text-align:left;text-decoration:none;font-size:13px;letter-spacing:.5px}
+.drawer-link:active,.drawer-link:hover{background:#3a2c13;color:var(--gold)}
+.drawer-divider{height:1px;background:#493a1c;margin:12px 0}
+.owner-link{margin-top:5px;border:1px solid #80632b;color:var(--gold)}
+.drawer-foot{margin-top:auto;color:#746b5b;font-size:10px;letter-spacing:1px;text-align:center;padding-top:18px}
