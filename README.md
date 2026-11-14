@@ -7,6 +7,9 @@ Separate project identity:
 - Front end: Vite + vanilla JavaScript
 - Android wrapper: Capacitor 7
 
+## Android build
+GitHub Actions builds a debug APK on pushes to `main`. Download the `NEXORA-AI-DRAMA-debug` artifact from the Actions run when it succeeds.
+
 ## Run locally
 1. Install Node.js 20 or newer.
 2. Run `npm install`.
