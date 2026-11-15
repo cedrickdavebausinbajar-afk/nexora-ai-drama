@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: nexora-ai-drama-release
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
