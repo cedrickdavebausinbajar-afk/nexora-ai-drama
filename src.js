@@ -3,12 +3,35 @@ import { Browser } from '@capacitor/browser';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FileTransfer } from '@capacitor/file-transfer';
+const NEXORA_GA_ID = 'G-VYQZ6HT0RD';
+const NEXORA_PLATFORM = Capacitor.isNativePlatform() ? 'android' : 'web';
+if (typeof window !== 'undefined') {
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = window.gtag || function(){window.dataLayer.push(arguments);};
+  window.gtag('js', new Date());
+  window.gtag('config', NEXORA_GA_ID, {
+    app_name: 'NEXORA AI DRAMA',
+    app_platform: NEXORA_PLATFORM
+  });
+}
+function trackNexoraEvent(eventName, params = {}) {
+  try {
+    window.gtag?.('event', eventName, {
+      app_name: 'NEXORA AI DRAMA',
+      app_platform: NEXORA_PLATFORM,
+      ...params
+    });
+  } catch (_) {}
+}
+
 
 const ApkInstaller = registerPlugin('ApkInstaller');
 const UPDATE_APK_PATH = 'nexora-ai-drama-update.apk';
 let updateDownload = {status:'idle', path:'', message:''};
 let updateDownloadPromise = null;
 async function downloadUpdate() {
+  trackNexoraEvent('apk_update_download', {app_version: updateInfo.latest || 'unknown'});
+
   if (updateDownloadPromise) return updateDownloadPromise;
   if (!updateInfo.url) throw new Error('The official APK download is not available.');
   updateDownload.status = 'downloading';
@@ -59,6 +82,16 @@ async function startUpdateFlow() {
 }
 
 const app = document.querySelector('#app');
+trackNexoraEvent('app_open');
+if (Capacitor.isNativePlatform()) {
+  try {
+    if (!localStorage.getItem('nexora_aidrama_first_launch_v1')) {
+      trackNexoraEvent('app_first_launch');
+      localStorage.setItem('nexora_aidrama_first_launch_v1', '1');
+    }
+  } catch (_) {}
+}
+
 const APP_REPO = 'cedrickdavebausinbajar-afk/nexora-ai-drama';
 let updateInfo = {status:'checking', installed:'', latest:'', url:'', message:'Checking for updates…'};
 let updatePromptShown = false;
@@ -368,6 +401,8 @@ function renderScreen() {
     const errorBox = document.querySelector('#videoError');
     const startButton = document.querySelector('#startPlayback');
     const startPlayback = async () => {
+      trackNexoraEvent('drama_play_start', {content_title: x.title || 'unknown', content_category: x.category || 'unknown'});
+
       errorBox.hidden = true;
       status.textContent = 'Loading video…';
       startButton.disabled = true;
@@ -405,6 +440,8 @@ function renderScreen() {
     renderScreen();
   };
   document.querySelector('#share').onclick = async () => {
+    trackNexoraEvent('share_click');
+
     const data = {title:x.title,text:`Watch ${x.title} on NEXORA AI DRAMA`,url:x.source||location.href};
     if (navigator.share) { try { await navigator.share(data); } catch {} }
     else if (navigator.clipboard) { try { await navigator.clipboard.writeText(data.url); alert('Link copied.'); } catch { alert('Sharing is not available on this device yet.'); } }
