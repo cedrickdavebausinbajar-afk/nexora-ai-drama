@@ -499,9 +499,23 @@ function renderScreen() {
       lastProgressWrite = video.currentTime;
       try { localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify({id:x.id,title:x.title,episode:x.episode||'Episode',time:Math.floor(video.currentTime),updatedAt:Date.now()})); } catch {}
     });
+    const saveResumeReminder = () => {
+      if (!video.ended && video.currentTime >= 30 && (!video.duration || video.duration - video.currentTime > 5)) {
+        scheduleContinueNotification(x, video.currentTime);
+      }
+    };
     video.addEventListener('pause', () => {
       overlay.classList.remove('playing');
-      if (!video.ended && video.currentTime >= 30 && (!video.duration || video.duration - video.currentTime > 5)) scheduleContinueNotification(x, video.currentTime);
+      saveResumeReminder();
+    });
+    // Android can background the WebView without delivering a normal pause event.
+    // Persist the exact playback point and schedule the same reminder in that case.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && video.paused) saveResumeReminder();
+      else if (!document.hidden && !video.paused) cancelContinueNotification();
+    });
+    window.addEventListener('pagehide', () => {
+      if (video.paused) saveResumeReminder();
     });
     video.addEventListener('ended', () => {
       overlay.classList.remove('playing'); status.textContent = 'Video finished';
