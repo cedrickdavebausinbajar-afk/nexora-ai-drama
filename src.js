@@ -306,21 +306,21 @@ function renderDramaPreview(screen) {
   if (selected) {
     const episodeTitle = selected.episodes[previewEpisodeIndex] || 'Episode';
     const hasPilot = selected.id === 'love-behind-the-lies' && previewEpisodeIndex === 0;
-    screen.innerHTML = \`
+    screen.innerHTML = `
       <section class="dbx-preview">
         <div class="dbx-topline"><span>NEXORA ORIGINALS</span><span class="dbx-test">TEMPORARY TEST</span></div>
         <button class="dbx-back" id="dbxBack">← ALL DRAMAS</button>
         <div class="dbx-detail-hero">
           <div class="dbx-detail-art"><span>NX</span><small>SHORT DRAMA</small></div>
-          <div class="dbx-detail-copy"><span class="dbx-kicker">\${esc(selected.genre)}</span><h1>\${esc(selected.title)}</h1><p>\${esc(selected.logline)}</p><button class="dbx-primary" id="dbxSave">\${previewSaved.has(selected.id) ? '♥ SAVED' : '♡ SAVE DRAMA'}</button></div>
+          <div class="dbx-detail-copy"><span class="dbx-kicker">${esc(selected.genre)}</span><h1>${esc(selected.title)}</h1><p>${esc(selected.logline)}</p><button class="dbx-primary" id="dbxSave">${previewSaved.has(selected.id) ? '♥ SAVED' : '♡ SAVE DRAMA'}</button></div>
         </div>
         <section class="dbx-episode-section"><div class="dbx-section-head"><h2>Episodes</h2><span>5 EPISODES PLANNED</span></div>
-          <div class="dbx-episode-list">\${selected.episodes.map((ep,i)=>\`<button class="dbx-episode \${i===previewEpisodeIndex?'active':''}" data-preview-episode="\${i}"><span class="dbx-episode-number">\${String(i+1).padStart(2,'0')}</span><span><b>\${esc(ep)}</b><small>\${selected.id==='love-behind-the-lies' && i===0 ? 'SCREENPLAY PREVIEW' : 'STORY PLAN · NOT YET FILMED'}</small></span><span class="dbx-episode-arrow">›</span></button>\`).join('')}</div>
+          <div class="dbx-episode-list">${selected.episodes.map((ep,i)=>`<button class="dbx-episode ${i===previewEpisodeIndex?'active':''}" data-preview-episode="${i}"><span class="dbx-episode-number">${String(i+1).padStart(2,'0')}</span><span><b>${esc(ep)}</b><small>${selected.id==='love-behind-the-lies' && i===0 ? 'SCREENPLAY PREVIEW' : 'STORY PLAN · NOT YET FILMED'}</small></span><span class="dbx-episode-arrow">›</span></button>`).join('')}</div>
         </section>
-        <section class="dbx-story-panel"><div class="dbx-section-head"><h2>Episode \${previewEpisodeIndex+1}</h2><span>\${esc(episodeTitle)}</span></div>
-          \${hasPilot ? \`<div class="dbx-story-note">READABLE STORY PREVIEW · ORIGINAL NEXORA SCREENPLAY</div>\${loveBehindTheLiesPilot.map(scene=>\`<article class="dbx-scene"><b>\${esc(scene.title)}</b><p>\${esc(scene.text)}</p></article>\`).join('')}\` : \`<div class="dbx-unavailable"><span>✦</span><b>Story episode not produced yet</b><p>This title currently has an original concept and episode guide only. No finished video or full episode is being presented as available.</p></div>\`}
+        <section class="dbx-story-panel"><div class="dbx-section-head"><h2>Episode ${previewEpisodeIndex+1}</h2><span>${esc(episodeTitle)}</span></div>
+          ${hasPilot ? `<div class="dbx-story-note">READABLE STORY PREVIEW · ORIGINAL NEXORA SCREENPLAY</div>${loveBehindTheLiesPilot.map(scene=>`<article class="dbx-scene"><b>${esc(scene.title)}</b><p>${esc(scene.text)}</p></article>`).join('')}` : `<div class="dbx-unavailable"><span>✦</span><b>Story episode not produced yet</b><p>This title currently has an original concept and episode guide only. No finished video or full episode is being presented as available.</p></div>`}
         </section>
-      </section>\`;
+      </section>`;
     screen.querySelector('#dbxBack').onclick = () => { previewSeriesId = null; renderScreen(); };
     screen.querySelector('#dbxSave').onclick = () => {
       previewSaved.has(selected.id) ? previewSaved.delete(selected.id) : previewSaved.add(selected.id);
@@ -342,20 +342,20 @@ function renderDramaPreview(screen) {
     return categoryMatch && textMatch && savedMatch;
   });
   const featured = originalSeries.find(s => s.id === 'love-behind-the-lies') || originalSeries[0];
-  screen.innerHTML = \`
+  screen.innerHTML = `
     <section class="dbx-preview">
       <div class="dbx-topline"><span>NEXORA · SHORT DRAMA</span><span class="dbx-test">TEST MODE</span></div>
       <div class="dbx-hero">
         <div class="dbx-hero-art"><span>NX</span><small>AN ORIGINAL STORY</small></div>
         <div class="dbx-hero-copy"><span class="dbx-kicker">FEATURED ORIGINAL</span><h1>Love Behind<br><em>The Lies</em></h1><p>A bride discovers the secret that connects her new husband to her family's past.</p><button class="dbx-primary" id="dbxFeatured">▶ EXPLORE STORY</button></div>
       </div>
-      <div class="dbx-toolbar"><div><span class="dbx-kicker">YOUR NEXT OBSESSION</span><h2>\${previewMode==='saved'?'Saved dramas':'Discover dramas'}</h2></div><button class="dbx-mode" id="dbxMode">\${previewMode==='saved'?'✦ DISCOVER':'♥ SAVED'} (\${previewSaved.size})</button></div>
-      <input class="dbx-search" id="dbxSearch" type="search" placeholder="Search titles, genres or storylines..." value="\${esc(previewQuery)}">
-      <div class="dbx-filters">\${categories.map(c=>\`<button class="dbx-filter \${previewFilter===c?'active':''}" data-preview-filter="\${c}">\${c}</button>\`).join('')}</div>
-      <div class="dbx-grid-head"><span>\${matches.length} STORIES</span><span>ORIGINAL NEXORA COLLECTION</span></div>
-      <div class="dbx-grid" id="dbxGrid">\${matches.map((s,i)=>\`<button class="dbx-card" data-preview-series="\${s.id}"><span class="dbx-poster tone-\${i%6}"><small>NEXORA ORIGINAL</small><b>\${esc(s.title)}</b><i>\${esc(s.genre)}</i><span class="dbx-poster-mark">NX</span></span><span class="dbx-card-meta"><b>\${esc(s.title)}</b><small>\${esc(s.genre)}</small><em>5 EPISODES PLANNED</em></span></button>\`).join('') || '<p class="dbx-empty">No dramas match this search yet.</p>'}</div>
+      <div class="dbx-toolbar"><div><span class="dbx-kicker">YOUR NEXT OBSESSION</span><h2>${previewMode==='saved'?'Saved dramas':'Discover dramas'}</h2></div><button class="dbx-mode" id="dbxMode">${previewMode==='saved'?'✦ DISCOVER':'♥ SAVED'} (${previewSaved.size})</button></div>
+      <input class="dbx-search" id="dbxSearch" type="search" placeholder="Search titles, genres or storylines..." value="${esc(previewQuery)}">
+      <div class="dbx-filters">${categories.map(c=>`<button class="dbx-filter ${previewFilter===c?'active':''}" data-preview-filter="${c}">${c}</button>`).join('')}</div>
+      <div class="dbx-grid-head"><span>${matches.length} STORIES</span><span>ORIGINAL NEXORA COLLECTION</span></div>
+      <div class="dbx-grid" id="dbxGrid">${matches.map((s,i)=>`<button class="dbx-card" data-preview-series="${s.id}"><span class="dbx-poster tone-${i%6}"><small>NEXORA ORIGINAL</small><b>${esc(s.title)}</b><i>${esc(s.genre)}</i><span class="dbx-poster-mark">NX</span></span><span class="dbx-card-meta"><b>${esc(s.title)}</b><small>${esc(s.genre)}</small><em>5 EPISODES PLANNED</em></span></button>`).join('') || '<p class="dbx-empty">No dramas match this search yet.</p>'}</div>
       <p class="dbx-disclaimer">Temporary interface test · Uses NEXORA's original drama concepts. Video episodes are not available unless explicitly marked as produced.</p>
-    </section>\`;
+    </section>`;
   const grid = screen.querySelector('#dbxGrid');
   const wirePreviewCards = () => grid.querySelectorAll('[data-preview-series]').forEach(button => button.onclick = () => {
     previewSeriesId = button.dataset.previewSeries;
@@ -368,7 +368,7 @@ function renderDramaPreview(screen) {
   screen.querySelector('#dbxSearch').oninput = event => {
     previewQuery = event.target.value;
     const filtered = originalSeries.filter(s => (previewFilter==='All' || s.genre.toLowerCase().includes(previewFilter.toLowerCase())) && (previewMode!=='saved' || previewSaved.has(s.id)) && (s.title+' '+s.genre+' '+s.logline).toLowerCase().includes(previewQuery.toLowerCase()));
-    grid.innerHTML = filtered.map((s,i)=>\`<button class="dbx-card" data-preview-series="\${s.id}"><span class="dbx-poster tone-\${i%6}"><small>NEXORA ORIGINAL</small><b>\${esc(s.title)}</b><i>\${esc(s.genre)}</i><span class="dbx-poster-mark">NX</span></span><span class="dbx-card-meta"><b>\${esc(s.title)}</b><small>\${esc(s.genre)}</small><em>5 EPISODES PLANNED</em></span></button>\`).join('') || '<p class="dbx-empty">No dramas match this search yet.</p>';
+    grid.innerHTML = filtered.map((s,i)=>`<button class="dbx-card" data-preview-series="${s.id}"><span class="dbx-poster tone-${i%6}"><small>NEXORA ORIGINAL</small><b>${esc(s.title)}</b><i>${esc(s.genre)}</i><span class="dbx-poster-mark">NX</span></span><span class="dbx-card-meta"><b>${esc(s.title)}</b><small>${esc(s.genre)}</small><em>5 EPISODES PLANNED</em></span></button>`).join('') || '<p class="dbx-empty">No dramas match this search yet.</p>';
     wirePreviewCards();
   };
   screen.querySelectorAll('[data-preview-filter]').forEach(button => button.onclick = () => {
