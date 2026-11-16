@@ -231,6 +231,8 @@ try { liked = new Set(JSON.parse(localStorage.getItem('nexora-liked') || '[]'));
 let active = 0;
 let view = 'feed';
 let selectedSeries = null;
+let selectedStory = null;
+let storyChapter = 1;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const save = () => localStorage.setItem(KEY, JSON.stringify(items));
 const builtInIds = new Set(seed.map(x => x.id));
@@ -247,6 +249,7 @@ function shell() {
   <button class="drawer-link" data-view="search">⌕ &nbsp; Search</button>
   <button class="drawer-link" data-view="shorts">▶ &nbsp; Drama Shorts <span>VERTICAL FEED</span></button>
   <button class="drawer-link" data-view="originals">✦ &nbsp; Original AI dramas <span>30 SERIES</span></button>
+  <button class="drawer-link" data-view="stories">📖 &nbsp; Stories <span>READ CHAPTERS</span></button>
   <button class="drawer-link" data-view="saved">♥ &nbsp; Saved dramas</button>
   <button class="drawer-link" data-view="updates">↻ &nbsp; App updates <span id="updateBadge">CHECKING</span></button>
   <div class="drawer-divider"></div>
@@ -284,6 +287,33 @@ function render() { shell(); }
 function renderScreen() {
   const screen = document.querySelector('#screen');
   if (!screen) return;
+  if (view === 'stories') {
+    if (selectedStory === 'love-behind-the-lies') {
+      const scenes = loveBehindTheLiesPilot.filter(scene => scene.title !== 'END CARD');
+      screen.innerHTML = `<section class="panel story-reader">
+        <button class="gold-outline" id="storiesBack">← STORY LIBRARY</button>
+        <div class="eyebrow">NEXORA ORIGINAL · WATTPAD-STYLE READING</div>
+        <h1>Love Behind the Lies</h1>
+        <p class="muted">Chapter 1 · The Wedding Secret</p>
+        <div class="story-progress">CHAPTER ${storyChapter} OF 1 · READING PREVIEW</div>
+        ${scenes.map(scene => `<article class="story-scene"><h2>${esc(scene.title.replace(/^SCENE \\d+ — /,''))}</h2><p>${esc(scene.text)}</p></article>`).join('')}
+        <div class="story-end"><b>END OF CHAPTER 1</b><p>More chapters will be added as the original story is written.</p></div>
+      </section>`;
+      document.querySelector('#storiesBack').onclick=()=>{selectedStory=null;renderScreen();};
+    } else {
+      screen.innerHTML = `<section class="panel stories-library">
+        <div class="eyebrow">READ AT YOUR OWN PACE</div><h1>Stories</h1>
+        <p class="muted">Original NEXORA stories in a chapter-by-chapter reading format. No video required.</p>
+        <article class="story-book">
+          <div class="story-book-cover"><span>NEXORA ORIGINAL</span><b>LOVE<br>BEHIND<br>THE LIES</b><small>ROMANCE · MYSTERY</small></div>
+          <div class="story-book-info"><span class="tag">CHAPTER 1 AVAILABLE</span><h2>Love Behind the Lies</h2><p>A bride discovers that the man she married has been protecting the secret that destroyed her family.</p><small class="muted">Chapter 1 · The Wedding Secret</small><button class="gold" id="readLoveStory">READ STORY</button></div>
+        </article>
+        <div class="story-coming"><b>More original stories are coming</b><p class="muted">The other NEXORA series are still concepts and episode guides; they will appear here when their reading chapters are written.</p></div>
+      </section>`;
+      document.querySelector('#readLoveStory').onclick=()=>{selectedStory='love-behind-the-lies';storyChapter=1;renderScreen();};
+    }
+    return;
+  }
   if (view === 'updates') {
     screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">When a new version is found, NEXORA downloads it into private app storage automatically. Android will ask you to confirm installation. Old APKs are not added to your Downloads folder.</small></section>`;
     document.querySelector('#checkUpdates').onclick=()=>{updateDownload={status:'idle',path:'',message:''};document.querySelector('#updateStatus').textContent='Checking for updates…';checkForUpdates();};
