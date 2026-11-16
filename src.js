@@ -505,7 +505,7 @@ function renderAdminLogin(message = '') {
   document.querySelector('#back').onclick = () => { view='feed'; render(); };
   document.querySelector('#ownerLogin').onsubmit = async e => {
     e.preventDefault();
-    const form=e.currentTarget, button=form.querySelector('button[type="submit]'), status=document.querySelector('#loginMessage');
+    const form=e.currentTarget, button=form.querySelector('button[type="submit"]'), status=document.querySelector('#loginMessage');
     button.disabled=true; button.textContent='VERIFYING…'; status.textContent='';
     const values=new FormData(form);
     const {error}=await supabase.auth.signInWithPassword({email:String(values.get('email')||'').trim(),password:String(values.get('password')||'')});
