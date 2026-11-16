@@ -1,0 +1,126 @@
+const STORE = 'nexora-story-mode-v1';
+const MAX_TITLE = 90, MAX_SUMMARY = 500, MAX_CHAPTER_TITLE = 100, MAX_CHAPTER_BODY = 30000;
+const uid = () => (globalThis.crypto?.randomUUID?.() || 'story-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const clean = value => String(value ?? '').trim();
+function loadStories() {
+  try {
+    const value = JSON.parse(localStorage.getItem(STORE) || '[]');
+    return Array.isArray(value) ? value.filter(s => s && typeof s.id === 'string' && Array.isArray(s.chapters)) : [];
+  } catch { return []; }
+}
+function saveStories(stories) {
+  try { localStorage.setItem(STORE, JSON.stringify(stories)); return true; }
+  catch { return false; }
+}
+function formatDate(value) {
+  try { return new Intl.DateTimeFormat(undefined,{dateStyle:'medium'}).format(new Date(value)); }
+  catch { return ''; }
+}
+export function renderStoryMode(root, onBack) {
+  let stories = loadStories();
+  let page = 'library';
+  let activeId = null;
+  let chapterIndex = 0;
+  let filter = 'all';
+  const find = id => stories.find(s => s.id === id);
+  const persist = () => {
+    if (!saveStories(stories)) {
+      alert('Your device storage is full. Copy your writing somewhere safe, then remove unused files and try again.');
+      return false;
+    }
+    return true;
+  };
+  const goLibrary = () => { page='library'; render(); };
+  const render = () => {
+    if (page === 'library') {
+      const visible = stories.filter(s => filter === 'all' || (filter === 'saved' ? s.saved : filter === 'drafts' ? s.status !== 'published' : s.status === 'published'));
+      root.innerHTML = `<section class="story-shell">
+        <div class="story-heading"><div><span class="story-kicker">NEXORA ORIGINAL READING</span><h1>Story Mode</h1><p>Read, write, and keep your chapters together.</p></div><button class="gold story-create" id="storyCreate">＋ WRITE A STORY</button></div>
+        <div class="story-notice"><strong>Your writing stays on this device.</strong> Stories and drafts are saved in this app's local storage. They do not sync to other phones or publish online yet. Back up important writing separately.</div>
+        <div class="story-filters" role="group" aria-label="Filter stories">
+          <button data-filter="all" class="${filter==='all'?'active':''}">ALL STORIES</button>
+          <button data-filter="published" class="${filter==='published'?'active':''}">PUBLISHED HERE</button>
+          <button data-filter="drafts" class="${filter==='drafts'?'active':''}">DRAFTS</button>
+          <button data-filter="saved" class="${filter==='saved'?'active':''}">SAVED</button>
+        </div>
+        <label class="story-search-label" for="storySearch">Search stories</label><input id="storySearch" class="story-input" placeholder="Search by title, genre, or description">
+        <div class="story-grid" id="storyGrid">${visible.length ? visible.map(s => `<article class="story-card">
+          <div class="story-cover"><span>N</span><small>${esc(s.genre || 'DRAMA')}</small></div>
+          <div class="story-card-copy"><span class="story-state">${s.status==='published'?'PUBLISHED ON THIS DEVICE':'DRAFT'}</span><h2>${esc(s.title)}</h2><p>${esc(s.summary || 'No description yet.')}</p><small>${s.chapters.length} chapter${s.chapters.length===1?'':'s'} · Updated ${formatDate(s.updatedAt)}</small>
+          <div class="story-card-actions"><button class="gold-outline" data-read="${esc(s.id)}">${s.chapters.length?'READ':'OPEN'}</button><button class="story-text-button" data-edit="${esc(s.id)}">EDIT</button><button class="story-text-button" data-save="${esc(s.id)}">${s.saved?'♥ SAVED':'♡ SAVE'}</button></div></div>
+        </article>`).join('') : '<div class="story-empty"><h2>Your bookshelf is waiting.</h2><p>Create your first story or change the filter to see your writing.</p><button class="gold" id="storyEmptyCreate">WRITE YOUR FIRST STORY</button></div>'}</div>
+      </section>`;
+      root.querySelector('#storyCreate')?.addEventListener('click',()=>{activeId=null;page='write';render();});
+      root.querySelector('#storyEmptyCreate')?.addEventListener('click',()=>{activeId=null;page='write';render();});
+      root.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.filter;render();}));
+      root.querySelectorAll('[data-read]').forEach(b=>b.addEventListener('click',()=>{activeId=b.dataset.read;chapterIndex=0;page='reader';render();}));
+      root.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>{activeId=b.dataset.edit;page='edit';render();}));
+      root.querySelectorAll('[data-save]').forEach(b=>b.addEventListener('click',()=>{const s=find(b.dataset.save);if(s){s.saved=!s.saved;s.updatedAt=new Date().toISOString();persist();render();}}));
+      root.querySelector('#storySearch')?.addEventListener('input',e=>{
+        const q=e.target.value.toLowerCase();
+        root.querySelector('#storyGrid').innerHTML=visible.filter(s=>(s.title+' '+s.genre+' '+s.summary).toLowerCase().includes(q)).map(s=>`<article class="story-card"><div class="story-cover"><span>N</span><small>${esc(s.genre||'DRAMA')}</small></div><div class="story-card-copy"><span class="story-state">${s.status==='published'?'PUBLISHED ON THIS DEVICE':'DRAFT'}</span><h2>${esc(s.title)}</h2><p>${esc(s.summary||'No description yet.')}</p><small>${s.chapters.length} chapter${s.chapters.length===1?'':'s'}</small><div class="story-card-actions"><button class="gold-outline" data-read="${esc(s.id)}">OPEN</button><button class="story-text-button" data-edit="${esc(s.id)}">EDIT</button></div></div></article>`).join('') || '<p class="story-empty">No matching stories.</p>';
+        root.querySelectorAll('[data-read]').forEach(b=>b.addEventListener('click',()=>{activeId=b.dataset.read;chapterIndex=0;page='reader';render();}));
+        root.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>{activeId=b.dataset.edit;page='edit';render();}));
+      });
+      return;
+    }
+    if (page === 'write') {
+      root.innerHTML = `<section class="panel story-form-panel"><button class="gold-outline" id="storyBack">← BOOKSHELF</button><span class="story-kicker">NEW CREATION</span><h1>Write your story</h1><p class="muted">Start with a title and a short introduction. You can add chapters next.</p>
+        <form id="storyForm" class="story-form">
+          <label for="newStoryTitle">Story title</label><input id="newStoryTitle" name="title" class="story-input" maxlength="${MAX_TITLE}" required placeholder="e.g. The Promise We Buried">
+          <label for="newStoryGenre">Genre</label><select id="newStoryGenre" name="genre" class="story-input"><option>Romance</option><option>Drama</option><option>Mystery</option><option>Fantasy</option><option>Thriller</option><option>Comedy</option><option>Young Adult</option><option>Other</option></select>
+          <label for="newStorySummary">Description</label><textarea id="newStorySummary" name="summary" class="story-input" maxlength="${MAX_SUMMARY}" rows="4" placeholder="What is your story about?"></textarea>
+          <div class="story-form-actions"><button class="gold" type="submit">CREATE DRAFT</button><button class="gold-outline" type="button" id="storyCancel">CANCEL</button></div>
+        </form>
+      </section>`;
+      root.querySelector('#storyBack').onclick=goLibrary;root.querySelector('#storyCancel').onclick=goLibrary;
+      root.querySelector('#storyForm').onsubmit=e=>{
+        e.preventDefault();const data=new FormData(e.currentTarget);const title=clean(data.get('title'));
+        if(!title || title.length>MAX_TITLE){alert('Enter a story title (up to 90 characters).');return;}
+        const now=new Date().toISOString();const story={id:uid(),title,genre:clean(data.get('genre')),summary:clean(data.get('summary')).slice(0,MAX_SUMMARY),chapters:[],status:'draft',saved:false,createdAt:now,updatedAt:now};
+        stories.unshift(story);if(!persist()){stories.shift();return;}activeId=story.id;page='edit';render();
+      };
+      return;
+    }
+    if (page === 'reader') {
+      const s=find(activeId);if(!s){goLibrary();return;}
+      const chapter=s.chapters[chapterIndex];
+      root.innerHTML = `<section class="story-reader">
+        <div class="story-reader-top"><button class="gold-outline" id="readerBack">← BOOKSHELF</button><button class="story-text-button" id="readerSave">${s.saved?'♥ SAVED':'♡ SAVE STORY'}</button></div>
+        <span class="story-kicker">${esc(s.genre||'NEXORA STORY')} · ${s.chapters.length} CHAPTERS</span><h1>${esc(s.title)}</h1><p class="story-summary">${esc(s.summary)}</p>
+        ${chapter ? `<article class="story-chapter"><span>CHAPTER ${chapterIndex+1} OF ${s.chapters.length}</span><h2>${esc(chapter.title)}</h2><div class="story-prose">${esc(chapter.body).replace(/\n/g,'<br>')}</div></article>` : '<div class="story-empty"><h2>No chapters yet</h2><p>The writer has not added a chapter.</p></div>'}
+        <div class="story-reader-nav"><button class="gold-outline" id="chapterPrev" ${chapterIndex<=0?'disabled':''}>← PREVIOUS</button><span>${chapter ? chapterIndex+1+' / '+s.chapters.length : '—'}</span><button class="gold" id="chapterNext" ${chapterIndex>=s.chapters.length-1?'disabled':''}>NEXT →</button></div>
+      </section>`;
+      root.querySelector('#readerBack').onclick=goLibrary;
+      root.querySelector('#readerSave').onclick=()=>{s.saved=!s.saved;persist();render();};
+      root.querySelector('#chapterPrev').onclick=()=>{chapterIndex=Math.max(0,chapterIndex-1);render();};
+      root.querySelector('#chapterNext').onclick=()=>{chapterIndex=Math.min(s.chapters.length-1,chapterIndex+1);render();};
+      return;
+    }
+    if (page === 'edit') {
+      const s=find(activeId);if(!s){goLibrary();return;}
+      root.innerHTML = `<section class="panel story-editor">
+        <div class="story-reader-top"><button class="gold-outline" id="editorBack">← BOOKSHELF</button><span class="story-state">${s.status==='published'?'PUBLISHED HERE':'DRAFT'}</span></div>
+        <span class="story-kicker">STORY WORKSPACE</span><h1>${esc(s.title)}</h1><p class="muted">Your changes are saved on this device.</p>
+        <form id="chapterForm" class="story-form"><label for="chapterTitle">Chapter title</label><input id="chapterTitle" class="story-input" maxlength="${MAX_CHAPTER_TITLE}" required placeholder="Chapter 1 — A New Beginning"><label for="chapterBody">Chapter text</label><textarea id="chapterBody" class="story-input story-body-input" rows="12" maxlength="${MAX_CHAPTER_BODY}" required placeholder="Start writing your chapter here…"></textarea><small class="muted">Up to 30,000 characters per chapter.</small><button class="gold" type="submit">SAVE CHAPTER</button></form>
+        <h2>Chapters (${s.chapters.length})</h2><ol class="story-chapter-list">${s.chapters.map((c,i)=>`<li><span><b>${i+1}. ${esc(c.title)}</b><small>${c.body.length.toLocaleString()} characters</small></span><button class="story-text-button" data-open-chapter="${i}">PREVIEW</button></li>`).join('')||'<li class="muted">No chapters yet. Write your first one above.</li>'}</ol>
+        <div class="story-form-actions"><button class="gold" id="storyPublish" ${s.chapters.length?'':'disabled'}>${s.status==='published'?'UNPUBLISH':'PUBLISH ON THIS DEVICE'}</button><button class="delete" id="storyDelete">DELETE STORY</button></div>
+        <p class="story-notice"><strong>Publishing here is local only.</strong> It makes the story visible in this app on this device; it does not upload it to a public website or other users.</p>
+      </section>`;
+      root.querySelector('#editorBack').onclick=goLibrary;
+      root.querySelector('#chapterForm').onsubmit=e=>{
+        e.preventDefault();const title=clean(root.querySelector('#chapterTitle').value);const body=clean(root.querySelector('#chapterBody').value);
+        if(!title||!body){alert('Add a chapter title and chapter text first.');return;}
+        if(body.length>MAX_CHAPTER_BODY){alert('This chapter is too long.');return;}
+        s.chapters.push({id:uid(),title,body,createdAt:new Date().toISOString()});s.updatedAt=new Date().toISOString();
+        if(persist()){page='edit';render();}
+      };
+      root.querySelectorAll('[data-open-chapter]').forEach(b=>b.onclick=()=>{chapterIndex=Number(b.dataset.openChapter);page='reader';render();});
+      root.querySelector('#storyPublish').onclick=()=>{if(!s.chapters.length)return;s.status=s.status==='published'?'draft':'published';s.updatedAt=new Date().toISOString();if(persist())render();};
+      root.querySelector('#storyDelete').onclick=()=>{if(!confirm('Delete this story and all its chapters from this device? This cannot be undone.'))return;stories=stories.filter(x=>x.id!==s.id);persist();goLibrary();};
+      return;
+    }
+  };
+  render();
+}
