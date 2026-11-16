@@ -355,3 +355,21 @@ footer span{color:#766b56}
 .dbx-unavailable p{font-size:11px;line-height:1.6;color:#aaa08e;max-width:440px;margin:0 auto}
 @media(max-width:650px){.dbx-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.dbx-poster{min-height:190px}.dbx-hero{min-height:220px}.dbx-hero-copy{padding:16px 13px}.dbx-hero-art{min-height:220px}.dbx-detail-copy{padding:15px 12px}.dbx-detail-art{min-height:180px}}
 @media(max-width:380px){.dbx-grid{gap:8px}.dbx-poster{min-height:165px;padding:10px}.dbx-poster b{font-size:15px}.dbx-card-meta b{font-size:11px}.dbx-toolbar h2{font-size:21px}}
+
+
+/* Optional Wattpad-style text story reader — isolated combined test feature */
+.stories-library>h1,.story-reader>h1{font:clamp(30px,7vw,42px) Georgia,'Times New Roman',serif;margin:8px 0}
+.story-book{display:grid;grid-template-columns:minmax(115px,.75fr) 1.25fr;gap:20px;align-items:center;margin:24px 0;padding:16px;border:1px solid #d8b45e44;border-radius:16px;background:linear-gradient(135deg,#211a10,#0b0b0a)}
+.story-book-cover{min-height:205px;padding:17px 12px;display:flex;flex-direction:column;justify-content:space-between;text-align:center;background:radial-gradient(circle at 50% 20%,#673c70,#24152e 55%,#09080d);border:1px solid #c99bda88;box-shadow:0 12px 30px #0009;color:#fff}
+.story-book-cover span,.story-book-cover small{font-size:8px;letter-spacing:1.5px;color:#e8c9f5}
+.story-book-cover b{font:clamp(20px,5vw,30px)/1.1 Georgia,serif;letter-spacing:1px}
+.story-book-info h2{font:25px Georgia,serif;margin:12px 0 6px}
+.story-book-info p,.story-scene p{color:#e4dccd;line-height:1.9}
+.story-book-info .gold{margin-top:16px}
+.story-coming,.story-end{padding:18px;margin-top:20px;border-top:1px solid #d8b45e33;color:#e8d8b0}
+.story-progress{margin:20px 0;padding:10px 12px;border-left:3px solid var(--gold);background:#d8b45e12;color:#e7cf91;font-size:10px;letter-spacing:1.6px}
+.story-scene{padding:12px 2px 20px;border-bottom:1px solid #d8b45e22}
+.story-scene h2{font:20px Georgia,serif;color:#f0d99e}
+.story-scene p{white-space:pre-line;font:16px/2 Georgia,'Times New Roman',serif}
+.story-end{text-align:center;margin-top:24px;background:#d8b45e0b;border-radius:12px}
+@media(max-width:540px){.story-book{grid-template-columns:1fr}.story-book-cover{min-height:240px;max-width:220px;width:100%;margin:auto}.story-scene p{font-size:15px}}
