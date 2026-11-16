@@ -1,4 +1,5 @@
 import './style.css';
+import { createClient } from '@supabase/supabase-js';
 import { renderStoryMode } from './story-mode.js';
 import { Browser } from '@capacitor/browser';
 import { Capacitor, registerPlugin } from '@capacitor/core';
@@ -82,6 +83,9 @@ async function startUpdateFlow() {
   }
 }
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase = SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}) : null;
 const app = document.querySelector('#app');
 trackNexoraEvent('app_open');
 if (Capacitor.isNativePlatform()) {
@@ -479,39 +483,89 @@ function wireCards() {
     if (index >= 0) { active = index; view = 'feed'; render(); }
   });
 }
-function adminGate() {
-  // The former hard-coded demo PIN was not authentication. Keep the local-only
-  // owner panel disabled until a real sign-in and server-side authorization exist.
-  alert('Owner Dashboard is temporarily disabled while secure owner sign-in is being implemented. Your saved local content has not been changed.');
+async function adminGate() {
+  if (!supabase) {
+    alert('Secure Owner Dashboard is not configured yet. Follow the Supabase setup in the project README.');
+    return;
+  }
+  const {data: sessionData} = await supabase.auth.getSession();
+  if (!sessionData.session) { renderAdminLogin(); return; }
+  const {data: allowed, error} = await supabase.rpc('is_nexora_owner');
+  if (error || allowed !== true) {
+    await supabase.auth.signOut();
+    renderAdminLogin('This account is not authorized as the NEXORA owner.');
+    return;
+  }
+  await renderAdmin();
 }
-function renderAdmin() {
-  app.innerHTML = `<header class="top"><div class="brand"><img class="brand-logo" src="/nexora-logo.svg" alt="NEXORA logo"><div><b>NEXORA</b><small>PRIVATE OWNER PANEL · DEMO</small></div></div><button class="gold-outline" id="back">VIEW APP</button></header>
-<main class="admin"><section class="panel"><div class="eyebrow">CONTENT MANAGEMENT</div><h1>Owner dashboard</h1><p class="muted">Add video links only when you have written permission or a license for in-app playback.</p>
-<form id="addForm"><label>Drama title<input name="title" required placeholder="e.g. The Secret Heiress"></label><div class="two"><label>Episode<input name="episode" placeholder="Episode 1"></label><label>Category<select name="category"><option>Romance</option><option>Revenge</option><option>Family</option><option>Comedy</option><option>Action</option><option>Thriller</option><option>Fantasy</option><option>Other</option></select></label></div>
-<label>Direct video URL (MP4 or supported stream)<input name="url" type="url" required placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional)<input name="poster" type="url" placeholder="https://..."></label>
-<div class="two"><label>Creator name<input name="creator" required placeholder="Original creator"></label><label>Original source URL<input name="source" type="url" required placeholder="https://original-post..."></label></div>
-<label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label><button class="gold" type="submit">PUBLISH DRAMA</button></form></section>
-<section class="panel"><h2>Published videos (${items.filter(x=>!isDemo(x)).length})</h2><div id="adminList">${items.filter(x=>!isDemo(x)).map(x=>`<div class="adminrow"><div><b>${esc(x.title)}</b><small>${esc(x.episode)} · ${esc(x.category)} · ${esc(x.creator)}</small></div><button data-delete="${esc(x.id)}" class="delete">REMOVE</button></div>`).join('')||'<p class="muted">No owner videos published yet.</p>'}</div></section>
-<p class="warning">Owner Dashboard is disabled until secure sign-in, server-side authorization, and shared storage are implemented. Existing browser-local entries are not changed.</p></main>`;
+function renderAdminLogin(message = '') {
+  app.innerHTML = '<header class="top"><div class="brand"><img class="brand-logo" src="/nexora-logo.svg" alt="NEXORA logo"><div><b>NEXORA</b><small>SECURE OWNER SIGN-IN</small></div></div><button class="gold-outline" id="back">VIEW APP</button></header>' +
+  '<main class="admin"><section class="panel"><div class="eyebrow">PRIVATE ACCESS</div><h1>Owner sign-in</h1><p class="muted">Only an account explicitly authorized in the NEXORA database can manage dramas.</p>' +
+  '<form id="ownerLogin"><label>Email address<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><p class="warning" id="loginMessage" role="status">' + esc(message) + '</p><button class="gold" type="submit">SIGN IN SECURELY</button></form></section></main>';
   document.querySelector('#back').onclick = () => { view='feed'; render(); };
-  document.querySelector('#addForm').onsubmit = e => {
+  document.querySelector('#ownerLogin').onsubmit = async e => {
     e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    const x = Object.fromEntries(f.entries());
-    if (!/^https:\/\//i.test(x.url) || !/^https:\/\//i.test(x.source) || (x.poster && !/^https:\/\//i.test(x.poster))) {
-      alert('Please use secure HTTPS links for the video, source, and poster.');
-      return;
-    }
-    x.id = crypto.randomUUID();
-    x.license = 'Owner-confirmed permission';
-        items.push(x);
-    save();
-    renderAdmin();
+    const form=e.currentTarget, button=form.querySelector('button[type="submit]'), status=document.querySelector('#loginMessage');
+    button.disabled=true; button.textContent='VERIFYING…'; status.textContent='';
+    const values=new FormData(form);
+    const {error}=await supabase.auth.signInWithPassword({email:String(values.get('email')||'').trim(),password:String(values.get('password')||'')});
+    if(error){status.textContent='Sign-in failed. Check your credentials and try again.';button.disabled=false;button.textContent='SIGN IN SECURELY';return;}
+    const {data: allowed,error: roleError}=await supabase.rpc('is_nexora_owner');
+    if(roleError||allowed!==true){await supabase.auth.signOut();status.textContent='Access denied. This account is not on the NEXORA owner allowlist.';button.disabled=false;button.textContent='SIGN IN SECURELY';return;}
+    await renderAdmin();
   };
-  document.querySelectorAll('[data-delete]').forEach(b => b.onclick = () => {
-    items = items.filter(x => x.id !== b.dataset.delete);
-    save();
-    renderAdmin();
+}
+async function renderAdmin() {
+  if(!supabase){renderAdminLogin('Supabase is not configured.');return;}
+  const {data: allowed,error: roleError}=await supabase.rpc('is_nexora_owner');
+  if(roleError||allowed!==true){await supabase.auth.signOut();renderAdminLogin('Owner authorization is required.');return;}
+  const {data: videos,error}=await supabase.from('dramas').select('*').order('created_at',{ascending:false});
+  if(error){
+    app.innerHTML='<main class="admin"><section class="panel"><h1>Owner dashboard unavailable</h1><p class="warning">'+esc(error.message)+'</p><button class="gold-outline" id="back">VIEW APP</button></section></main>';
+    document.querySelector('#back').onclick=()=>{view='feed';render();}; return;
+  }
+  const ownerVideos=videos||[];
+  app.innerHTML='<header class="top"><div class="brand"><img class="brand-logo" src="/nexora-logo.svg" alt="NEXORA logo"><div><b>NEXORA</b><small>PRIVATE OWNER PANEL</small></div></div><button class="gold-outline" id="signOut">SIGN OUT</button></header>' +
+  '<main class="admin"><section class="panel"><div class="eyebrow">CONTENT MANAGEMENT</div><h1>Owner dashboard</h1><p class="muted">Published dramas are stored in a shared database. Only authorized owner accounts can publish or remove content.</p>' +
+  '<form id="addForm"><label>Drama title<input name="title" required maxlength="120" placeholder="e.g. The Secret Heiress"></label><div class="two"><label>Episode<input name="episode" maxlength="80" placeholder="Episode 1"></label><label>Category<select name="category"><option>Romance</option><option>Revenge</option><option>Family</option><option>Comedy</option><option>Action</option><option>Thriller</option><option>Fantasy</option><option>Other</option></select></label></div>' +
+  '<label>Direct video URL (MP4 or supported stream)<input name="url" type="url" required placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional)<input name="poster" type="url" placeholder="https://..."></label>' +
+  '<div class="two"><label>Creator name<input name="creator" required maxlength="120" placeholder="Original creator"></label><label>Original source URL<input name="source" type="url" required placeholder="https://original-post..."></label></div>' +
+  '<label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label><button class="gold" type="submit">PUBLISH DRAMA</button></form></section>' +
+  '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
+  document.querySelector('#signOut').onclick=async()=>{await supabase.auth.signOut();view='feed';render();};
+  document.querySelector('#addForm').onsubmit=async e=>{
+    e.preventDefault();
+    const form=e.currentTarget,submit=form.querySelector('button[type="submit"]');
+    submit.disabled=true;submit.textContent='PUBLISHING…';
+    const f=new FormData(form),url=String(f.get('url')||'').trim(),source=String(f.get('source')||'').trim(),poster=String(f.get('poster')||'').trim();
+    if(!/^https:\/\//i.test(url)||!/^https:\/\//i.test(source)||(poster&&!/^https:\/\//i.test(poster))||f.get('permission')!=='on'){
+      alert('Use HTTPS links and confirm that you have permission to publish this video.');
+      submit.disabled=false;submit.textContent='PUBLISH DRAMA';return;
+    }
+    const {error: insertError}=await supabase.from('dramas').insert({
+      title:String(f.get('title')||'').trim(),episode:String(f.get('episode')||'Episode 1').trim()||'Episode 1',
+      category:String(f.get('category')||'Other'),video_url:url,poster_url:poster||null,
+      creator:String(f.get('creator')||'').trim(),source_url:source,permission_confirmed:true,published:true
+    });
+    if(insertError){alert('Could not publish drama: '+insertError.message);submit.disabled=false;submit.textContent='PUBLISH DRAMA';return;}
+    await loadCloudDramas();await renderAdmin();
+  };
+  document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=async()=>{
+    if(!confirm('Remove this published drama for everyone?'))return;
+    b.disabled=true;
+    const {error: deleteError}=await supabase.from('dramas').delete().eq('id',b.dataset.delete);
+    if(deleteError){alert('Could not remove drama: '+deleteError.message);b.disabled=false;return;}
+    items=items.filter(x=>x.id!==b.dataset.delete);await renderAdmin();
   });
 }
+async function loadCloudDramas() {
+  if(!supabase)return;
+  const {data,error}=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url').eq('published',true).order('created_at',{ascending:false});
+  if(error){console.warn('NEXORA cloud library could not load:',error.message);return;}
+  const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url,poster:row.poster_url||''}));
+  const demoIds=new Set(seed.map(x=>x.id)),cloudIds=new Set(cloud.map(x=>x.id));
+  items=[...seed,...cloud,...items.filter(x=>!demoIds.has(x.id)&&!cloudIds.has(x.id))];
+  if(view==='feed'||view==='home'||view==='search')render();
+}
 shell();
+loadCloudDramas();
