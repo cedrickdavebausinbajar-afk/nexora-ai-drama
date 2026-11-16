@@ -234,7 +234,6 @@ jobs:
         run: ./gradlew assembleDebug
 
       - name: Prepare and build signed release APK when signing secrets are configured
-        continue-on-error: true
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
