@@ -630,27 +630,13 @@ async function loadCloudDramas() {
   const {data,error}=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url').eq('published',true).order('created_at',{ascending:false});
   if(error){console.warn('NEXORA cloud library could not load:',error.message);return;}
   const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url,poster:row.poster_url||''}));
-  if (Capacitor.isNativePlatform()) {
-    try {
-      const knownKey='nexora-known-drama-ids-v1';
-      const known=JSON.parse(localStorage.getItem(knownKey)||'null');
-      const ids=cloud.map(row=>String(row.id));
-      if (Array.isArray(known)) {
-        const fresh=cloud.filter(row=>!known.includes(String(row.id)));
-        if (fresh.length) {
-          await LocalNotifications.schedule({notifications:[{
-            id:7401,title:fresh.length===1?'New drama on NEXORA':'New dramas on NEXORA',
-            body:fresh.length===1?`${fresh[0].title} · ${fresh[0].episode||'New episode'}`:`${fresh.length} new dramas or episodes are now available.`,
-            schedule:{at:new Date(Date.now()+1000)},channelId:'nexora-updates',
-            extra:{type:'new-content'}
-          }]});
-        }
-      }
-      localStorage.setItem(knownKey,JSON.stringify(ids));
-    } catch (_) {}
-  }
+
   const demoIds=new Set(seed.map(x=>x.id)),cloudIds=new Set(cloud.map(x=>x.id));
   items=[...seed,...cloud,...items.filter(x=>!demoIds.has(x.id)&&!cloudIds.has(x.id))];
+  if (pendingResumeId) {
+    const resumeIndex=items.findIndex(entry=>entry.id===pendingResumeId);
+    if (resumeIndex>=0) { active=resumeIndex; view='feed'; pendingResumeId=''; render(); return; }
+  }
   if(view==='feed'||view==='home'||view==='search')render();
 }
 shell();
