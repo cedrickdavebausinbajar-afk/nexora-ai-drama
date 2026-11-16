@@ -1,0 +1,106 @@
+name: NEXORA official Android release APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Verify release signing secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for name in KEYSTORE_B64 KEY_ALIAS KEYSTORE_PASSWORD KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing GitHub Actions secret for ${name}. Configure the four ANDROID_* release secrets before building."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Generate Android project
+        run: npx cap add android
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Configure release signing
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/nexora-release.jks"
+          cat >> android/gradle.properties <<EOF
+          NEXORA_STORE_FILE=$RUNNER_TEMP/nexora-release.jks
+          NEXORA_STORE_PASSWORD=$KEYSTORE_PASSWORD
+          NEXORA_KEY_ALIAS=$KEY_ALIAS
+          NEXORA_KEY_PASSWORD=$KEY_PASSWORD
+          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/build.gradle")
+          s = p.read_text()
+          marker = "android {"
+          if marker not in s:
+              raise SystemExit("Could not find Android Gradle android block")
+          signing = """android {
+              signingConfigs {
+                  release {
+                      storeFile file(NEXORA_STORE_FILE)
+                      storePassword NEXORA_STORE_PASSWORD
+                      keyAlias NEXORA_KEY_ALIAS
+                      keyPassword NEXORA_KEY_PASSWORD
+                  }
+              }
+          """
+          s = s.replace(marker, signing, 1)
+          s = s.replace("buildTypes {", "buildTypes {\n        release { signingConfig signingConfigs.release }", 1)
+          p.write_text(s)
+          PY
+
+      - name: Assemble signed release APK
+        working-directory: android
+        run: ./gradlew assembleRelease
+
+      - name: Verify APK signature
+        run: |
+          apksigner verify --verbose android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload official release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXORA-AI-DRAMA-official-release
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
