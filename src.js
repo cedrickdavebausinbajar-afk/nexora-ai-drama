@@ -203,6 +203,16 @@ const originalSeries = [
 
 ];
 
+
+const loveBehindTheLiesPilot = [
+  {title:'SCENE 1 — THE PHOTOGRAPH', text:'INT. VALE HOUSE, BRIDAL SUITE — NIGHT. After the wedding reception, Mara Reyes finds an old photograph hidden in her bouquet. Her late father is pictured with a younger Adrian Vale, dated seven days before the fire that destroyed her family business. MARA: “You knew my father.” ADRIAN: “I thought you’d be downstairs.”'},
+  {title:'SCENE 2 — THE PROMISE', text:'INT. BRIDAL SUITE — CONTINUOUS. Adrian admits that he worked for a company negotiating with Mara’s father. Her father believed someone wanted to take his business and asked Adrian to keep Mara safe if anything happened. MARA: “You don’t get to call a lie protection.” ADRIAN: “I made him a promise.”'},
+  {title:'SCENE 3 — THE SECOND COPY', text:'INT. VALE HOUSE, HALLWAY — NIGHT. Mara demands the truth. An unknown message appears on Adrian’s phone: “She found the photograph. Do not tell her about the second copy.” Mara notices him hiding the phone and realizes there is another secret.'},
+  {title:'SCENE 4 — WHO PAID FOR THE SILENCE?', text:'INT. REYES FAMILY HOME, KITCHEN — LATER. Mara leaves a voicemail for her aunt Elena asking about the photograph. Another message arrives with a wider crop of the picture and the words: “Ask your husband who paid for the silence.” A third person is visible at the edge of the photograph.'},
+  {title:'SCENE 5 — THE WARNING', text:'INT. VALE HOUSE, BRIDAL SUITE — NIGHT. Adrian tells someone by phone that he will stop lying and that the agreement with Victor is over. Mara hears the name Victor and demands answers. A final message appears: “If you tell her, she’ll be next.” CUT TO BLACK.'},
+  {title:'END CARD', text:'LOVE BEHIND THE LIES — EPISODE 1. The truth has a price. Will Mara pay it? NEXT: A PHOTOGRAPH FROM THE PAST.'}
+];
+
 const removedSeedIds = new Set(["sintel-demo","elephants-dream-open","big-buck-bunny-full-open","big-buck-bunny-demo","tears-of-steel-open","spring-open","sprite-fright-open","cosmos-laundromat-open","agent-327-open","coffee-run-open","caminandes-llamigos-open","glass-half-open","caminandes-gran-dillama-open","sita-sings-the-blues-feature"]);
 function readItems() {
   try {
@@ -303,7 +313,7 @@ function renderScreen() {
   if (view === 'originals') {
     const s = selectedSeries && originalSeries.find(x => x.id === selectedSeries);
     if (s) {
-      screen.innerHTML = `<section class="panel original-detail"><button class="gold-outline" id="seriesBack">← ALL ORIGINALS</button><div class="eyebrow">NEXORA ORIGINAL · ${esc(s.genre)}</div><h1>${esc(s.title)}</h1><p>${esc(s.logline)}</p><div class="production-note"><b>VIDEO EPISODES IN PRODUCTION</b><span>These are original series concepts and episode plans. Finished video files are not available yet.</span></div><h2>Episode guide</h2>${s.episodes.map((ep,i)=>`<article class="episode-plan"><div><b>EPISODE ${i+1}</b><strong>${esc(ep)}</strong></div><span>COMING SOON</span></article>`).join('')}</section>`;
+      screen.innerHTML = `<section class="panel original-detail"><button class="gold-outline" id="seriesBack">← ALL ORIGINALS</button><div class="eyebrow">NEXORA ORIGINAL · ${esc(s.genre)}</div><h1>${esc(s.title)}</h1><p>${esc(s.logline)}</p>${s.id === 'love-behind-the-lies' ? `<div class="production-note"><b>EPISODE 1 SCREENPLAY ADDED TO THIS APP</b><span>Read the private in-app story preview below. The finished video has not been produced or published.</span></div><h2>Episode 1 · The Wedding Secret</h2><p class="muted">Original screenplay · target runtime 4–6 minutes · romantic mystery</p>${loveBehindTheLiesPilot.map((scene,i)=>`<article class="episode-plan" style="display:block"><b>${esc(scene.title)}</b><p style="white-space:pre-wrap;margin:.5rem 0 0">${esc(scene.text)}</p></article>`).join('')}` : `<div class="production-note"><b>VIDEO EPISODES IN PRODUCTION</b><span>These are original series concepts and episode plans. Finished video files are not available yet.</span></div>`}<h2>Episode guide</h2>${s.episodes.map((ep,i)=>`<article class="episode-plan"><div><b>EPISODE ${i+1}</b><strong>${esc(ep)}</strong></div><span>${s.id === 'love-behind-the-lies' && i === 0 ? 'SCREENPLAY' : 'COMING SOON'}</span></article>`).join('')}</section>`;
       document.querySelector('#seriesBack').onclick=()=>{selectedSeries=null;renderScreen();};
     } else {
       screen.innerHTML = `<section class="panel originals-head"><div class="eyebrow">MADE FOR NEXORA</div><h1>Original AI Dramas</h1><p>30 original series concepts with episode guides. Video production is the next stage; no unfinished title is presented as a playable episode.</p><div class="original-grid">${originalSeries.map(s=>`<button class="original-card" data-series="${s.id}"><span class="original-label">NEXORA ORIGINAL</span><b>${esc(s.title)}</b><small>${esc(s.genre)}</small><span class="original-status">5 EPISODES PLANNED · IN PRODUCTION</span></button>`).join('')}</div></section>`;
