@@ -5,19 +5,28 @@
 <meta name="theme-color" content="#090909"><meta name="color-scheme" content="dark"><meta name="description" content="NEXORA AI DRAMA — short dramas, one swipe away.">
 <link rel="manifest" href="/manifest.webmanifest"><title>NEXORA AI DRAMA</title>
 <style>
-  #nexora-splash{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(ellipse at 50% 42%,#28200c 0%,#100e09 38%,#070707 78%);color:#f8f1df;opacity:1;visibility:visible;transition:opacity .55s ease,visibility .55s ease}
-  #nexora-splash.is-leaving{opacity:0;visibility:hidden;pointer-events:none}
-  #nexora-splash .mark{width:88px;height:88px;display:grid;place-items:center;border:1px solid rgba(222,183,91,.75);border-radius:26px;background:linear-gradient(145deg,rgba(214,174,77,.2),rgba(80,57,18,.08));box-shadow:0 0 42px rgba(218,174,76,.2),inset 0 0 24px rgba(218,174,76,.08);animation:nexora-pulse 1.8s ease-in-out infinite}
-  #nexora-splash .mark svg{width:38px;height:38px;fill:#e7c77e;filter:drop-shadow(0 0 9px rgba(231,199,126,.5));margin-left:4px}
-  #nexora-splash .brand{font:800 30px/1.05 system-ui,-apple-system,Segoe UI,sans-serif;letter-spacing:.16em;text-align:center;color:#f7edcf;text-shadow:0 2px 22px rgba(218,174,76,.22)}
-  #nexora-splash .sub{margin-top:-9px;font:600 11px/1.4 system-ui,sans-serif;letter-spacing:.34em;color:#d8b96e}
-  #nexora-splash .loading{position:absolute;bottom:max(54px,env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:12px;color:#a99a78;font:500 11px system-ui,sans-serif;letter-spacing:.12em}
-  #nexora-splash .dots{display:flex;gap:7px}
-  #nexora-splash .dots i{width:5px;height:5px;border-radius:50%;background:#d9b968;animation:nexora-dot 1s ease-in-out infinite}
+  #nexora-splash{position:fixed;inset:0;z-index:99999;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;padding:28px;background:radial-gradient(ellipse at 50% 34%,#38105f 0%,#170a2d 37%,#080611 76%,#030207 100%);color:#fff;opacity:1;visibility:visible;transition:opacity .7s ease,visibility .7s ease}
+  #nexora-splash:before,#nexora-splash:after{content:"";position:absolute;left:-8%;width:116%;height:54px;opacity:.8;background:repeating-linear-gradient(90deg,transparent 0 12px,#080611 12px 21px,transparent 21px 34px),linear-gradient(90deg,#5b18a5,#f04bff,#661bd0);filter:drop-shadow(0 0 13px #b82cff);transform:rotate(-13deg);pointer-events:none}
+  #nexora-splash:before{top:12%}#nexora-splash:after{bottom:12%;transform:rotate(13deg)}
+  #nexora-splash .cinema-glow{position:absolute;width:min(90vw,520px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,#a52cff30,transparent 68%);filter:blur(8px);pointer-events:none}
+  #nexora-splash .film-line{position:absolute;width:130%;height:1px;background:linear-gradient(90deg,transparent,#e34dff,#7b35ff,transparent);box-shadow:0 0 18px #b82cff;transform:rotate(-24deg);pointer-events:none}
+  #nexora-splash .film-line.one{top:30%}#nexora-splash .film-line.two{bottom:29%;transform:rotate(24deg)}
+  #nexora-splash .mark{position:relative;z-index:1;width:104px;height:104px;display:grid;place-items:center;border:1px solid #d879ff;border-radius:30px;background:linear-gradient(145deg,#8b22e8,#29104b 75%);box-shadow:0 0 24px #b12dff99,0 0 75px #8727d766,inset 0 0 24px #f1b2ff33;animation:nexora-pulse 1.8s ease-in-out infinite}
+  #nexora-splash .mark svg{width:48px;height:48px;fill:#fff;filter:drop-shadow(0 0 10px #fff);margin-left:4px}
+  #nexora-splash .brand{position:relative;z-index:1;font:900 clamp(29px,8vw,42px)/1 system-ui,-apple-system,Segoe UI,sans-serif;letter-spacing:.17em;text-align:center;color:#fff;text-shadow:0 0 22px #b12dff,0 3px 22px #000}
+  #nexora-splash .sub{position:relative;z-index:1;margin-top:-5px;font:800 12px/1.4 system-ui,sans-serif;letter-spacing:.48em;color:#e5a1ff;text-shadow:0 0 14px #b12dff}
+  #nexora-splash .tagline{position:relative;z-index:1;margin-top:7px;color:#d8c5e9;font:500 11px system-ui,sans-serif;letter-spacing:.12em;text-align:center}
+  #nexora-splash .loading{position:absolute;z-index:1;bottom:max(52px,env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:13px;color:#d9b4f0;font:700 10px system-ui,sans-serif;letter-spacing:.2em}
+  #nexora-splash .dots{display:flex;gap:8px}
+  #nexora-splash .dots i{width:6px;height:6px;border-radius:50%;background:#e7a5ff;box-shadow:0 0 10px #d33cff;animation:nexora-dot 1s ease-in-out infinite}
   #nexora-splash .dots i:nth-child(2){animation-delay:.15s}#nexora-splash .dots i:nth-child(3){animation-delay:.3s}
-  @keyframes nexora-pulse{50%{transform:scale(1.045);box-shadow:0 0 58px rgba(218,174,76,.3),inset 0 0 24px rgba(218,174,76,.12)}}
-  @keyframes nexora-dot{0%,80%,100%{opacity:.3;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
-  @media(prefers-reduced-motion:reduce){#nexora-splash .mark,#nexora-splash .dots i{animation:none}#nexora-splash{transition:none}}
+  #nexora-splash .progress{width:138px;height:2px;margin-top:2px;overflow:hidden;background:#ffffff25;border-radius:4px}
+  #nexora-splash .progress i{display:block;width:45%;height:100%;background:linear-gradient(90deg,#8c2bff,#ff72ef);box-shadow:0 0 12px #e44dff;animation:nexora-progress 1.8s ease-in-out infinite}
+  #nexora-splash.is-leaving{opacity:0;visibility:hidden;pointer-events:none}
+  @keyframes nexora-pulse{50%{transform:scale(1.045);box-shadow:0 0 36px #d34dffcc,0 0 90px #8727d788,inset 0 0 30px #f1b2ff55}}
+  @keyframes nexora-dot{0%,80%,100%{opacity:.3;transform:translateY(0)}40%{opacity:1;transform:translateY(-5px)}}
+  @keyframes nexora-progress{0%{transform:translateX(-110%)}100%{transform:translateX(330%)}}
+  @media(prefers-reduced-motion:reduce){#nexora-splash .mark,#nexora-splash .dots i,#nexora-splash .progress i{animation:none}#nexora-splash{transition:none}}
 </style>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-VYQZ6HT0RD"></script>
 <script>
@@ -27,10 +36,10 @@
 </head>
 <body>
 <div id="nexora-splash" role="status" aria-label="NEXORA AI DRAMA is loading">
-  <div class="mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M16 9.8c0-1.7 1.9-2.7 3.3-1.8l20 13.1a3.5 3.5 0 0 1 0 5.8l-20 13.1c-1.4.9-3.3-.1-3.3-1.8V9.8Z"/></svg></div>
-  <div class="brand">NEXORA</div>
-  <div class="sub">AI DRAMA</div>
-  <div class="loading"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>LOADING STORIES</span></div>
+<div class="cinema-glow" aria-hidden="true"></div><div class="film-line one" aria-hidden="true"></div><div class="film-line two" aria-hidden="true"></div>
+<div class="mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M16 9.8c0-1.7 1.9-2.7 3.3-1.8l20 13.1a3.5 3.5 0 0 1 0 5.8l-20 13.1c-1.4.9-3.3-.1-3.3-1.8V9.8Z"/></svg></div>
+<div class="brand">NEXORA</div><div class="sub">AI DRAMA</div><div class="tagline">WATCH · FEEL · BE PART OF THE STORY</div>
+<div class="loading"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>LOADING YOUR NEXT STORY</span><span class="progress" aria-hidden="true"><i></i></span></div>
 </div>
 <div id="app"></div>
 <script>
@@ -39,7 +48,7 @@
     if(!splash)return;
     splash.classList.add('is-leaving');
     window.setTimeout(function(){splash.remove();},600);
-  },2300);
+  },2800);
 </script>
 <script type="module" src="/src.js"></script>
 </body>
