@@ -3,9 +3,9 @@
   "short_name": "NEXORA DRAMA",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#090512",
-  "theme_color": "#160526",
+  "background_color": "#08050e",
+  "theme_color": "#08050e",
   "icons": [
-    {"src": "/nexora-drama-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+    {"src": "/nexora-logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
   ]
 }
