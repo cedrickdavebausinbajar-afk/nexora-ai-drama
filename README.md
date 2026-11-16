@@ -33,7 +33,7 @@ npx cap open android
 ```
 
 ## Important: prototype limitations
-This first version is a UI and interaction prototype. The owner demo PIN is `2468` and is **not secure**. Video entries are stored only in the current browser's local storage and do not sync to other devices. Do not publish this demo admin panel or use it to store sensitive information.
+This version is still a UI and interaction prototype. The insecure owner demo PIN has been removed and the Owner Dashboard entry point is disabled. Video entries are stored only in the current browser's local storage and do not sync to other devices. Do not use this prototype to manage real content or store sensitive information.
 
 Before public release, connect:
 - Supabase Auth with an owner-only account and server-side role checks.
