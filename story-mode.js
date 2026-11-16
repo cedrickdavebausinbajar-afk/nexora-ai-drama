@@ -24,14 +24,17 @@ const SAMPLE_STORIES = [
 function loadStories() {
   try {
     const value = JSON.parse(localStorage.getItem(STORE) || '[]');
-    if (Array.isArray(value) && value.some(s => s && typeof s.id === 'string' && Array.isArray(s.chapters))) {
-      return value.filter(s => s && typeof s.id === 'string' && Array.isArray(s.chapters));
-    }
+    const existing = Array.isArray(value) ? value.filter(s => s && typeof s.id === 'string' && Array.isArray(s.chapters)) : [];
     const now = new Date().toISOString();
-    const samples = SAMPLE_STORIES.map(s => ({...s, chapters:s.chapters.map(ch => ({...ch})), createdAt:now, updatedAt:now}));
-    localStorage.setItem(STORE, JSON.stringify(samples));
-    return samples;
-  } catch { return SAMPLE_STORIES.map(s => ({...s, chapters:s.chapters.map(ch => ({...ch})), createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()})); }
+    const missingSamples = SAMPLE_STORIES
+      .filter(sample => !existing.some(story => story.id === sample.id))
+      .map(sample => ({...sample, chapters:sample.chapters.map(ch => ({...ch})), createdAt:now, updatedAt:now}));
+    const combined = [...missingSamples, ...existing];
+    if (missingSamples.length) localStorage.setItem(STORE, JSON.stringify(combined));
+    return combined;
+  } catch {
+    return SAMPLE_STORIES.map(s => ({...s, chapters:s.chapters.map(ch => ({...ch})), createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()}));
+  }
 }
 function saveStories(stories) {
   try { localStorage.setItem(STORE, JSON.stringify(stories)); return true; }
