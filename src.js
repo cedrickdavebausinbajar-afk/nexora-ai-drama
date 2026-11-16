@@ -480,9 +480,9 @@ function wireCards() {
   });
 }
 function adminGate() {
-  const pin = prompt('Owner demo access: enter demo PIN 2468');
-  if (pin === '2468') { view = 'admin'; renderAdmin(); }
-  else if (pin !== null) alert('Incorrect demo PIN.');
+  // The former hard-coded demo PIN was not authentication. Keep the local-only
+  // owner panel disabled until a real sign-in and server-side authorization exist.
+  alert('Owner Dashboard is temporarily disabled while secure owner sign-in is being implemented. Your saved local content has not been changed.');
 }
 function renderAdmin() {
   app.innerHTML = `<header class="top"><div class="brand"><img class="brand-logo" src="/nexora-logo.svg" alt="NEXORA logo"><div><b>NEXORA</b><small>PRIVATE OWNER PANEL · DEMO</small></div></div><button class="gold-outline" id="back">VIEW APP</button></header>
@@ -492,7 +492,7 @@ function renderAdmin() {
 <div class="two"><label>Creator name<input name="creator" required placeholder="Original creator"></label><label>Original source URL<input name="source" type="url" required placeholder="https://original-post..."></label></div>
 <label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label><button class="gold" type="submit">PUBLISH DRAMA</button></form></section>
 <section class="panel"><h2>Published videos (${items.filter(x=>!isDemo(x)).length})</h2><div id="adminList">${items.filter(x=>!isDemo(x)).map(x=>`<div class="adminrow"><div><b>${esc(x.title)}</b><small>${esc(x.episode)} · ${esc(x.category)} · ${esc(x.creator)}</small></div><button data-delete="${esc(x.id)}" class="delete">REMOVE</button></div>`).join('')||'<p class="muted">No owner videos published yet.</p>'}</div></section>
-<p class="warning">Prototype notice: this demo stores entries only in this browser. The PIN is not secure authentication. A real private owner panel and shared database are required before public release.</p></main>`;
+<p class="warning">Owner Dashboard is disabled until secure sign-in, server-side authorization, and shared storage are implemented. Existing browser-local entries are not changed.</p></main>`;
   document.querySelector('#back').onclick = () => { view='feed'; render(); };
   document.querySelector('#addForm').onsubmit = e => {
     e.preventDefault();
