@@ -32,14 +32,20 @@ npx cap sync android
 npx cap open android
 ```
 
-## Important: prototype limitations
-This version is still a UI and interaction prototype. The insecure owner demo PIN has been removed and the Owner Dashboard entry point is disabled. Video entries are stored only in the current browser's local storage and do not sync to other devices. Do not use this prototype to manage real content or store sensitive information.
+## Secure owner dashboard and shared drama library
 
-Before public release, connect:
-- Supabase Auth with an owner-only account and server-side role checks.
-- A Supabase database table for drama metadata and publication status.
-- A video host/provider that explicitly permits embedding and in-app playback.
-- Server-side validation of video URLs and creator permission records.
-- Real Android release signing and privacy/terms pages.
+The Owner Dashboard uses Supabase Auth plus a server-side owner allowlist and Row Level Security (RLS). Owner credentials are never stored in the app. Public app users can read published drama records; only an explicitly allowlisted owner can publish or remove content.
+
+### One-time Supabase setup
+1. Create a Supabase project.
+2. In the SQL Editor, run `supabase/migrations/202611160001_secure_owner_library.sql`.
+3. In Supabase Authentication, create the owner's account using your own email and a strong password.
+4. Copy that user's UUID from Authentication → Users, then run the INSERT statement at the bottom of the migration to add that UUID to `public.nexora_owner_users`.
+5. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the build environment. For GitHub Actions, add them as repository Actions secrets with those exact names. The anon/publishable key is intended for client apps; RLS is the security boundary. Never put a service-role key in the app.
+6. Rebuild and install the APK. The same variables must be set for any web deployment.
+
+The owner dashboard remains unavailable until the Supabase project and owner allowlist are configured. Existing local-only entries are not automatically uploaded; review and import them manually only if you still have the required video rights.
+
+CTTO/credit alone does not grant permission to copy, host, or stream another creator's copyrighted video. Use content with explicit permission, a license, or a provider's permitted embed/API.
 
 CTTO/credit alone does not grant permission to copy, host, or stream another creator's copyrighted video. Use content with explicit permission, a license, or a provider's permitted embed/API.
