@@ -3,11 +3,35 @@ const MAX_TITLE = 90, MAX_SUMMARY = 500, MAX_CHAPTER_TITLE = 100, MAX_CHAPTER_BO
 const uid = () => (globalThis.crypto?.randomUUID?.() || 'story-' + Date.now() + '-' + Math.random().toString(36).slice(2));
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const clean = value => String(value ?? '').trim();
+const SAMPLE_STORIES = [
+  {
+    id:'nexora-sample-midnight-promise', title:'THE MIDNIGHT PROMISE', genre:'Romance · Mystery',
+    summary:'A forgotten letter brings two former best friends together—and reveals why one of them disappeared.',
+    chapters:[
+      {title:'The Letter at the Door',body:'Rain tapped against the windows when Elena found the envelope beneath her apartment door. There was no return address, only her name written in the careful handwriting she had not seen in eight years.\n\nInside was a photograph of the old seaside station and a single sentence: “I kept the promise. Meet me where we said goodbye.”\n\nElena almost threw it away. Almost. But the tiny silver star drawn beneath the message belonged to only one person: Daniel Reyes, the boy who had vanished the summer her family left town.\n\nAt midnight, she stood beneath the station clock. A figure stepped from the rain. “You came,” Daniel whispered. Elena held up the photograph. “You owe me eight years of answers.”'},
+      {title:'A Name from the Past',body:'Daniel did not ask her to forgive him. He only handed her a second envelope, sealed with the same silver star.\n\n“My father told me to stay away,” he said. “He said your family would be safer if I disappeared.”\n\nElena opened the envelope. Inside was a newspaper clipping about the fire that had destroyed her father’s workshop. A name had been circled in red: Reyes.\n\nShe looked up, suddenly cold. “Your family was involved?”\n\nDaniel shook his head. “My father tried to stop it. And the person who started it is still looking for the original evidence.” A car slowed at the far end of the platform. Daniel took her hand. “We have to go. Now.”'}
+    ], status:'published', saved:false
+  },
+  {
+    id:'nexora-sample-glass-heiress', title:'THE GLASS HEIRESS', genre:'Drama · Family',
+    summary:'Raised far from wealth, a young artist discovers that the portrait she inherited hides her family’s greatest secret.',
+    chapters:[
+      {title:'The Portrait',body:'Mira had never liked the portrait. The woman in the painting wore a pearl necklace and looked toward a window that did not exist in the room. When the lawyer delivered it with her grandmother’s final belongings, he said only, “She wanted you to have this before the house is sold.”\n\nThat evening, Mira noticed a thin line beneath the painted frame. A small brass key had been taped to the back, along with a note: “The truth is not in the picture. It is behind it.”\n\nShe turned the frame over and found a folded document hidden inside the wooden backing. The first line carried a name she recognized from the city’s tallest building: Adrian Vale.'},
+      {title:'The Locked Room',body:'The key opened a narrow cabinet in her grandmother’s study. Inside were letters, bank records, and a photograph of two babies wrapped in identical blankets. On the back, someone had written: “One daughter stayed. One daughter was sent away.”\n\nMira read the date twice. It was the day she was born.\n\nA floorboard creaked behind her. Her aunt stood in the doorway, pale and motionless. “You were never supposed to find that,” she said.\n\nMira held up the photograph. “Then tell me which baby I am.” Her aunt closed the door. “First, you need to know why your grandmother chose you.”'}
+    ], status:'published', saved:false
+  }
+];
 function loadStories() {
   try {
     const value = JSON.parse(localStorage.getItem(STORE) || '[]');
-    return Array.isArray(value) ? value.filter(s => s && typeof s.id === 'string' && Array.isArray(s.chapters)) : [];
-  } catch { return []; }
+    if (Array.isArray(value) && value.some(s => s && typeof s.id === 'string' && Array.isArray(s.chapters))) {
+      return value.filter(s => s && typeof s.id === 'string' && Array.isArray(s.chapters));
+    }
+    const now = new Date().toISOString();
+    const samples = SAMPLE_STORIES.map(s => ({...s, chapters:s.chapters.map(ch => ({...ch})), createdAt:now, updatedAt:now}));
+    localStorage.setItem(STORE, JSON.stringify(samples));
+    return samples;
+  } catch { return SAMPLE_STORIES.map(s => ({...s, chapters:s.chapters.map(ch => ({...ch})), createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()})); }
 }
 function saveStories(stories) {
   try { localStorage.setItem(STORE, JSON.stringify(stories)); return true; }
@@ -36,7 +60,7 @@ export function renderStoryMode(root, onBack) {
     if (page === 'library') {
       const visible = stories.filter(s => filter === 'all' || (filter === 'saved' ? s.saved : filter === 'drafts' ? s.status !== 'published' : s.status === 'published'));
       root.innerHTML = `<section class="story-shell">
-        <div class="story-heading"><div><span class="story-kicker">NEXORA ORIGINAL READING</span><h1>Story Mode</h1><p>Read, write, and keep your chapters together.</p></div><button class="gold story-create" id="storyCreate">＋ WRITE A STORY</button></div>
+        <div class="story-heading"><div><span class="story-kicker">NEXORA ORIGINAL READING</span><h1>Story Mode</h1><p>Pick a story to read, or write one of your own.</p></div><div class="story-heading-actions"><button class="gold-outline" id="storyRead">▤ READ STORIES</button><button class="gold story-create" id="storyCreate">＋ CREATE STORY</button></div></div>
         <div class="story-notice"><strong>Your writing stays on this device.</strong> Stories and drafts are saved in this app's local storage. They do not sync to other phones or publish online yet. Back up important writing separately.</div>
         <div class="story-filters" role="group" aria-label="Filter stories">
           <button data-filter="all" class="${filter==='all'?'active':''}">ALL STORIES</button>
@@ -51,6 +75,7 @@ export function renderStoryMode(root, onBack) {
           <div class="story-card-actions"><button class="gold-outline" data-read="${esc(s.id)}">${s.chapters.length?'READ':'OPEN'}</button><button class="story-text-button" data-edit="${esc(s.id)}">EDIT</button><button class="story-text-button" data-save="${esc(s.id)}">${s.saved?'♥ SAVED':'♡ SAVE'}</button></div></div>
         </article>`).join('') : '<div class="story-empty"><h2>Your bookshelf is waiting.</h2><p>Create your first story or change the filter to see your writing.</p><button class="gold" id="storyEmptyCreate">WRITE YOUR FIRST STORY</button></div>'}</div>
       </section>`;
+      root.querySelector('#storyRead')?.addEventListener('click',()=>{filter='published';render();});
       root.querySelector('#storyCreate')?.addEventListener('click',()=>{activeId=null;page='write';render();});
       root.querySelector('#storyEmptyCreate')?.addEventListener('click',()=>{activeId=null;page='write';render();});
       root.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.filter;render();}));
