@@ -292,3 +292,75 @@ footer span{color:#766b56}
 .story-heading-actions{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;justify-content:flex-end}
 .drawer-section-label{padding:.8rem 1rem .35rem;color:#c9a96b;font-size:.66rem;font-weight:800;letter-spacing:.16em;text-transform:uppercase;opacity:.9}
 @media(max-width:560px){.story-heading{align-items:flex-start;gap:1rem;flex-direction:column}.story-heading-actions{width:100%;justify-content:flex-start}.story-heading-actions button{flex:1;min-width:130px}}
+
+
+/* NEXORA IMPERIAL EDITION — obsidian, royal violet & champagne gold */
+:root{
+  --bg:#080610;--panel:#12101b;--line:#51406f;--gold:#dfc27b;
+  --muted:#b2a9c0;--gold-bright:#fff0c2;--glass:rgba(16,12,26,.88);
+}
+body{
+  background:
+    radial-gradient(ellipse at 50% -14%,rgba(112,69,170,.28),transparent 43%),
+    radial-gradient(ellipse at 100% 38%,rgba(75,43,117,.13),transparent 34%),
+    linear-gradient(180deg,#0b0713 0%,#07060b 72%,#050408 100%);
+  color:#fbf8ff;
+}
+.top{
+  background:rgba(9,6,16,.9);
+  border-bottom:1px solid rgba(207,174,111,.28);
+}
+.tabs{background:rgba(10,7,17,.9);border-bottom-color:#9b7acb35}
+.tabs button.active{color:#f5dfaa;border-bottom-color:#dfc27b}
+.welcome-strip{
+  border-color:#b99a5b99;
+  background:
+    radial-gradient(ellipse at 82% 42%,rgba(135,82,194,.32),transparent 42%),
+    linear-gradient(115deg,#241638 0%,#171020 53%,#090710 100%);
+  box-shadow:0 28px 75px #000b,0 0 38px #70449b20,inset 0 1px #fff2;
+}
+.welcome-strip:before{border-color:#e0c27b35}
+.welcome-strip:after{
+  background:linear-gradient(90deg,rgba(12,7,20,.92),rgba(22,12,34,.74) 58%,rgba(16,9,26,.24));
+}
+.welcome-kicker,.drawer-section-label,.story-kicker{color:#e8cc8d}
+.welcome-copy h1 em{color:#e5c27e}
+.welcome-tags span{border-color:#d9bd7a66;color:#f0dfb5;background:#120d1d88}
+.welcome-emblem{border-color:#dfc27b99;background:radial-gradient(circle,#342046,#0b0712 72%);box-shadow:0 0 50px #8a55b044,inset 0 0 25px #dfc27b1c}
+.panel{
+  background:linear-gradient(145deg,rgba(36,25,49,.96),rgba(12,10,18,.99) 62%);
+  border-color:#9a78b955;box-shadow:0 24px 65px #000a,inset 0 1px #fff1;
+}
+.gold,.play-overlay button{
+  background:linear-gradient(115deg,#a77a3d 0%,#e5c77e 52%,#fff0c4 100%);
+}
+.gold-outline{
+  border-color:#d9bd7a99;
+  background:linear-gradient(145deg,#21152f,#0c0912);
+  color:#f0dcae;
+}
+.menu-drawer{
+  background:
+    radial-gradient(ellipse at top right,#563477 0,transparent 43%),
+    linear-gradient(160deg,#21152f,#0b0811 64%);
+  border-left-color:#d9bd7a99;
+}
+.drawer-link{color:#f1eaf7}
+.drawer-link:active,.drawer-link:hover{background:linear-gradient(100deg,#4a2c68,#21152f);color:#ffe8ad}
+.drawer-divider{background:#d9bd7a44}
+.owner-link{border-color:#d9bd7a99;color:#f1d99e}
+.original-card,.story-card,.story-chapter,.rowcard{
+  background:linear-gradient(145deg,#251936,#0e0a15 76%);
+  border-color:#9a78b955;
+}
+.original-card:hover,.rowcard:hover{border-color:#e5c77e}
+.original-card>b,.story-card h2,.story-chapter h2{color:#f8e9c8}
+.story-cover{background:radial-gradient(circle at 50% 30%,#67428b,#1a1025 72%);border-right-color:#c5a76a66}
+.story-filters button{border-color:#a987c966;background:#171021;color:#eadbb8}
+.story-filters button.active{background:#e2c47d;color:#1b1224}
+.story-notice,.production-note{background:linear-gradient(110deg,#2a1b3a,#130e1c);border-color:#a987c966}
+.update-popup-card{background:linear-gradient(155deg,#2a1b3a,#120d1b 62%,#08060d);border-color:#d9bd7a99}
+footer{background:#08060d;border-top-color:#d9bd7a35}
+@media(max-width:540px){
+  .welcome-strip{background:radial-gradient(ellipse at 90% 30%,#56347788,transparent 50%),linear-gradient(115deg,#241638,#0c0813)}
+}
