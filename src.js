@@ -230,7 +230,7 @@ let items = readItems();
 let liked = new Set();
 try { liked = new Set(JSON.parse(localStorage.getItem('nexora-liked') || '[]')); } catch {}
 let active = 0;
-let view = 'feed';
+let view = 'home';
 let selectedSeries = null;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const save = () => localStorage.setItem(KEY, JSON.stringify(items));
@@ -288,6 +288,7 @@ function render() { shell(); }
 function renderScreen() {
   const screen = document.querySelector('#screen');
   if (!screen) return;
+  if (view === 'home') { screen.innerHTML = '<section class="db-home"><div class="db-greeting"><span class="db-kicker">DRAMABOX</span><h1>Discover your next favorite drama.</h1><p>Explore romance, revenge, secrets and original stories.</p></div><button class="db-hero" id="dbHero"><b>FEATURED ORIGINAL</b><strong>LOVE BEHIND THE LIES</strong><small>Romance · Mystery</small><span>EXPLORE SERIES　›</span></button><h2>Popular dramas</h2><div class="db-poster-row">'+originalSeries.slice(0,6).map((x,i)=>'<button class="db-poster" data-db="'+x.id+'"><span class="db-art art-'+(i%6)+'">'+esc(x.title)+'</span><small>'+esc(x.genre)+'</small></button>').join('')+'</div><h2>Stories, not just videos</h2><div class="db-story-actions"><button id="dbRead">▤　READ A STORY</button><button id="dbCreate">＋　CREATE A STORY</button></div><div class="db-feature-row"><button data-go="shorts">DRAMA SHORTS</button><button data-go="saved">SAVED DRAMAS</button><button data-go="search">SEARCH</button></div></section>'; screen.querySelector('#dbHero').onclick=()=>{selectedSeries=originalSeries[0].id;view='originals';render();}; screen.querySelectorAll('[data-db]').forEach(b=>b.onclick=()=>{selectedSeries=b.dataset.db;view='originals';render();}); screen.querySelector('#dbRead').onclick=()=>{view='stories';render();}; screen.querySelector('#dbCreate').onclick=()=>{view='stories';render();}; screen.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{view=b.dataset.go;render();}); return; }
   if (view === 'stories') { renderStoryMode(screen, () => { view='feed'; render(); }); return; }
   if (view === 'updates') {
     screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">When a new version is found, NEXORA downloads it into private app storage automatically. Android will ask you to confirm installation. Old APKs are not added to your Downloads folder.</small></section>`;
@@ -298,7 +299,7 @@ function renderScreen() {
   }
   if (view === 'shorts') {
     const playable = items.filter(x => /^https:\/\//i.test(String(x.url || '')) && /\.mp4(?:[?#]|$)/i.test(String(x.url)));
-    screen.innerHTML = `<section class="shorts-head"><div class="eyebrow">NEXORA · VERTICAL STORIES</div><h1>Drama Shorts</h1><p>Swipe up for the next short. Videos shown here are creator-credited catalogue entries; only videos you are authorized to publish should be added.</p></section>
+    screen.innerHTML = `<section class="shorts-head"><h1>Drama Shorts</h1><p>Swipe up for the next short. Videos shown here are creator-credited catalogue entries; only videos you are authorized to publish should be added.</p></section>
       ${playable.length ? `<div class="shorts-feed">${playable.map((x,i)=>`<article class="short-card" data-short-index="${i}">
         <video class="short-video" src="${esc(x.url)}" ${x.poster ? `poster="${esc(x.poster)}"` : ''} controls playsinline muted loop preload="metadata"></video>
         <div class="short-shade"></div><div class="short-meta"><span class="short-tag">NEXORA SHORTS</span><h2>${esc(x.title)}</h2><p>${esc(x.episode || x.category || 'Drama')}</p><small>Creator: ${esc(x.creator || 'Not listed')}</small>${x.source ? `<a href="${esc(x.source)}" target="_blank" rel="noopener">VIEW ORIGINAL SOURCE ↗</a>` : ''}</div>
