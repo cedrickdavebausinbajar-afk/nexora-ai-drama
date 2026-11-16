@@ -213,6 +213,28 @@ const loveBehindTheLiesPilot = [
   {title:'END CARD', text:'LOVE BEHIND THE LIES — EPISODE 1. The truth has a price. Will Mara pay it? NEXT: A PHOTOGRAPH FROM THE PAST.'}
 ];
 
+const readerStories = [{
+  id:'the-last-promise',
+  title:'THE LAST PROMISE',
+  genre:'Romance · Family',
+  blurb:'Two childhood friends reunite to keep a promise made years ago, before time runs out.',
+  chapters:[
+    {title:'The Letter by the Sea',paragraphs:[
+      'The envelope was waiting beneath the blue door, exactly where Daniel used to leave his notes when they were children. Mara almost walked past it. Five years had taught her not to expect anything from the little house by the shore.',
+      'Her name was written across the front in the same careful handwriting she remembered. No return address. No explanation. Only the date of the promise they had made on the last summer before he left.',
+      'Mara opened it with unsteady fingers. Inside was a photograph of the old lighthouse and a single line: “I kept my promise. Now it is your turn.”',
+      'She looked toward the water. A figure stood near the lighthouse steps, holding a second envelope. Even from this distance, she knew the shape of his shoulders.'
+    ]},
+    {title:'The Boy Who Came Back',paragraphs:[
+      'Daniel did not wave when Mara reached the lighthouse. He simply watched her climb the last few steps, as if he was afraid one sudden movement might make her disappear again.',
+      '“You came,” he said. His voice was quieter than she remembered.',
+      '“You sent a letter.” Mara held up the photograph. “You could have called.”',
+      'Daniel looked down at the stones between them. “I tried. Every year. But I needed to know if you still wanted the truth.”',
+      'The wind lifted the corner of the photograph. On its back, Mara noticed a second date—tomorrow’s date—and a message she had not seen before: “Ask me what happened the night I left.”'
+    ]}
+  ]
+}];
+
 const removedSeedIds = new Set(["sintel-demo","elephants-dream-open","big-buck-bunny-full-open","big-buck-bunny-demo","tears-of-steel-open","spring-open","sprite-fright-open","cosmos-laundromat-open","agent-327-open","coffee-run-open","caminandes-llamigos-open","glass-half-open","caminandes-gran-dillama-open","sita-sings-the-blues-feature"]);
 function readItems() {
   try {
@@ -231,6 +253,8 @@ try { liked = new Set(JSON.parse(localStorage.getItem('nexora-liked') || '[]'));
 let active = 0;
 let view = 'feed';
 let selectedSeries = null;
+let selectedReaderStory = null;
+let selectedReaderChapter = 0;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const save = () => localStorage.setItem(KEY, JSON.stringify(items));
 const builtInIds = new Set(seed.map(x => x.id));
@@ -257,7 +281,7 @@ function shell() {
   <p class="drawer-foot">© 2026 NEXORA AI DRAMA</p>
 </aside>
 <nav class="tabs"><button class="${view==='feed'?'active':''}" data-view="feed">DISCOVER</button><button class="${view==='search'?'active':''}" data-view="search">SEARCH</button><button class="${view==='saved'?'active':''}" data-view="saved">SAVED</button></nav>
-${view==='feed'?`<section class="welcome-strip"><img class="drama-cover-banner" src="/nexora-drama-cover.svg" alt="NEXORA AI DRAMA premium purple cover"><div class="welcome-copy"><span class="welcome-kicker">THE PREMIUM SHORT-FILM CLUB</span><h1>Stories worth<br><em>staying up for.</em></h1><p>Discover a handpicked collection of creator-credited films and stories.</p><div class="welcome-tags"><span>CURATED STORIES</span><span>BLACK LABEL</span><span>NEW DISCOVERIES</span></div></div><div class="welcome-emblem"><img src="/nexora-logo.svg" alt="NEXORA emblem"></div></section>`:''}
+${view==='feed'?`<section class="welcome-strip"><img class="drama-cover-banner" src="/nexora-drama-cover.svg" alt="NEXORA AI DRAMA premium purple cover"><div class="welcome-copy"><span class="welcome-kicker">THE PREMIUM SHORT-FILM CLUB</span><h1>Stories worth<br><em>staying up for.</em></h1><p>Discover creator-credited films, or settle in with an original written story.</p><button class="gold" id="readStoriesBtn" type="button">📖 READ STORIES</button><div class="welcome-tags"><span>CURATED STORIES</span><span>BLACK LABEL</span><span>NEW DISCOVERIES</span></div></div><div class="welcome-emblem"><img src="/nexora-logo.svg" alt="NEXORA emblem"></div></section>`:''}
 <main id="screen"></main>
 <footer>© ${new Date().getFullYear()} NEXORA AI DRAMA <span>Open films · creator credits and license details shown per title · Watch responsibly</span></footer>`;
   const drawer = document.querySelector('#menuDrawer');
@@ -276,6 +300,7 @@ ${view==='feed'?`<section class="welcome-strip"><img class="drama-cover-banner" 
   backdrop.onclick = closeMenu;
   app.querySelectorAll('.drawer-link[data-view], .tabs [data-view]').forEach(b => b.onclick = () => { closeMenu(); view = b.dataset.view; render(); });
   document.querySelector('#adminOpen').onclick = () => { closeMenu(); adminGate(); };
+  document.querySelector('#readStoriesBtn')?.addEventListener('click',()=>{view='stories';selectedReaderStory=null;selectedReaderChapter=0;render();});
   document.onkeydown = e => { if (e.key === 'Escape' && !drawer.hidden) { closeMenu(); document.querySelector('#menuOpen')?.focus(); } };
   renderScreen();
   checkForUpdates();
@@ -307,6 +332,20 @@ function renderScreen() {
         else if(video){video.pause();}
       }),{threshold:[.25,.65,.9]});
       cards.forEach(card=>observer.observe(card));
+    }
+    return;
+  }
+  if (view === 'stories') {
+    const story = readerStories.find(x=>x.id===selectedReaderStory);
+    if (!story) {
+      screen.innerHTML = `<section class="panel reader-library"><div class="eyebrow">NEXORA ORIGINAL · TEXT STORIES</div><h1>Story Library</h1><p class="muted">Choose a story and read at your own pace. This is a sample reading experience.</p>${readerStories.map(x=>`<article class="reader-card"><div class="reader-cover">N</div><div class="reader-card-copy"><span class="original-label">NEXORA ORIGINAL</span><h2>${esc(x.title)}</h2><small>${esc(x.genre)} · ${x.chapters.length} chapters</small><p>${esc(x.blurb)}</p><button class="gold" data-reader-story="${esc(x.id)}">START READING</button></div></article>`).join('')}</section>`;
+      screen.querySelectorAll('[data-reader-story]').forEach(b=>b.onclick=()=>{selectedReaderStory=b.dataset.readerStory;selectedReaderChapter=0;renderScreen();});
+    } else {
+      const chapter=story.chapters[selectedReaderChapter]||story.chapters[0];
+      screen.innerHTML = `<section class="reader-detail"><button class="gold-outline" id="readerBack">← STORY LIBRARY</button><div class="reader-bookhead"><span class="original-label">NEXORA ORIGINAL · ${esc(story.genre)}</span><h1>${esc(story.title)}</h1><p>${esc(story.blurb)}</p></div><article class="reader-page"><div class="reader-chapter-count">CHAPTER ${selectedReaderChapter+1} OF ${story.chapters.length}</div><h2>${esc(chapter.title)}</h2>${chapter.paragraphs.map(p=>`<p>${esc(p)}</p>`).join('')}<div class="reader-controls"><button class="gold-outline" id="readerPrev" ${selectedReaderChapter===0?'disabled':''}>PREVIOUS</button><span>${selectedReaderChapter+1} / ${story.chapters.length}</span><button class="gold" id="readerNext" ${selectedReaderChapter===story.chapters.length-1?'disabled':''}>NEXT CHAPTER</button></div></article></section>`;
+      screen.querySelector('#readerBack').onclick=()=>{selectedReaderStory=null;selectedReaderChapter=0;renderScreen();};
+      screen.querySelector('#readerPrev').onclick=()=>{if(selectedReaderChapter>0){selectedReaderChapter--;renderScreen();}};
+      screen.querySelector('#readerNext').onclick=()=>{if(selectedReaderChapter<story.chapters.length-1){selectedReaderChapter++;renderScreen();}};
     }
     return;
   }
