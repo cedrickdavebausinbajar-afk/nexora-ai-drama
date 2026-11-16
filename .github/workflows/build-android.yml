@@ -211,6 +211,174 @@ jobs:
           (xml / "nexora_file_paths.xml").write_text(paths, encoding="utf-8")
           PY
 
+      - name: Configure Android background notification checks
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os, json
+
+          gradle = Path("android/app/build.gradle")
+          data = gradle.read_text()
+          if "androidx.work:work-runtime" not in data:
+              data = data.replace("dependencies {", 'dependencies {\\n    implementation "androidx.work:work-runtime:2.10.0"', 1)
+          gradle.write_text(data)
+
+          base = Path("android/app/src/main")
+          java = base / "java/com/nexora/aidrama"
+          java.mkdir(parents=True, exist_ok=True)
+          supabase_url = json.dumps(os.environ.get("SUPABASE_URL", "").rstrip("/"))
+          supabase_key = json.dumps(os.environ.get("SUPABASE_ANON_KEY", ""))
+          worker = r"""package com.nexora.aidrama;
+          import android.Manifest;
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.PendingIntent;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.pm.PackageInfo;
+          import android.content.pm.PackageManager;
+          import android.os.Build;
+          import androidx.core.app.NotificationCompat;
+          import androidx.core.app.NotificationManagerCompat;
+          import androidx.core.content.ContextCompat;
+          import androidx.work.Worker;
+          import androidx.work.WorkerParameters;
+          import org.json.JSONArray;
+          import org.json.JSONObject;
+          import java.io.BufferedReader;
+          import java.io.InputStream;
+          import java.io.InputStreamReader;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+          import java.nio.charset.StandardCharsets;
+          import java.util.regex.Matcher;
+          import java.util.regex.Pattern;
+
+          public class NexoraNotificationWorker extends Worker {
+            private static final String SUPABASE_URL = __SUPABASE_URL__;
+            private static final String SUPABASE_KEY = __SUPABASE_KEY__;
+            private static final String REPO = "cedrickdavebausinbajar-afk/nexora-ai-drama";
+            public NexoraNotificationWorker(Context context, WorkerParameters params) { super(context, params); }
+            @Override public Result doWork() {
+              Context context = getApplicationContext();
+              createChannels(context);
+              if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return Result.success();
+              checkLatestAppVersion(context);
+              checkNewDramas(context);
+              return Result.success();
+            }
+            private void createChannels(Context context) {
+              if (Build.VERSION.SDK_INT >= 26) {
+                NotificationManager manager = context.getSystemService(NotificationManager.class);
+                manager.createNotificationChannel(new NotificationChannel("nexora-updates", "NEXORA Updates", NotificationManager.IMPORTANCE_DEFAULT));
+                manager.createNotificationChannel(new NotificationChannel("nexora-watch", "Continue Watching", NotificationManager.IMPORTANCE_DEFAULT));
+              }
+            }
+            private String get(String address, boolean supabase) throws Exception {
+              HttpURLConnection connection = (HttpURLConnection)new URL(address).openConnection();
+              connection.setRequestMethod("GET"); connection.setConnectTimeout(10000); connection.setReadTimeout(10000);
+              connection.setRequestProperty("Accept", "application/json");
+              connection.setRequestProperty("User-Agent", "NEXORA-AI-DRAMA-Android");
+              if (supabase && !SUPABASE_KEY.isEmpty()) {
+                connection.setRequestProperty("apikey", SUPABASE_KEY);
+                connection.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
+              }
+              int status = connection.getResponseCode();
+              InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
+              BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
+              StringBuilder result = new StringBuilder(); String line;
+              while ((line = reader.readLine()) != null) result.append(line);
+              reader.close(); connection.disconnect();
+              if (status < 200 || status >= 300) throw new Exception("HTTP " + status);
+              return result.toString();
+            }
+            private void notify(Context context, int id, String title, String body, String channel) {
+              Intent intent = new Intent(context, MainActivity.class);
+              intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+              PendingIntent pending = PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+              NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channel)
+                .setSmallIcon(R.mipmap.ic_launcher).setContentTitle(title).setContentText(body)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(body)).setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT).setContentIntent(pending);
+              try { NotificationManagerCompat.from(context).notify(id, builder.build()); } catch (SecurityException ignored) {}
+            }
+            private void checkLatestAppVersion(Context context) {
+              try {
+                JSONObject release = new JSONObject(get("https://api.github.com/repos/" + REPO + "/releases/latest", false));
+                String tag = release.optString("tag_name", "");
+                Matcher matcher = Pattern.compile("^v\\d+\\.\\d+\\.(\\d+)$").matcher(tag);
+                if (!matcher.matches()) return;
+                long latest = Long.parseLong(matcher.group(1));
+                PackageInfo info = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+                long installed = Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
+                String previous = context.getSharedPreferences("nexora_notifications", 0).getString("notified_release", "");
+                if (latest > installed && !tag.equals(previous)) {
+                  JSONArray assets = release.optJSONArray("assets");
+                  boolean hasApk = false;
+                  if (assets != null) for (int i=0;i<assets.length();i++) if ("NEXORA-AI-DRAMA.apk".equals(assets.getJSONObject(i).optString("name"))) hasApk = true;
+                  if (hasApk) {
+                    notify(context, 8102, "NEXORA AI DRAMA update available", "Version " + tag + " is ready. Tap to open NEXORA and update.", "nexora-updates");
+                    context.getSharedPreferences("nexora_notifications", 0).edit().putString("notified_release", tag).apply();
+                  }
+                }
+              } catch (Exception ignored) {}
+            }
+            private void checkNewDramas(Context context) {
+              if (SUPABASE_URL.isEmpty() || SUPABASE_KEY.isEmpty()) return;
+              try {
+                String endpoint = SUPABASE_URL + "/rest/v1/dramas?select=id,title,episode,created_at&published=eq.true&order=created_at.desc&limit=10";
+                JSONArray rows = new JSONArray(get(endpoint, true));
+                if (rows.length() == 0) return;
+                String newest = rows.getJSONObject(0).optString("created_at", "");
+                android.content.SharedPreferences prefs = context.getSharedPreferences("nexora_notifications", 0);
+                String previous = prefs.getString("last_drama_created_at", null);
+                if (previous == null) { prefs.edit().putString("last_drama_created_at", newest).apply(); return; }
+                int fresh = 0; String firstTitle = ""; String firstEpisode = "";
+                for (int i=0;i<rows.length();i++) {
+                  JSONObject row = rows.getJSONObject(i);
+                  String created = row.optString("created_at", "");
+                  if (!created.isEmpty() && created.compareTo(previous) > 0) {
+                    fresh++;
+                    if (firstTitle.isEmpty()) { firstTitle=row.optString("title","New drama"); firstEpisode=row.optString("episode","New episode"); }
+                  }
+                }
+                if (fresh > 0) {
+                  String body = fresh == 1 ? firstTitle + " · " + firstEpisode : fresh + " new dramas or episodes are available.";
+                  notify(context, 8101, fresh == 1 ? "New drama on NEXORA" : "New dramas on NEXORA", body, "nexora-updates");
+                  prefs.edit().putString("last_drama_created_at", newest).apply();
+                }
+              } catch (Exception ignored) {}
+            }
+          }
+          """
+          worker = worker.replace("__SUPABASE_URL__", supabase_url).replace("__SUPABASE_KEY__", supabase_key)
+          (java / "NexoraNotificationWorker.java").write_text(worker, encoding="utf-8")
+
+          activity_path = java / "MainActivity.java"
+          activity = activity_path.read_text(encoding="utf-8")
+          if "NexoraNotificationWorker" not in activity:
+              activity = activity.replace("import com.getcapacitor.BridgeActivity;", """import com.getcapacitor.BridgeActivity;
+          import androidx.work.ExistingPeriodicWorkPolicy;
+          import androidx.work.PeriodicWorkRequest;
+          import androidx.work.PeriodicWorkRequestBuilder;
+          import androidx.work.WorkManager;
+          import java.util.concurrent.TimeUnit;""")
+              activity = activity.replace("super.onCreate(savedInstanceState);", """super.onCreate(savedInstanceState);
+              PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(NexoraNotificationWorker.class, 15, TimeUnit.MINUTES).build();
+              WorkManager.getInstance(this).enqueueUniquePeriodicWork("nexora-background-notifications", ExistingPeriodicWorkPolicy.KEEP, request);""")
+              activity_path.write_text(activity, encoding="utf-8")
+
+          manifest = base / "AndroidManifest.xml"
+          manifest_text = manifest.read_text(encoding="utf-8")
+          permission = '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />'
+          if permission not in manifest_text:
+              manifest_text = manifest_text.replace("<application", permission + chr(10) + "    <application", 1)
+          manifest.write_text(manifest_text, encoding="utf-8")
+          PY
+
       - name: Make Gradle wrapper executable
         run: chmod +x android/gradlew
 
