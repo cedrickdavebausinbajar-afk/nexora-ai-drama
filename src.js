@@ -296,7 +296,7 @@ function renderScreen() {
         <h1>Love Behind the Lies</h1>
         <p class="muted">Chapter 1 · The Wedding Secret</p>
         <div class="story-progress">CHAPTER ${storyChapter} OF 1 · READING PREVIEW</div>
-        ${scenes.map(scene => `<article class="story-scene"><h2>${esc(scene.title.replace(/^SCENE \\d+ — /,''))}</h2><p>${esc(scene.text)}</p></article>`).join('')}
+        ${scenes.map(scene => `<article class="story-scene"><h2>${esc(scene.title.replace(/^SCENE [0-9]+ — /,''))}</h2><p>${esc(scene.text)}</p></article>`).join('')}
         <div class="story-end"><b>END OF CHAPTER 1</b><p>More chapters will be added as the original story is written.</p></div>
       </section>`;
       document.querySelector('#storiesBack').onclick=()=>{selectedStory=null;renderScreen();};
