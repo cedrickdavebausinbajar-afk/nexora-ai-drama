@@ -121,6 +121,16 @@ function showUpdatePopup() {
 }
 
 async function checkForUpdates() {
+  if (window.NEXORA_PREVIEW_BUILD) {
+    updateInfo = {status:'current', installed:'TEST BUILD', latest:'TEST BUILD', url:'', message:'Updates are disabled in this temporary test build.'};
+    const previewStatus = document.querySelector('#updateStatus');
+    if (previewStatus) previewStatus.textContent = updateInfo.message;
+    const previewBadge = document.querySelector('#updateBadge');
+    if (previewBadge) previewBadge.textContent = 'TEST';
+    const previewVersions = document.querySelector('#updateVersions');
+    if (previewVersions) previewVersions.textContent = 'Temporary test build · official updates disabled';
+    return;
+  }
   try {
     const [localRes, remoteRes] = await Promise.all([
       fetch('/app-version.json', {cache:'no-store'}),
