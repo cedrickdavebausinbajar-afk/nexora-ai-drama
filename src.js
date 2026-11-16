@@ -1,4 +1,5 @@
 import './style.css';
+import { renderStoryMode } from './story-mode.js';
 import { Browser } from '@capacitor/browser';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -247,6 +248,7 @@ function shell() {
   <button class="drawer-link" data-view="search">⌕ &nbsp; Search</button>
   <button class="drawer-link" data-view="shorts">▶ &nbsp; Drama Shorts <span>VERTICAL FEED</span></button>
   <button class="drawer-link" data-view="originals">✦ &nbsp; Original AI dramas <span>30 SERIES</span></button>
+  <button class="drawer-link" data-view="stories">▤ &nbsp; Story Mode <span>READ & WRITE</span></button>
   <button class="drawer-link" data-view="saved">♥ &nbsp; Saved dramas</button>
   <button class="drawer-link" data-view="updates">↻ &nbsp; App updates <span id="updateBadge">CHECKING</span></button>
   <div class="drawer-divider"></div>
@@ -284,6 +286,7 @@ function render() { shell(); }
 function renderScreen() {
   const screen = document.querySelector('#screen');
   if (!screen) return;
+  if (view === 'stories') { renderStoryMode(screen, () => { view='feed'; render(); }); return; }
   if (view === 'updates') {
     screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">When a new version is found, NEXORA downloads it into private app storage automatically. Android will ask you to confirm installation. Old APKs are not added to your Downloads folder.</small></section>`;
     document.querySelector('#checkUpdates').onclick=()=>{updateDownload={status:'idle',path:'',message:''};document.querySelector('#updateStatus').textContent='Checking for updates…';checkForUpdates();};
