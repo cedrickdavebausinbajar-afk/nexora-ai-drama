@@ -5,6 +5,7 @@ import { Browser } from '@capacitor/browser';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FileTransfer } from '@capacitor/file-transfer';
+import { LocalNotifications } from '@capacitor/local-notifications';
 const NEXORA_GA_ID = 'G-VYQZ6HT0RD';
 const NEXORA_PLATFORM = Capacitor.isNativePlatform() ? 'android' : 'web';
 if (typeof window !== 'undefined') {
@@ -235,6 +236,50 @@ let liked = new Set();
 try { liked = new Set(JSON.parse(localStorage.getItem('nexora-liked') || '[]')); } catch {}
 let active = 0;
 let view = 'home';
+const WATCH_PROGRESS_KEY = 'nexora-watch-progress-v1';
+const WATCH_NOTIFICATION_ID = 7301;
+let pendingResumeId = '';
+async function cancelContinueNotification() {
+  if (!Capacitor.isNativePlatform()) return;
+  try { await LocalNotifications.cancel({notifications:[{id:WATCH_NOTIFICATION_ID}]}); } catch {}
+}
+async function scheduleContinueNotification(item, seconds) {
+  if (!Capacitor.isNativePlatform() || !item?.id || seconds < 30) return;
+  const progress = {id:item.id,title:item.title||'your drama',episode:item.episode||'Episode',time:Math.floor(seconds),updatedAt:Date.now()};
+  try { localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify(progress)); } catch {}
+  try {
+    await LocalNotifications.schedule({notifications:[{
+      id:WATCH_NOTIFICATION_ID,
+      title:'Continue watching on NEXORA',
+      body:`Pick up ${progress.title} where you left off.`,
+      schedule:{at:new Date(Date.now()+60*60*1000),allowWhileIdle:true},
+      channelId:'nexora-watch',
+      extra:{type:'continue',contentId:item.id}
+    }]});
+  } catch (_) {}
+}
+async function initializePhoneNotifications() {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    let permission = await LocalNotifications.checkPermissions();
+    if (permission.display !== 'granted') permission = await LocalNotifications.requestPermissions();
+    if (permission.display === 'granted') {
+      await LocalNotifications.createChannel({id:'nexora-watch',name:'Continue Watching',description:'Reminders for unfinished NEXORA AI DRAMA episodes',importance:4});
+      await LocalNotifications.createChannel({id:'nexora-updates',name:'NEXORA Updates',description:'New dramas, episodes, and app versions',importance:4});
+    }
+    await LocalNotifications.addListener('localNotificationActionPerformed', action => {
+      const extra = action?.notification?.extra || {};
+      if (extra.type === 'continue' && extra.contentId) {
+        pendingResumeId = String(extra.contentId);
+        const index = items.findIndex(entry => entry.id === pendingResumeId);
+        if (index >= 0) { active=index; view='feed'; render(); }
+      } else if (extra.type === 'app-update') {
+        view='updates'; render();
+      }
+    });
+  } catch (error) { console.warn('NEXORA notification setup unavailable:',error); }
+}
+
 let selectedSeries = null;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const save = () => localStorage.setItem(KEY, JSON.stringify(items));
@@ -416,6 +461,15 @@ function renderScreen() {
   }
   const video = document.querySelector('#dramaVideo');
   if (video) {
+    let lastProgressWrite = 0;
+    let savedProgress = null;
+    try { savedProgress = JSON.parse(localStorage.getItem(WATCH_PROGRESS_KEY) || 'null'); } catch {}
+    if (savedProgress?.id === x.id && Number(savedProgress.time) > 0) {
+      video.addEventListener('loadedmetadata', () => {
+        if (Number.isFinite(video.duration) && savedProgress.time < video.duration - 5) video.currentTime = savedProgress.time;
+      }, {once:true});
+    }
+
     const overlay = document.querySelector('#playOverlay');
     const status = document.querySelector('#playStatus');
     const errorBox = document.querySelector('#videoError');
@@ -439,8 +493,21 @@ function renderScreen() {
     video.addEventListener('playing', () => { overlay.classList.add('playing'); errorBox.hidden = true; });
     video.addEventListener('waiting', () => { status.textContent = 'Buffering…'; });
     video.addEventListener('canplay', () => { status.textContent = 'Ready to play'; startButton.disabled = false; });
-    video.addEventListener('pause', () => { overlay.classList.remove('playing'); });
-    video.addEventListener('ended', () => { overlay.classList.remove('playing'); status.textContent = 'Video finished'; });
+    video.addEventListener('playing', () => { cancelContinueNotification(); });
+    video.addEventListener('timeupdate', () => {
+      if (video.currentTime - lastProgressWrite < 15) return;
+      lastProgressWrite = video.currentTime;
+      try { localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify({id:x.id,title:x.title,episode:x.episode||'Episode',time:Math.floor(video.currentTime),updatedAt:Date.now()})); } catch {}
+    });
+    video.addEventListener('pause', () => {
+      overlay.classList.remove('playing');
+      if (!video.ended && video.currentTime >= 30 && (!video.duration || video.duration - video.currentTime > 5)) scheduleContinueNotification(x, video.currentTime);
+    });
+    video.addEventListener('ended', () => {
+      overlay.classList.remove('playing'); status.textContent = 'Video finished';
+      cancelContinueNotification();
+      try { const p=JSON.parse(localStorage.getItem(WATCH_PROGRESS_KEY)||'null'); if(p?.id===x.id) localStorage.removeItem(WATCH_PROGRESS_KEY); } catch {}
+    });
     video.addEventListener('error', () => {
       errorBox.hidden = false;
       overlay.classList.remove('playing');
@@ -563,9 +630,29 @@ async function loadCloudDramas() {
   const {data,error}=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url').eq('published',true).order('created_at',{ascending:false});
   if(error){console.warn('NEXORA cloud library could not load:',error.message);return;}
   const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url,poster:row.poster_url||''}));
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const knownKey='nexora-known-drama-ids-v1';
+      const known=JSON.parse(localStorage.getItem(knownKey)||'null');
+      const ids=cloud.map(row=>String(row.id));
+      if (Array.isArray(known)) {
+        const fresh=cloud.filter(row=>!known.includes(String(row.id)));
+        if (fresh.length) {
+          await LocalNotifications.schedule({notifications:[{
+            id:7401,title:fresh.length===1?'New drama on NEXORA':'New dramas on NEXORA',
+            body:fresh.length===1?`${fresh[0].title} · ${fresh[0].episode||'New episode'}`:`${fresh.length} new dramas or episodes are now available.`,
+            schedule:{at:new Date(Date.now()+1000)},channelId:'nexora-updates',
+            extra:{type:'new-content'}
+          }]});
+        }
+      }
+      localStorage.setItem(knownKey,JSON.stringify(ids));
+    } catch (_) {}
+  }
   const demoIds=new Set(seed.map(x=>x.id)),cloudIds=new Set(cloud.map(x=>x.id));
   items=[...seed,...cloud,...items.filter(x=>!demoIds.has(x.id)&&!cloudIds.has(x.id))];
   if(view==='feed'||view==='home'||view==='search')render();
 }
 shell();
+initializePhoneNotifications();
 loadCloudDramas();
