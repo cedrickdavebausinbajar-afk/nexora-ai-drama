@@ -244,10 +244,12 @@ function shell() {
 <div class="menu-backdrop" id="menuBackdrop" hidden></div>
 <aside class="menu-drawer" id="menuDrawer" aria-label="Main menu" hidden>
   <div class="drawer-head"><div><b>NEXORA</b><small>AI DRAMA MENU</small></div><button class="drawer-close" id="menuClose" aria-label="Close menu">×</button></div>
+  <div class="drawer-section-label">DRAMABOX · WATCH & DISCOVER</div>
   <button class="drawer-link" data-view="feed">▶ &nbsp; Discover</button>
   <button class="drawer-link" data-view="search">⌕ &nbsp; Search</button>
   <button class="drawer-link" data-view="shorts">▶ &nbsp; Drama Shorts <span>VERTICAL FEED</span></button>
   <button class="drawer-link" data-view="originals">✦ &nbsp; Original AI dramas <span>30 SERIES</span></button>
+  <div class="drawer-section-label">NEXORA BOOKSHELF</div>
   <button class="drawer-link" data-view="stories">▤ &nbsp; Story Mode <span>READ & WRITE</span></button>
   <button class="drawer-link" data-view="saved">♥ &nbsp; Saved dramas</button>
   <button class="drawer-link" data-view="updates">↻ &nbsp; App updates <span id="updateBadge">CHECKING</span></button>
