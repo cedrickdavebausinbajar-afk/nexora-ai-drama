@@ -252,12 +252,12 @@ function shell() {
   <div class="drawer-section-label">NEXORA BOOKSHELF</div>
   <button class="drawer-link" data-view="stories">▤ &nbsp; Story Mode <span>READ & WRITE</span></button>
   <button class="drawer-link" data-view="saved">♥ &nbsp; Saved dramas</button>
-  <button class="drawer-link" data-view="updates">↻ &nbsp; App updates <span id="updateBadge">CHECKING</span></button>
+  <button class="drawer-link" data-view="updates">↻ &nbsp; Updates <span id="updateBadge">CHECKING</span></button>
   <div class="drawer-divider"></div>
   <a class="drawer-link" href="https://cedrickdavebausinbajar-afk.github.io/nexora-official-website/" target="_blank" rel="noopener">◎ &nbsp; Official website ↗</a>
   <a class="drawer-link" href="https://t.me/nexorastudioteam" target="_blank" rel="noopener">✈ &nbsp; Telegram ↗</a>
   <a class="drawer-link" href="https://www.facebook.com/profile.php?id=61596591209056" target="_blank" rel="noopener">f &nbsp; Facebook ↗</a>
-  <button class="drawer-link owner-link" id="adminOpen">♛ &nbsp; Owner</button>
+  <button class="drawer-link owner-link" id="adminOpen">♛ &nbsp; Owner Dashboard</button>
   <p class="drawer-foot">© 2026 NEXORA AI DRAMA</p>
 </aside>
 <nav class="tabs"><button class="${view==='feed'?'active':''}" data-view="feed">DISCOVER</button><button class="${view==='search'?'active':''}" data-view="search">SEARCH</button><button class="${view==='saved'?'active':''}" data-view="saved">SAVED</button></nav>
