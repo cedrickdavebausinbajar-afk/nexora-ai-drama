@@ -125,11 +125,16 @@ async function performUpdateCheck() {
     const release = await remoteRes.json();
     const latestCode = Number(String(release.tag_name || '').match(/^v\d+\.\d+\.(\d+)$/)?.[1] || 0);
     const installedCode = Number(local.versionCode || 0);
-    const apk = (release.assets || []).find(item => item.name === 'NEXORA-AI-DRAMA.apk');
-    updateInfo = {status:latestCode > installedCode && (apk || Capacitor.isNativePlatform()) ? 'available' : 'current',
-      installed:local.versionName || 'Unknown', latest:release.tag_name || 'Unknown',
-      url:apk?.browser_download_url || release.html_url || '',
-      message:latestCode > installedCode ? (apk ? 'A new version is ready. Download the APK, then tap it to install the update.' : 'A new version was found, but its APK download is not available yet.') : 'Your app is up to date!'};
+    const apk = (release.assets || []).find(item => item.name === 'NEXORA-AI-DRAMA.apk' && /^https:\/\/github\.com\/cedrickdavebausinbajar-afk\/nexora-ai-drama\/releases\/download\//i.test(item.browser_download_url || ''));
+    const newerVersion = latestCode > installedCode;
+    const downloadUrl = apk?.browser_download_url || (!Capacitor.isNativePlatform() ? (release.html_url || '') : '');
+    updateInfo = {
+      status:newerVersion ? (downloadUrl ? 'available' : 'error') : 'current',
+      installed:local.versionName || 'Unknown',
+      latest:release.tag_name || 'Unknown',
+      url:downloadUrl,
+      message:newerVersion ? (downloadUrl ? 'A new version is ready. Download the official APK and approve the Android installer.' : 'A newer version was found, but its official APK asset is not published yet. Please try again later.') : 'Your app is up to date!'
+    };
   } catch {
     updateInfo = {...updateInfo,status:'error',message:'Could not check for updates. Please try again.'};
   }
@@ -919,6 +924,35 @@ async function uploadDramaAsset(path,blob,contentType){
   if(error)throw error;
   return supabase.storage.from('nexora-drama-videos').getPublicUrl(path).data.publicUrl;
 }
+async function uploadDramaVideoWithProgress(path,file,contentType,onProgress){
+  const {data,error}=await supabase.auth.getSession();
+  if(error)throw error;
+  const token=data?.session?.access_token;
+  if(!token)throw new Error('Your owner session expired. Sign in again.');
+  const objectPath=path.split('/').map(encodeURIComponent).join('/');
+  const endpoint=SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/nexora-drama-videos/'+objectPath;
+  return new Promise((resolve,reject)=>{
+    const request=new XMLHttpRequest();
+    request.open('POST',endpoint,true);
+    request.setRequestHeader('apikey',SUPABASE_ANON_KEY);
+    request.setRequestHeader('Authorization','Bearer '+token);
+    request.setRequestHeader('Content-Type',contentType);
+    request.setRequestHeader('cache-control','3600');
+    request.setRequestHeader('x-upsert','false');
+    request.upload.onprogress=event=>{
+      if(event.lengthComputable&&typeof onProgress==='function')onProgress(Math.min(100,Math.round(event.loaded/event.total*100)),event.loaded,event.total);
+    };
+    request.onload=()=>{
+      if(request.status>=200&&request.status<300){if(onProgress)onProgress(100,file.size,file.size);resolve();}
+      else{let detail='Storage returned HTTP '+request.status+'.';try{const body=JSON.parse(request.responseText);detail=body.message||body.error||detail;}catch{}reject(new Error(detail));}
+    };
+    request.onerror=()=>reject(new Error('Video upload connection failed. Check your internet connection and retry.'));
+    request.onabort=()=>reject(new Error('Video upload was cancelled.'));
+    request.ontimeout=()=>reject(new Error('Video upload timed out. Please retry.'));
+    request.timeout=30*60*1000;
+    request.send(file);
+  });
+}
 function subtitleFileToVtt(file){
   return file.text().then(raw=>{
     const value=raw.replace(/^\uFEFF/,'').trim();
@@ -946,7 +980,9 @@ async function renderAdmin() {
   '<div class="two"><label>Drama series<select name="parentDramaId"><option value="">Create a new drama series</option>'+ownerVideos.filter(v=>!v.parent_drama_id).map(v=>'<option value="'+esc(v.id)+'" data-title="'+esc(v.title)+'">'+esc(v.title)+' · '+esc(v.episode||'Episode 1')+'</option>').join('')+'</select></label><label>Episode number<input name="episodeNumber" type="number" min="1" max="999" value="1" required></label></div><p class="muted">Choose an existing series to add Episode 2, Episode 3, and more. Episodes appear together in Watch Episodes.</p>' +
   '<label>Upload video file (MP4, WebM, or MOV · max 500 MB)<input name="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"></label><p class="muted">Choose a video from your phone, or use a direct HTTPS video URL below. Do not paste a TikTok page link; it is not a playable video file.</p><label>Or direct video URL (optional)<input name="url" type="url" placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional; otherwise captured from your video)<input name="poster" type="url" placeholder="https://..."></label><label>Subtitles (optional .VTT or .SRT)<input name="subtitleFile" type="file" accept=".vtt,.srt,text/vtt,application/x-subrip"></label><small class="muted">Subtitles stay off unless a valid subtitle file is uploaded.</small>' +
   '<div class="two"><label>Creator name<input name="creator" required maxlength="120" placeholder="Original creator"></label><label>Original source URL<input name="source" type="url" required placeholder="https://original-post..."></label></div>' +
-  '<label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label><button class="gold" type="submit">PUBLISH DRAMA</button></form></section>' +
+  '<label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label>' +
+  '<div id="videoUploadProgress" class="upload-progress" hidden aria-live="polite"><div class="upload-progress-heading"><b id="videoUploadStage">Preparing video…</b><strong id="videoUploadPercent">0%</strong></div><progress id="videoUploadBar" max="100" value="0">0%</progress><small id="videoUploadDetail">Your upload progress will appear here.</small></div>' +
+  '<button class="gold" type="submit">PUBLISH DRAMA</button></form></section>' +
   '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><button id="repairThumbnails" class="gold-outline" type="button">REBUILD ALL VIDEO THUMBNAILS</button><p class="muted">Replaces missing or incorrect covers with real frames captured from each uploaded video stored in NEXORA storage.</p><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
   document.querySelector('#signOut').onclick=async()=>{await supabase.auth.signOut();ownerFlowActive=false;view='feed';render();};
   const seriesSelect=document.querySelector('#addForm [name="parentDramaId"]');
@@ -976,6 +1012,12 @@ async function renderAdmin() {
   document.querySelector('#addForm').onsubmit=async e=>{
     e.preventDefault();
     const form=e.currentTarget,submit=form.querySelector('button[type="submit"]');
+    const progressBox=document.querySelector('#videoUploadProgress'),progressBar=document.querySelector('#videoUploadBar'),progressPercent=document.querySelector('#videoUploadPercent'),progressStage=document.querySelector('#videoUploadStage'),progressDetail=document.querySelector('#videoUploadDetail');
+    if(progressBox)progressBox.hidden=false;
+    if(progressBar)progressBar.value=0;
+    if(progressPercent)progressPercent.textContent='0%';
+    if(progressStage)progressStage.textContent='Preparing upload…';
+    if(progressDetail)progressDetail.textContent='Checking video, cover and publishing permission.';
     submit.disabled=true;submit.textContent='PUBLISHING…';
     const f=new FormData(form),file=form.elements.videoFile.files?.[0]||null,subtitleFile=form.elements.subtitleFile.files?.[0]||null,parentDramaId=String(f.get('parentDramaId')||'').trim()||null,episodeNumber=Math.max(1,Number(f.get('episodeNumber')||1)),directUrl=String(f.get('url')||'').trim(),source=String(f.get('source')||'').trim(),poster=String(f.get('poster')||'').trim();
     const allowedExt=/\.(mp4|webm|mov)$/i;
@@ -994,10 +1036,16 @@ async function renderAdmin() {
         if(userError||!userData?.user) throw new Error('Your owner session expired. Sign in again.');
         const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-100);
         storagePath=userData.user.id+'/'+Date.now()+'-'+safeName;
-        const {error:uploadError}=await supabase.storage.from('nexora-drama-videos').upload(storagePath,file,{contentType:inferredFileType,upsert:false,cacheControl:'3600'});
-        if(uploadError) throw uploadError;
+        if(progressStage)progressStage.textContent='Uploading video…';
+        if(progressDetail)progressDetail.textContent='Keep NEXORA open until the upload reaches 100%.';
+        await uploadDramaVideoWithProgress(storagePath,file,inferredFileType,(percent,loaded,total)=>{
+          if(progressBar)progressBar.value=percent;
+          if(progressPercent)progressPercent.textContent=percent+'%';
+          if(progressDetail)progressDetail.textContent=(loaded/1048576).toFixed(1)+' MB of '+(total/1048576).toFixed(1)+' MB uploaded';
+        });
         videoUrl=supabase.storage.from('nexora-drama-videos').getPublicUrl(storagePath).data.publicUrl;
       }
+      if(progressStage)progressStage.textContent='Saving video cover…';
       submit.textContent='SAVING VIDEO COVER…';
       if(!posterUrl){
         const frame=typeof frameBlob!=='undefined'?frameBlob:await captureDramaThumbnail(videoUrl);
@@ -1016,6 +1064,10 @@ async function renderAdmin() {
       });
       if(insertError) throw insertError;
       published=true;
+      if(progressBar)progressBar.value=100;
+      if(progressPercent)progressPercent.textContent='100%';
+      if(progressStage)progressStage.textContent='Published successfully';
+      if(progressDetail)progressDetail.textContent='Your drama is now in the shared NEXORA streaming catalogue.';
       await loadCloudDramas();await renderAdmin();
     } catch(error) {
       if(!published){const cleanup=[storagePath,posterPath,subtitlePath].filter(Boolean);if(cleanup.length)await supabase.storage.from('nexora-drama-videos').remove(cleanup).catch(()=>{});}
