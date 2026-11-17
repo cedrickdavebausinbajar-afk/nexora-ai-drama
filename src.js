@@ -480,6 +480,7 @@ function renderScreen() {
   }
   const video = document.querySelector('#dramaVideo');
   if (video) {
+    if(x.subtitle){const track=document.createElement('track');track.kind='subtitles';track.label='Subtitles';track.srclang='en';track.src=x.subtitle;video.appendChild(track);}
     const volumeToggle = document.querySelector('#volumeToggle');
     const syncVolumeToggle = () => {
       if (!volumeToggle) return;
@@ -684,33 +685,43 @@ function isSupportedVideoUrl(videoUrl) {
   return /^https:\/\//i.test(String(videoUrl||'')) && /\.(mp4|webm|mov)(?:[?#]|$)/i.test(String(videoUrl||''));
 }
 
-async function captureDramaThumbnail(videoUrl) {
+async function captureDramaThumbnail(source) {
   return new Promise(resolve => {
     const video=document.createElement('video');
-    video.crossOrigin='anonymous';
-    video.muted=true;
-    video.playsInline=true;
-    video.preload='metadata';
+    const objectUrl=source instanceof Blob ? URL.createObjectURL(source) : '';
+    if(!objectUrl) video.crossOrigin='anonymous';
+    video.muted=true;video.playsInline=true;video.preload='auto';
     let finished=false;
-    const done=value=>{if(finished)return;finished=true;video.removeAttribute('src');video.load();resolve(value||'');};
-    const timer=window.setTimeout(()=>done(''),12000);
-    const finish= value=>{window.clearTimeout(timer);done(value);};
-    video.onerror=()=>finish('');
-    video.onloadedmetadata=()=>{
-      try { video.currentTime=Math.min(1,Math.max(0,(video.duration||1)*0.1)); }
-      catch { finish(''); }
-    };
+    const done=value=>{if(finished)return;finished=true;video.removeAttribute('src');video.load();if(objectUrl)URL.revokeObjectURL(objectUrl);resolve(value||null);};
+    const timer=window.setTimeout(()=>done(null),20000);
+    const finish=value=>{window.clearTimeout(timer);done(value);};
+    video.onerror=()=>finish(null);
+    video.onloadedmetadata=()=>{try{video.currentTime=Math.min(1.5,Math.max(0,(video.duration||1)*0.08));}catch{finish(null);}};
     video.onseeked=()=>{
-      try {
-        const canvas=document.createElement('canvas');
-        const width=480, height=Math.max(1,Math.round(width*(video.videoHeight||9)/(video.videoWidth||16)));
+      try{
+        if(!video.videoWidth||!video.videoHeight)return finish(null);
+        const canvas=document.createElement('canvas'),width=640,height=Math.max(1,Math.round(width*video.videoHeight/video.videoWidth));
         canvas.width=width;canvas.height=height;
-        canvas.getContext('2d').drawImage(video,0,0,width,height);
-        finish(canvas.toDataURL('image/jpeg',0.72));
-      } catch { finish(''); }
+        const ctx=canvas.getContext('2d');if(!ctx)return finish(null);
+        ctx.drawImage(video,0,0,width,height);
+        canvas.toBlob(blob=>finish(blob),'image/jpeg',0.84);
+      }catch{finish(null);}
     };
-    video.src=videoUrl;
-    video.load();
+    video.src=objectUrl||source;video.load();
+  });
+}
+async function uploadDramaAsset(path,blob,contentType){
+  const {error}=await supabase.storage.from('nexora-drama-videos').upload(path,blob,{contentType,upsert:true,cacheControl:'3600'});
+  if(error)throw error;
+  return supabase.storage.from('nexora-drama-videos').getPublicUrl(path).data.publicUrl;
+}
+function subtitleFileToVtt(file){
+  return file.text().then(raw=>{
+    const value=raw.replace(/^\uFEFF/,'').trim();
+    if(/\.srt$/i.test(file.name)||/^\d+\s*\r?\n\d{2}:\d{2}:\d{2},\d{3}/m.test(value))
+      return 'WEBVTT\n\n'+value.replace(/^(\d{2}:\d{2}:\d{2}),(\d{3})/gm,'$1.$2');
+    if(!/^WEBVTT(?:\s|$)/.test(value))throw new Error('Subtitle must be a valid .VTT or .SRT file.');
+    return value;
   });
 }
 
@@ -727,7 +738,7 @@ async function renderAdmin() {
   app.innerHTML='<header class="top"><div class="brand"><img class="brand-logo" src="/nexora-logo.svg" alt="NEXORA logo"><div><b>NEXORA</b><small>PRIVATE OWNER PANEL</small></div></div><button class="gold-outline" id="signOut">SIGN OUT</button></header>' +
   '<main class="admin"><section class="panel"><div class="eyebrow">CONTENT MANAGEMENT</div><h1>Owner dashboard</h1><p class="muted">Published dramas are stored in a shared database. Only authorized owner accounts can publish or remove content.</p>' +
   '<form id="addForm"><label>Drama title<input name="title" required maxlength="120" placeholder="e.g. The Secret Heiress"></label><div class="two"><label>Episode<input name="episode" maxlength="80" placeholder="Episode 1"></label><label>Category<select name="category"><option>Romance</option><option>Revenge</option><option>Family</option><option>Comedy</option><option>Action</option><option>Thriller</option><option>Fantasy</option><option>Other</option></select></label></div>' +
-  '<label>Upload video file (MP4, WebM, or MOV · max 500 MB)<input name="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"></label><p class="muted">Choose a video from your phone, or use a direct HTTPS video URL below. Do not paste a TikTok page link; it is not a playable video file.</p><label>Or direct video URL (optional)<input name="url" type="url" placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional)<input name="poster" type="url" placeholder="https://..."></label>' +
+  '<label>Upload video file (MP4, WebM, or MOV · max 500 MB)<input name="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"></label><p class="muted">Choose a video from your phone, or use a direct HTTPS video URL below. Do not paste a TikTok page link; it is not a playable video file.</p><label>Or direct video URL (optional)<input name="url" type="url" placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional; otherwise captured from your video)<input name="poster" type="url" placeholder="https://..."></label><label>Subtitles (optional .VTT or .SRT)<input name="subtitleFile" type="file" accept=".vtt,.srt,text/vtt,application/x-subrip"></label><small class="muted">Subtitles stay off unless a valid subtitle file is uploaded.</small>' +
   '<div class="two"><label>Creator name<input name="creator" required maxlength="120" placeholder="Original creator"></label><label>Original source URL<input name="source" type="url" required placeholder="https://original-post..."></label></div>' +
   '<label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label><button class="gold" type="submit">PUBLISH DRAMA</button></form></section>' +
   '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
@@ -736,7 +747,7 @@ async function renderAdmin() {
     e.preventDefault();
     const form=e.currentTarget,submit=form.querySelector('button[type="submit"]');
     submit.disabled=true;submit.textContent='PUBLISHING…';
-    const f=new FormData(form),file=form.elements.videoFile.files?.[0]||null,directUrl=String(f.get('url')||'').trim(),source=String(f.get('source')||'').trim(),poster=String(f.get('poster')||'').trim();
+    const f=new FormData(form),file=form.elements.videoFile.files?.[0]||null,subtitleFile=form.elements.subtitleFile.files?.[0]||null,directUrl=String(f.get('url')||'').trim(),source=String(f.get('source')||'').trim(),poster=String(f.get('poster')||'').trim();
     const allowedTypes=['video/mp4','video/webm','video/quicktime'];
     const allowedExt=/\.(mp4|webm|mov)$/i;
     const inferredFileType=file?(file.name.toLowerCase().endsWith('.webm')?'video/webm':file.name.toLowerCase().endsWith('.mov')?'video/quicktime':'video/mp4'):'';
@@ -744,9 +755,11 @@ async function renderAdmin() {
       alert('Choose an MP4, WebM, or MOV file up to 500 MB, or enter a direct HTTPS video URL. Add the original HTTPS source and confirm publishing rights.');
       submit.disabled=false;submit.textContent='PUBLISH DRAMA';return;
     }
-    let videoUrl=directUrl,storagePath=null,published=false;
+    let videoUrl=directUrl,storagePath=null,published=false,posterUrl=poster,subtitleUrl=null,posterPath=null,subtitlePath=null;
     try {
       if(file){
+        submit.textContent='CAPTURING REAL VIDEO FRAME…';
+        const frameBlob=await captureDramaThumbnail(file);
         submit.textContent='UPLOADING VIDEO…';
         const {data:userData,error:userError}=await supabase.auth.getUser();
         if(userError||!userData?.user) throw new Error('Your owner session expired. Sign in again.');
@@ -756,18 +769,27 @@ async function renderAdmin() {
         if(uploadError) throw uploadError;
         videoUrl=supabase.storage.from('nexora-drama-videos').getPublicUrl(storagePath).data.publicUrl;
       }
-      submit.textContent='CREATING DRAMA COVER…';
-      const generatedPoster=poster||await captureDramaThumbnail(videoUrl);
+      submit.textContent='SAVING VIDEO COVER…';
+      if(!posterUrl){
+        const frame=typeof frameBlob!=='undefined'?frameBlob:await captureDramaThumbnail(videoUrl);
+        if(frame){posterPath=(storagePath||('external/'+Date.now()))+'.jpg';posterUrl=await uploadDramaAsset(posterPath,frame,'image/jpeg');}
+      }
+      if(subtitleFile){
+        submit.textContent='UPLOADING SUBTITLES…';
+        const vtt=await subtitleFileToVtt(subtitleFile);
+        subtitlePath=(storagePath||('external/'+Date.now()))+'.vtt';
+        subtitleUrl=await uploadDramaAsset(subtitlePath,new Blob([vtt],{type:'text/vtt'}),'text/vtt');
+      }
       const {error:insertError}=await supabase.from('dramas').insert({
         title:String(f.get('title')||'').trim(),episode:String(f.get('episode')||'Episode 1').trim()||'Episode 1',
-        category:String(f.get('category')||'Other'),video_url:videoUrl,video_storage_path:storagePath,poster_url:generatedPoster||null,
+        category:String(f.get('category')||'Other'),video_url:videoUrl,video_storage_path:storagePath,poster_url:posterUrl||null,subtitle_url:subtitleUrl,subtitle_storage_path:subtitlePath,
         creator:String(f.get('creator')||'').trim(),source_url:source,permission_confirmed:true,published:true
       });
       if(insertError) throw insertError;
       published=true;
       await loadCloudDramas();await renderAdmin();
     } catch(error) {
-      if(storagePath&&!published) await supabase.storage.from('nexora-drama-videos').remove([storagePath]).catch(()=>{});
+      if(!published){const cleanup=[storagePath,posterPath,subtitlePath].filter(Boolean);if(cleanup.length)await supabase.storage.from('nexora-drama-videos').remove(cleanup).catch(()=>{});}
       alert('Could not publish drama: '+(error?.message||'Please check your connection and try again.'));
       submit.disabled=false;submit.textContent='PUBLISH DRAMA';
     }
@@ -793,7 +815,7 @@ async function loadCloudDramas() {
     data=fallback.data; error=fallback.error;
   }
   if(error){console.warn('NEXORA cloud library could not load:',error.message);return;}
-  const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url,poster:row.poster_url||'',watchCount:Number(row.watch_count||0)}));
+  const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url,poster:row.poster_url||'',subtitle:row.subtitle_url||'',watchCount:Number(row.watch_count||0)}));
 
   const demoIds=new Set(seed.map(x=>x.id)),cloudIds=new Set(cloud.map(x=>x.id));
   items=[...seed,...cloud,...items.filter(x=>!demoIds.has(x.id)&&!cloudIds.has(x.id))];
