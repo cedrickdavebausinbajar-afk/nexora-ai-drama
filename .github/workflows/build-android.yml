@@ -133,7 +133,8 @@ jobs:
           gradle = Path("android/app/build.gradle")
           data = gradle.read_text()
           if "androidx.work:work-runtime" not in data:
-              data = data.replace("dependencies {", 'dependencies {\n    implementation "androidx.work:work-runtime:2.10.0"', 1)
+              data = data.replace("dependencies {", 'dependencies {
+    implementation "androidx.work:work-runtime:2.10.0"', 1)
           gradle.write_text(data)
 
           base = Path("android/app/src/main")
@@ -371,7 +372,9 @@ jobs:
                   if (install.resolveActivity(getContext().getPackageManager()) == null)
                     throw new Exception("No Android package installer is available on this device.");
                   getContext().startActivity(install);
-                  com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();\n                  result.put("started", true);\n                  call.resolve(result);
+                  com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();
+                  result.put("started", true);
+                  call.resolve(result);
                 } catch (Exception error) {
                   call.reject("APK download/install failed: " + error.getMessage(), error);
                 } finally {
@@ -381,7 +384,9 @@ jobs:
             }
             private static class JSObjectCompat {
               static void resolvePermission(PluginCall call) {
-                com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();\n                result.put("requiresPermission", true);\n                call.resolve(result);
+                com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();
+                result.put("requiresPermission", true);
+                call.resolve(result);
               }
             }
           }
@@ -390,14 +395,17 @@ jobs:
           activity_path = java / "MainActivity.java"
           activity = activity_path.read_text(encoding="utf-8")
           if "ApkInstallerPlugin.class" not in activity:
-              activity = activity.replace("import com.getcapacitor.BridgeActivity;", "import com.getcapacitor.BridgeActivity;\nimport com.nexora.aidrama.ApkInstallerPlugin;")
-              activity = activity.replace("super.onCreate(savedInstanceState);", "registerPlugin(ApkInstallerPlugin.class);\n        super.onCreate(savedInstanceState);", 1)
+              activity = activity.replace("import com.getcapacitor.BridgeActivity;", "import com.getcapacitor.BridgeActivity;
+import com.nexora.aidrama.ApkInstallerPlugin;")
+              activity = activity.replace("super.onCreate(savedInstanceState);", "registerPlugin(ApkInstallerPlugin.class);
+        super.onCreate(savedInstanceState);", 1)
               activity_path.write_text(activity, encoding="utf-8")
           manifest = base / "AndroidManifest.xml"
           xml = manifest.read_text(encoding="utf-8")
           permission = '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />'
           if permission not in xml:
-              xml = xml.replace("<application", permission + "\n    <application", 1)
+              xml = xml.replace("<application", permission + "
+    <application", 1)
           provider = '''        <provider
                   android:name="androidx.core.content.FileProvider"
                   android:authorities="${applicationId}.fileprovider"
