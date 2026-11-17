@@ -351,7 +351,9 @@ jobs:
             Official NEXORA AI DRAMA Android update.
             Version code: ${{ github.run_number }}
             Install over your existing NEXORA AI DRAMA app. Android will ask you to confirm.
-          files: NEXORA-AI-DRAMA.apk,NEXORA-AI-DRAMA.aab
+          files: |
+            NEXORA-AI-DRAMA.apk
+            NEXORA-AI-DRAMA.aab
           make_latest: true
 
 
