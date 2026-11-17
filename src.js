@@ -736,20 +736,39 @@ function wireCards() {
     if (index >= 0) { active = index; view = 'feed'; render(); }
   });
 }
+let adminGatePromise = null;
 async function adminGate() {
-  if (!supabase) {
-    alert('Secure Owner Dashboard is not configured yet. Follow the Supabase setup in the project README.');
-    return;
-  }
-  const {data: sessionData} = await supabase.auth.getSession();
-  if (!sessionData.session) { renderAdminLogin(); return; }
-  const {data: allowed, error} = await supabase.rpc('is_nexora_owner');
-  if (error || allowed !== true) {
-    await supabase.auth.signOut();
-    renderAdminLogin('This account is not authorized as the NEXORA owner.');
-    return;
-  }
-  await renderAdmin();
+  // Keep the owner flow on-screen while authentication/role checks run.
+  // Previously, an auth/network/RPC rejection could leave the app in an
+  // ambiguous state with no owner-specific recovery UI.
+  if (adminGatePromise) return adminGatePromise;
+  adminGatePromise = (async () => {
+    if (!supabase) {
+      renderAdminLogin('Secure Owner Dashboard is not configured. Check the app Supabase URL and anon key.');
+      return;
+    }
+    app.innerHTML = '<main class="admin"><section class="panel"><div class="eyebrow">SECURE ACCESS</div><h1>Opening Owner Dashboard…</h1><p class="muted" role="status">Checking your owner session and permissions. Please wait.</p><button class="gold-outline" id="ownerCancel" type="button">BACK TO APP</button></section></main>';
+    document.querySelector('#ownerCancel')?.addEventListener('click', () => { view='feed'; render(); }, {once:true});
+    try {
+      const {data: sessionData, error: sessionError} = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData?.session) { renderAdminLogin(); return; }
+      const {data: allowed, error} = await supabase.rpc('is_nexora_owner');
+      if (error) throw error;
+      if (allowed !== true) {
+        renderAdminLogin('This account is signed in but is not authorized as the NEXORA owner.');
+        return;
+      }
+      await renderAdmin();
+    } catch (error) {
+      console.error('NEXORA Owner Dashboard access failed:', error);
+      app.innerHTML = '<header class="top"><div class="brand"><div><b>NEXORA</b><small>OWNER ACCESS</small></div></div></header><main class="admin"><section class="panel"><div class="eyebrow">CONNECTION / AUTHORIZATION ISSUE</div><h1>Owner Dashboard could not open</h1><p class="warning" role="alert">' + esc(error?.message || 'A secure owner check failed. Please try again.') + '</p><p class="muted">Your app has not been sent back to Home. Retry the owner check, or return to the app.</p><div class="two"><button class="gold" id="ownerRetry" type="button">RETRY</button><button class="gold-outline" id="ownerBack" type="button">BACK TO APP</button></div></section></main>';
+      document.querySelector('#ownerRetry')?.addEventListener('click', () => adminGate(), {once:true});
+      document.querySelector('#ownerBack')?.addEventListener('click', () => { view='feed'; render(); }, {once:true});
+    }
+  })();
+  try { return await adminGatePromise; }
+  finally { adminGatePromise = null; }
 }
 function renderAdminLogin(message = '') {
   app.innerHTML = '<header class="top"><div class="brand"><img class="brand-logo" src="/nexora-logo.svg" alt="NEXORA logo"><div><b>NEXORA</b><small>SECURE OWNER SIGN-IN</small></div></div><button class="gold-outline" id="back">VIEW APP</button></header>' +
