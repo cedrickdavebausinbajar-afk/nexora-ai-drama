@@ -647,6 +647,36 @@ function renderAdminLogin(message = '') {
     await renderAdmin();
   };
 }
+async function captureDramaThumbnail(videoUrl) {
+  return new Promise(resolve => {
+    const video=document.createElement('video');
+    video.crossOrigin='anonymous';
+    video.muted=true;
+    video.playsInline=true;
+    video.preload='metadata';
+    let finished=false;
+    const done=value=>{if(finished)return;finished=true;video.removeAttribute('src');video.load();resolve(value||'');};
+    const timer=window.setTimeout(()=>done(''),12000);
+    const finish= value=>{window.clearTimeout(timer);done(value);};
+    video.onerror=()=>finish('');
+    video.onloadedmetadata=()=>{
+      try { video.currentTime=Math.min(1,Math.max(0,(video.duration||1)*0.1)); }
+      catch { finish(''); }
+    };
+    video.onseeked=()=>{
+      try {
+        const canvas=document.createElement('canvas');
+        const width=480, height=Math.max(1,Math.round(width*(video.videoHeight||9)/(video.videoWidth||16)));
+        canvas.width=width;canvas.height=height;
+        canvas.getContext('2d').drawImage(video,0,0,width,height);
+        finish(canvas.toDataURL('image/jpeg',0.72));
+      } catch { finish(''); }
+    };
+    video.src=videoUrl;
+    video.load();
+  });
+}
+
 async function renderAdmin() {
   if(!supabase){renderAdminLogin('Supabase is not configured.');return;}
   const {data: allowed,error: roleError}=await supabase.rpc('is_nexora_owner');
@@ -674,9 +704,11 @@ async function renderAdmin() {
       alert('Use HTTPS links and confirm that you have permission to publish this video.');
       submit.disabled=false;submit.textContent='PUBLISH DRAMA';return;
     }
+    submit.textContent='CREATING DRAMA COVER…';
+    const generatedPoster=poster||await captureDramaThumbnail(url);
     const {error: insertError}=await supabase.from('dramas').insert({
       title:String(f.get('title')||'').trim(),episode:String(f.get('episode')||'Episode 1').trim()||'Episode 1',
-      category:String(f.get('category')||'Other'),video_url:url,poster_url:poster||null,
+      category:String(f.get('category')||'Other'),video_url:url,poster_url:generatedPoster||null,
       creator:String(f.get('creator')||'').trim(),source_url:source,permission_confirmed:true,published:true
     });
     if(insertError){alert('Could not publish drama: '+insertError.message);submit.disabled=false;submit.textContent='PUBLISH DRAMA';return;}
