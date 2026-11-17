@@ -256,6 +256,7 @@ let liked = new Set();
 try { liked = new Set(JSON.parse(localStorage.getItem('nexora-liked') || '[]')); } catch {}
 let active = 0;
 let view = 'home';
+let ownerFlowActive = false;
 const WATCH_PROGRESS_KEY = 'nexora-watch-progress-v1';
 const WATCH_NOTIFICATION_ID = 7301;
 let pendingResumeId = '';
@@ -349,7 +350,7 @@ ${view==='feed'?`<section class="welcome-strip"><img class="drama-cover-banner" 
   document.querySelector('#menuClose').onclick = closeMenu;
   backdrop.onclick = closeMenu;
   app.querySelectorAll('.drawer-link[data-view], .tabs [data-view]').forEach(b => b.onclick = () => { closeMenu(); view = b.dataset.view; render(); });
-  document.querySelector('#adminOpen').onclick = () => { closeMenu(); adminGate(); };
+  document.querySelector('#adminOpen').onclick = () => { closeMenu(); ownerFlowActive = true; adminGate(); };
   document.onkeydown = e => { if (e.key === 'Escape' && !drawer.hidden) { closeMenu(); document.querySelector('#menuOpen')?.focus(); } };
   renderScreen();
   checkForUpdates();
@@ -748,7 +749,7 @@ async function adminGate() {
       return;
     }
     app.innerHTML = '<main class="admin"><section class="panel"><div class="eyebrow">SECURE ACCESS</div><h1>Opening Owner Dashboard…</h1><p class="muted" role="status">Checking your owner session and permissions. Please wait.</p><button class="gold-outline" id="ownerCancel" type="button">BACK TO APP</button></section></main>';
-    document.querySelector('#ownerCancel')?.addEventListener('click', () => { view='feed'; render(); }, {once:true});
+    document.querySelector('#ownerCancel')?.addEventListener('click', () => { ownerFlowActive=false; view='feed'; render(); }, {once:true});
     try {
       const {data: sessionData, error: sessionError} = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
@@ -764,7 +765,7 @@ async function adminGate() {
       console.error('NEXORA Owner Dashboard access failed:', error);
       app.innerHTML = '<header class="top"><div class="brand"><div><b>NEXORA</b><small>OWNER ACCESS</small></div></div></header><main class="admin"><section class="panel"><div class="eyebrow">CONNECTION / AUTHORIZATION ISSUE</div><h1>Owner Dashboard could not open</h1><p class="warning" role="alert">' + esc(error?.message || 'A secure owner check failed. Please try again.') + '</p><p class="muted">Your app has not been sent back to Home. Retry the owner check, or return to the app.</p><div class="two"><button class="gold" id="ownerRetry" type="button">RETRY</button><button class="gold-outline" id="ownerBack" type="button">BACK TO APP</button></div></section></main>';
       document.querySelector('#ownerRetry')?.addEventListener('click', () => adminGate(), {once:true});
-      document.querySelector('#ownerBack')?.addEventListener('click', () => { view='feed'; render(); }, {once:true});
+      document.querySelector('#ownerBack')?.addEventListener('click', () => { ownerFlowActive=false; view='feed'; render(); }, {once:true});
     }
   })();
   try { return await adminGatePromise; }
@@ -774,7 +775,7 @@ function renderAdminLogin(message = '') {
   app.innerHTML = '<header class="top"><div class="brand"><img class="brand-logo" src="/nexora-logo.svg" alt="NEXORA logo"><div><b>NEXORA</b><small>SECURE OWNER SIGN-IN</small></div></div><button class="gold-outline" id="back">VIEW APP</button></header>' +
   '<main class="admin"><section class="panel"><div class="eyebrow">PRIVATE ACCESS</div><h1>Owner sign-in</h1><p class="muted">Only an account explicitly authorized in the NEXORA database can manage dramas.</p>' +
   '<form id="ownerLogin"><label>Email address<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><p class="warning" id="loginMessage" role="status">' + esc(message) + '</p><button class="gold" type="submit">SIGN IN SECURELY</button></form></section></main>';
-  document.querySelector('#back').onclick = () => { view='feed'; render(); };
+  document.querySelector('#back').onclick = () => { ownerFlowActive=false; view='feed'; render(); };
   document.querySelector('#ownerLogin').onsubmit = async e => {
     e.preventDefault();
     const form=e.currentTarget, button=form.querySelector('button[type="submit"]'), status=document.querySelector('#loginMessage');
@@ -872,7 +873,7 @@ async function renderAdmin() {
   '<div class="two"><label>Creator name<input name="creator" required maxlength="120" placeholder="Original creator"></label><label>Original source URL<input name="source" type="url" required placeholder="https://original-post..."></label></div>' +
   '<label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label><button class="gold" type="submit">PUBLISH DRAMA</button></form></section>' +
   '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><button id="repairThumbnails" class="gold-outline" type="button">REBUILD ALL VIDEO THUMBNAILS</button><p class="muted">Replaces missing or incorrect covers with real frames captured from each uploaded video stored in NEXORA storage.</p><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
-  document.querySelector('#signOut').onclick=async()=>{await supabase.auth.signOut();view='feed';render();};
+  document.querySelector('#signOut').onclick=async()=>{await supabase.auth.signOut();ownerFlowActive=false;view='feed';render();};
   const seriesSelect=document.querySelector('#addForm [name="parentDramaId"]');
   seriesSelect.onchange=()=>{const selected=ownerVideos.find(v=>v.id===seriesSelect.value);if(selected){document.querySelector('#addForm [name="title"]').value=selected.title;const next=ownerVideos.filter(v=>v.parent_drama_id===selected.id).length+2;document.querySelector('#addForm [name="episodeNumber"]').value=String(next);document.querySelector('#addForm [name="episode"]').value='Episode '+next;}else{document.querySelector('#addForm [name="episodeNumber"]').value='1';document.querySelector('#addForm [name="episode"]').value='Episode 1';}};
   document.querySelector('#repairThumbnails').onclick=async()=>{
@@ -975,14 +976,14 @@ async function performCloudDramasLoad() {
 
   const demoIds=new Set(seed.map(x=>x.id)),cloudIds=new Set(cloud.map(x=>x.id));
   items=[...seed,...cloud,...items.filter(x=>!demoIds.has(x.id)&&!cloudIds.has(x.id))];
-  if (pendingResumeId) {
+  if (pendingResumeId && !ownerFlowActive) {
     const resumeIndex=items.findIndex(entry=>entry.id===pendingResumeId);
     if (resumeIndex>=0) { active=resumeIndex; view='feed'; pendingResumeId=''; render(); return; }
   }
   // Never rebuild the active video DOM during playback. The 30-second catalogue
   // refresh and watch-count realtime events used to recreate the <video> element,
   // sending playback back to the beginning (especially noticeable in fullscreen).
-  if(view==='home'||view==='search')render();
+  if(!ownerFlowActive && (view==='home'||view==='search'))render();
 }
 let cloudLoadPromise = null;
 let cloudRefreshQueued = false;
