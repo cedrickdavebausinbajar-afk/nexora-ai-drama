@@ -366,3 +366,16 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
 }
 
 .db-home{max-width:1080px;margin:auto;padding:8px 0 32px}.db-greeting{padding:8px 2px 18px}.db-kicker{color:#e7c77d;font-size:9px;font-weight:900;letter-spacing:2.5px}.db-greeting h1{font:500 clamp(32px,7vw,50px)/1.05 Georgia,serif;margin:12px 0;color:#fff4dc}.db-greeting p{color:#b9ad94;font-size:13px}.db-hero{width:100%;min-height:205px;text-align:left;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:10px;padding:24px;border:1px solid #d8b45e77;border-radius:20px;color:#fff;background:radial-gradient(ellipse at 80% 15%,#9b6bdf66,transparent 38%),linear-gradient(120deg,#291342,#17101f 55%,#090909);box-shadow:0 18px 48px #0009}.db-hero b{color:#f2d995;font-size:9px;letter-spacing:2px}.db-hero strong{font:500 clamp(27px,6vw,40px)/1.03 Georgia,serif}.db-hero small{color:#d2c5ad}.db-hero span{padding:10px 15px;border-radius:999px;background:linear-gradient(110deg,#a77c37,#f0d58b);color:#171108;font-size:9px;font-weight:900}.db-home h2{font:500 23px Georgia,serif;margin:26px 0 13px}.db-poster-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}.db-poster{padding:0;text-align:left;border:0;background:none;color:#f7edda}.db-art{aspect-ratio:3/4;display:flex;align-items:end;padding:12px;border:1px solid #d8b45e55;border-radius:12px;background:linear-gradient(145deg,#54264f,#1c1428 65%,#080808);font:500 16px/1.1 Georgia,serif}.db-art.art-1{background:linear-gradient(145deg,#60401e,#1c1710)}.db-art.art-2{background:linear-gradient(145deg,#233d5a,#121523)}.db-art.art-3{background:linear-gradient(145deg,#642b3c,#1b111b)}.db-art.art-4{background:linear-gradient(145deg,#5b4922,#17140e)}.db-art.art-5{background:linear-gradient(145deg,#34315e,#12111b)}.db-poster small{display:block;color:#b8a98c;font-size:9px;margin-top:7px}.db-story-actions,.db-feature-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.db-story-actions button,.db-feature-row button{padding:18px 12px;text-align:left;border:1px solid #d8b45e55;border-radius:13px;background:linear-gradient(145deg,#211a0d,#0b0b0b);color:#f5e8c7;font-weight:800;font-size:11px}.db-feature-row{grid-template-columns:repeat(3,1fr);margin-top:12px}.db-feature-row button{padding:13px 8px;font-size:9px}@media(max-width:540px){.db-poster-row{gap:8px}.db-art{padding:8px;font-size:13px}.db-home h2{font-size:21px}.db-hero{min-height:185px;padding:18px}}
+
+
+/* Accessible sound toggle for the main drama player. Keep it above the video and overlays. */
+.player .volume-toggle {
+  position:absolute;top:14px;left:14px;z-index:9;
+  display:flex;align-items:center;gap:7px;min-height:40px;padding:0 12px;
+  border:1px solid #d8b65b;border-radius:8px;background:#100e0bd9;color:#f4d47b;
+  font:700 11px/1 system-ui,sans-serif;letter-spacing:.7px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+.player .volume-toggle:focus-visible {outline:3px solid #fff;outline-offset:3px;}
+.home-published {display:grid;gap:12px;margin:12px 0 24px;}
+.home-published .rowcard {width:100%;}
