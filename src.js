@@ -2,9 +2,7 @@ import './style.css';
 import { createClient } from '@supabase/supabase-js';
 import { renderStoryMode } from './story-mode.js';
 import { Browser } from '@capacitor/browser';
-import { Capacitor, registerPlugin } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { FileTransfer } from '@capacitor/file-transfer';
+import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 const NEXORA_GA_ID = 'G-VYQZ6HT0RD';
 const NEXORA_PLATFORM = Capacitor.isNativePlatform() ? 'android' : 'web';
@@ -28,62 +26,20 @@ function trackNexoraEvent(eventName, params = {}) {
 }
 
 
-const ApkInstaller = registerPlugin('ApkInstaller');
-const UPDATE_APK_PATH = 'nexora-ai-drama-update.apk';
 let updateDownload = {status:'idle', path:'', message:''};
-let updateDownloadPromise = null;
-async function downloadUpdate() {
-  trackNexoraEvent('apk_update_download', {app_version: updateInfo.latest || 'unknown'});
-
-  if (updateDownloadPromise) return updateDownloadPromise;
-  if (!updateInfo.url) throw new Error('The official APK download is not available.');
-  updateDownload.status = 'downloading';
-  updateDownload.message = 'Downloading update into app storage…';
-  refreshUpdateUI();
-  updateDownloadPromise = (async () => {
-    try {
-      const target = await Filesystem.getUri({directory:Directory.Cache, path:UPDATE_APK_PATH});
-      try { await Filesystem.deleteFile({directory:Directory.Cache, path:UPDATE_APK_PATH}); } catch {}
-      const result = await FileTransfer.downloadFile({url:updateInfo.url, path:target.uri, progress:true});
-      updateDownload = {status:'ready', path:result.path || target.uri, message:'Update downloaded. Ready to install.'};
-      refreshUpdateUI();
-      return updateDownload;
-    } catch (error) {
-      updateDownload = {status:'error', path:'', message:'Download failed. Check your connection and try again.'};
-      refreshUpdateUI();
-      throw error;
-    } finally { updateDownloadPromise = null; }
-  })();
-  return updateDownloadPromise;
-}
 function refreshUpdateUI() {
   const status = document.querySelector('#updateStatus');
-  if (status && updateDownload.status !== 'idle') status.textContent = updateDownload.message;
+  if (status) status.textContent = updateInfo.message;
   const action = document.querySelector('#updateAction');
-  if (action && updateInfo.status === 'available') {
-    action.hidden = false;
-    action.textContent = updateDownload.status === 'ready' ? 'INSTALL UPDATE' : updateDownload.status === 'downloading' ? 'DOWNLOADING…' : 'DOWNLOAD UPDATE';
-    action.disabled = updateDownload.status === 'downloading';
-  }
+  if (action) { action.hidden = updateInfo.status !== 'available'; action.textContent = 'OPEN GOOGLE PLAY'; action.onclick = startUpdateFlow; }
   const popupAction = document.querySelector('#popupUpdateNow');
-  if (popupAction && updateInfo.status === 'available') {
-    popupAction.textContent = updateDownload.status === 'ready' ? 'INSTALL UPDATE' : updateDownload.status === 'downloading' ? 'DOWNLOADING…' : 'DOWNLOAD UPDATE';
-    popupAction.disabled = updateDownload.status === 'downloading';
-  }
+  if (popupAction) popupAction.textContent = 'OPEN GOOGLE PLAY';
 }
 async function startUpdateFlow() {
-  try {
-    if (!Capacitor.isNativePlatform()) { if (updateInfo.url) await Browser.open({url:updateInfo.url}); return; }
-    if (updateDownload.status !== 'ready') await downloadUpdate();
-    const result = await ApkInstaller.install({filePath:updateDownload.path});
-    if (result?.needsPermission) {
-      alert('Allow NEXORA AI DRAMA to install updates on the next Android screen, then return to the app and tap INSTALL UPDATE again.');
-    }
-  } catch (error) {
-    alert(updateDownload.message || 'The update could not be started. Please try again.');
-  }
+  const storeUrl = 'https://play.google.com/store/apps/details?id=com.nexora.aidrama';
+  try { await Browser.open({url: Capacitor.isNativePlatform() ? storeUrl : (updateInfo.url || storeUrl)}); }
+  catch (_) { window.open(storeUrl, '_blank', 'noopener'); }
 }
-
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}) : null;
@@ -138,10 +94,10 @@ async function performUpdateCheck() {
     const latestCode = Number(String(release.tag_name || '').match(/^v\d+\.\d+\.(\d+)$/)?.[1] || 0);
     const installedCode = Number(local.versionCode || 0);
     const apk = (release.assets || []).find(item => item.name === 'NEXORA-AI-DRAMA.apk');
-    updateInfo = {status:latestCode > installedCode && apk ? 'available' : 'current',
+    updateInfo = {status:latestCode > installedCode && (apk || Capacitor.isNativePlatform()) ? 'available' : 'current',
       installed:local.versionName || 'Unknown', latest:release.tag_name || 'Unknown',
-      url:apk?.browser_download_url || release.html_url || '',
-      message:latestCode > installedCode && apk ? 'A new version is ready.' : 'Your app is up to date!'};
+      url:Capacitor.isNativePlatform() ? 'https://play.google.com/store/apps/details?id=com.nexora.aidrama' : (apk?.browser_download_url || release.html_url || ''),
+      message:latestCode > installedCode ? (Capacitor.isNativePlatform() ? 'A new version may be available. Open Google Play to update.' : 'A new version is ready.') : 'Your app is up to date!'};
   } catch {
     updateInfo = {...updateInfo,status:'error',message:'Could not check for updates. Please try again.'};
   }
@@ -173,10 +129,7 @@ async function performUpdateCheck() {
   const action=document.querySelector('#updateAction');
   if(action) { action.hidden=updateInfo.status!=='available'; action.onclick=startUpdateFlow; }
   showUpdatePopup();
-  if (updateInfo.status === 'available' && Capacitor.isNativePlatform() && updateDownload.status === 'idle') {
-    downloadUpdate().catch(() => {});
-  }
-  return updateInfo;
+    return updateInfo;
 }
 
 const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
@@ -375,7 +328,7 @@ function renderScreen() {
   }
   if (view === 'stories') { renderStoryMode(screen, () => { view='feed'; render(); }); return; }
   if (view === 'updates') {
-    screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">When a new version is found, NEXORA downloads it into private app storage automatically. Android will ask you to confirm installation. Old APKs are not added to your Downloads folder.</small></section>`;
+    screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">Android app updates are delivered through Google Play. Open the Play Store listing to install an available update.</small></section>`;
     document.querySelector('#checkUpdates').onclick=()=>{updateDownload={status:'idle',path:'',message:''};document.querySelector('#updateStatus').textContent='Checking for updates…';checkForUpdates(true);};
     document.querySelector('#updateAction').onclick=startUpdateFlow;
     checkForUpdates();
@@ -450,10 +403,7 @@ function renderScreen() {
   <button type="button" id="fullscreenPlayer" class="fullscreen-player" aria-label="Enter full screen" title="Full screen">⛶ <span>FULL SCREEN</span></button>
   ${embeddedPlayer
     ? `<iframe class="peer-player" src="${embeddedPlayer}" title="Watch ${esc(x.title)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>`
-    : `<video id="dramaVideo" controls playsinline webkit-playsinline preload="metadata" poster="${esc(x.poster||'')}">
-      <source src="${esc(x.url||'')}" ${videoMimeType(x.url) ? `type="${videoMimeType(x.url)}"` : ''}>
-      Your device cannot play this video.
-    </video>
+    : `<video id="dramaVideo" controls playsinline webkit-playsinline preload="none" poster="${esc(x.poster||'')}">Your device cannot play this video.</video>
     <div id="videoError" class="video-error" hidden><span id="videoErrorMessage">Video could not load. Check your internet connection, then tap RETRY.</span><button id="retryVideo" type="button">RETRY</button></div>`}
   <div class="shade"></div>
   <div class="meta"><span class="tag">${esc(x.category||'DRAMA')}</span><h2>${esc(x.title)}</h2>
@@ -545,6 +495,11 @@ function renderScreen() {
     }
   }
   if (video) {
+    // Register diagnostics before starting media loading; Android WebView can fail quickly.
+    video.removeAttribute('src');
+    video.querySelectorAll('source').forEach(source => source.remove());
+    video.preload = 'auto';
+    if (x.url) { video.src = x.url; video.load(); }
     if(x.subtitle){const track=document.createElement('track');track.kind='subtitles';track.label='Subtitles';track.srclang='en';track.src=x.subtitle;video.appendChild(track);}
     const volumeToggle = document.querySelector('#volumeToggle');
     const syncVolumeToggle = () => {
