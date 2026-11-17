@@ -406,7 +406,12 @@ function renderScreen() {
   <button type="button" id="fullscreenPlayer" class="fullscreen-player" aria-label="Enter full screen" title="Full screen">⛶ <span>FULL SCREEN</span></button>
   ${embeddedPlayer
     ? `<iframe class="peer-player" src="${embeddedPlayer}" title="Watch ${esc(x.title)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>`
-    : `<video id="dramaVideo" controls playsinline webkit-playsinline preload="none" poster="${esc(x.poster||'')}">Your device cannot play this video.</video>
+    : `<video id="dramaVideo" controls playsinline webkit-playsinline preload="metadata" poster="${esc(x.poster||'')}">Your device cannot play this video.</video>
+    <button id="nexoraPlayButton" class="nexora-play-button" type="button" aria-label="Play video">
+      <span class="nexora-play-orbit" aria-hidden="true"></span><span class="nexora-play-icon" aria-hidden="true">▶</span>
+      <span class="nexora-play-label">PLAY EPISODE</span>
+    </button>
+    <div id="videoLoading" class="video-loading" hidden><span class="video-loading-spinner"></span><span>PREPARING VIDEO…</span></div>
     <div id="videoError" class="video-error" hidden><span id="videoErrorMessage">Video could not load. Check your internet connection, then tap RETRY.</span><button id="retryVideo" type="button">RETRY</button></div>`}
   <div class="shade"></div>
   <div class="meta"><span class="tag">${esc(x.category||'DRAMA')}</span><h2>${esc(x.title)}</h2>
@@ -533,6 +538,56 @@ function renderScreen() {
 
     const errorBox = document.querySelector('#videoError');
     const errorMessage = document.querySelector('#videoErrorMessage');
+    const premiumPlayButton = document.querySelector('#nexoraPlayButton');
+    const videoLoading = document.querySelector('#videoLoading');
+    const syncPremiumPlayButton = () => {
+      if (!premiumPlayButton) return;
+      const show = video.paused || video.ended;
+      premiumPlayButton.hidden = !show;
+      premiumPlayButton.setAttribute('aria-label', video.ended ? 'Replay video' : 'Play video');
+      const label = premiumPlayButton.querySelector('.nexora-play-label');
+      if (label) label.textContent = video.ended ? 'REPLAY EPISODE' : 'PLAY EPISODE';
+    };
+    if (premiumPlayButton) premiumPlayButton.addEventListener('click', async () => {
+      if (video.ended) { try { video.currentTime = 0; } catch {} }
+      if (errorBox) errorBox.hidden = true;
+      if (videoLoading) videoLoading.hidden = false;
+      premiumPlayButton.disabled = true;
+      try {
+        await video.play();
+      } catch (err) {
+        if (videoLoading) videoLoading.hidden = true;
+        premiumPlayButton.disabled = false;
+        syncPremiumPlayButton();
+        if (errorMessage) errorMessage.textContent = err?.name === 'NotAllowedError'
+          ? 'Tap PLAY EPISODE again to allow playback, or use the video controls.'
+          : 'Playback could not start. Check your connection and tap RETRY.';
+        if (errorBox) errorBox.hidden = false;
+      }
+    });
+    video.addEventListener('play', () => {
+      if (videoLoading) videoLoading.hidden = false;
+      if (premiumPlayButton) premiumPlayButton.hidden = true;
+    });
+    video.addEventListener('playing', () => {
+      if (videoLoading) videoLoading.hidden = true;
+      if (premiumPlayButton) premiumPlayButton.hidden = true;
+      if (errorBox) errorBox.hidden = true;
+    });
+    video.addEventListener('waiting', () => { if (videoLoading) videoLoading.hidden = false; });
+    video.addEventListener('canplay', () => {
+      if (videoLoading) videoLoading.hidden = true;
+      if (errorBox) errorBox.hidden = true;
+    });
+    video.addEventListener('pause', () => {
+      if (videoLoading) videoLoading.hidden = true;
+      syncPremiumPlayButton();
+    });
+    video.addEventListener('ended', () => {
+      if (videoLoading) videoLoading.hidden = true;
+      syncPremiumPlayButton();
+    });
+    syncPremiumPlayButton();
     video.addEventListener('play', () => {
       trackNexoraEvent('drama_play_start', {content_title: x.title || 'unknown', content_category: x.category || 'unknown'});
     });
