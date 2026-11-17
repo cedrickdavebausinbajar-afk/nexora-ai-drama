@@ -22,3 +22,30 @@ USING (public.is_nexora_owner())
 WITH CHECK (public.is_nexora_owner());
 
 GRANT UPDATE ON public.dramas TO authenticated;
+
+-- Use a POST RPC for poster metadata updates so Android HttpURLConnection
+-- does not need the non-standard PATCH method.
+CREATE OR REPLACE FUNCTION public.update_drama_poster(
+  p_drama_id uuid,
+  p_poster_url text,
+  p_poster_storage_path text
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN
+  IF NOT public.is_nexora_owner() THEN
+    RAISE EXCEPTION 'NEXORA owner access required';
+  END IF;
+
+  UPDATE public.dramas
+  SET poster_url = p_poster_url,
+      poster_storage_path = p_poster_storage_path
+  WHERE id = p_drama_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.update_drama_poster(uuid, text, text) FROM public;
+GRANT EXECUTE ON FUNCTION public.update_drama_poster(uuid, text, text) TO authenticated;
