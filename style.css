@@ -531,3 +531,14 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
   .player .meta{bottom:70px}
   .player .actions{bottom:78px}
 }
+
+
+/* Owner dashboard: live video upload percentage */
+.video-upload-progress{margin:10px 0 16px;padding:13px 14px;border:1px solid #d9bd7a77;border-radius:12px;background:linear-gradient(145deg,#241632,#0c0912)}
+.video-upload-progress[hidden]{display:none}
+.video-upload-progress-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px;color:#e9d9b6;font-size:12px}
+.video-upload-progress-top strong{color:#f3d58d;font-size:15px;font-variant-numeric:tabular-nums}
+.video-upload-progress progress{display:block;width:100%;height:10px;overflow:hidden;border:0;border-radius:999px;background:#ffffff20;accent-color:#dfc27b}
+.video-upload-progress progress::-webkit-progress-bar{background:#ffffff20;border-radius:999px}
+.video-upload-progress progress::-webkit-progress-value{background:linear-gradient(90deg,#9b6bdf,#f0d58b);border-radius:999px;transition:width .15s ease}
+.video-upload-progress progress::-moz-progress-bar{background:linear-gradient(90deg,#9b6bdf,#f0d58b);border-radius:999px}
