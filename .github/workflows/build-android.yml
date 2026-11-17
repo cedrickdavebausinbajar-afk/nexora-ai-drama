@@ -393,11 +393,36 @@ jobs:
           """
           (java / "ApkInstallerPlugin.java").write_text(plugin, encoding="utf-8")
           activity_path = java / "MainActivity.java"
-          activity = activity_path.read_text(encoding="utf-8")
-          if "ApkInstallerPlugin.class" not in activity:
-              activity = activity.replace("import com.getcapacitor.BridgeActivity;", "import com.getcapacitor.BridgeActivity;\nimport com.nexora.aidrama.ApkInstallerPlugin;")
-              activity = activity.replace("super.onCreate(savedInstanceState);", "registerPlugin(ApkInstallerPlugin.class);\n        super.onCreate(savedInstanceState);", 1)
-              activity_path.write_text(activity, encoding="utf-8")
+          # Capacitor's generated MainActivity may have no onCreate method at all.
+          # Write an explicit activity so both custom native integrations are always registered.
+          activity = """package com.nexora.aidrama;
+
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+          import androidx.work.ExistingPeriodicWorkPolicy;
+          import androidx.work.PeriodicWorkRequest;
+          import androidx.work.WorkManager;
+          import androidx.work.Constraints;
+          import androidx.work.NetworkType;
+          import java.util.concurrent.TimeUnit;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  registerPlugin(ApkInstallerPlugin.class);
+                  super.onCreate(savedInstanceState);
+                  Constraints constraints = new Constraints.Builder()
+                      .setRequiredNetworkType(NetworkType.CONNECTED).build();
+                  PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(
+                      NexoraNotificationWorker.class, 15, TimeUnit.MINUTES)
+                      .setConstraints(constraints).build();
+                  WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                      "nexora-background-notifications",
+                      ExistingPeriodicWorkPolicy.KEEP, request);
+              }
+          }
+          """
+          activity_path.write_text(activity, encoding="utf-8")
           manifest = base / "AndroidManifest.xml"
           xml = manifest.read_text(encoding="utf-8")
           permission = '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />'
