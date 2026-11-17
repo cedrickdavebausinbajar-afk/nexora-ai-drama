@@ -518,11 +518,14 @@ function renderScreen() {
     // Android can background the WebView without delivering a normal pause event.
     // Persist the exact playback point and schedule the same reminder in that case.
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden && video.paused) saveResumeReminder();
-      else if (!document.hidden && !video.paused) cancelContinueNotification();
+      // Schedule a native Android alarm as soon as the app leaves the foreground,
+      // even if Android backgrounds the WebView before the video emits "pause".
+      if (document.hidden) saveResumeReminder();
+      else if (!video.paused) cancelContinueNotification();
     });
     window.addEventListener('pagehide', () => {
-      if (video.paused) saveResumeReminder();
+      // pagehide may run during an app close while playback is still marked active.
+      saveResumeReminder();
     });
     video.addEventListener('ended', () => {
       overlay.classList.remove('playing'); status.textContent = 'Video finished';
