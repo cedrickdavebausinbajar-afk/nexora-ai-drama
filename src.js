@@ -827,6 +827,37 @@ async function captureDramaThumbnail(source) {
     video.src=objectUrl||source;video.load();
   });
 }
+async function uploadDramaVideoWithProgress(path,file,contentType,onProgress){
+  const {data:{session},error:sessionError}=await supabase.auth.getSession();
+  if(sessionError)throw sessionError;
+  if(!session?.access_token)throw new Error('Your owner session expired. Sign in again.');
+  const objectPath=path.split('/').map(segment=>encodeURIComponent(segment)).join('/');
+  const endpoint=SUPABASE_URL.replace(/\\/$/,'')+'/storage/v1/object/nexora-drama-videos/'+objectPath;
+  await new Promise((resolve,reject)=>{
+    const xhr=new XMLHttpRequest();
+    xhr.open('POST',endpoint,true);
+    xhr.setRequestHeader('apikey',SUPABASE_ANON_KEY);
+    xhr.setRequestHeader('Authorization','Bearer '+session.access_token);
+    xhr.setRequestHeader('Content-Type',contentType);
+    xhr.setRequestHeader('cache-control','3600');
+    xhr.setRequestHeader('x-upsert','false');
+    xhr.upload.addEventListener('progress',event=>{
+      if(event.lengthComputable&&event.total>0)onProgress(Math.min(100,Math.round(event.loaded/event.total*100)));
+    });
+    xhr.addEventListener('load',()=>{
+      if(xhr.status>=200&&xhr.status<300){onProgress(100);resolve();}
+      else{
+        let message='Video upload failed (HTTP '+xhr.status+').';
+        try{const payload=JSON.parse(xhr.responseText);message=payload.message||payload.error||message;}catch{}
+        reject(new Error(message));
+      }
+    });
+    xhr.addEventListener('error',()=>reject(new Error('Network error while uploading the video. Check your connection and retry.')));
+    xhr.addEventListener('abort',()=>reject(new Error('Video upload was cancelled.')));
+    xhr.send(file);
+  });
+  return supabase.storage.from('nexora-drama-videos').getPublicUrl(path).data.publicUrl;
+}
 async function uploadDramaAsset(path,blob,contentType){
   const {error}=await supabase.storage.from('nexora-drama-videos').upload(path,blob,{contentType,upsert:true,cacheControl:'3600'});
   if(error)throw error;
@@ -857,7 +888,7 @@ async function renderAdmin() {
   '<main class="admin"><section class="panel"><div class="eyebrow">CONTENT MANAGEMENT</div><h1>Owner dashboard</h1><p class="muted">Published dramas are stored in a shared database. Only authorized owner accounts can publish or remove content.</p>' +
   '<form id="addForm"><label>Drama title<input name="title" required maxlength="120" placeholder="e.g. The Secret Heiress"></label><div class="two"><label>Episode label<input name="episode" maxlength="80" placeholder="Episode 1"></label><label>Category<select name="category"><option>Romance</option><option>Revenge</option><option>Family</option><option>Comedy</option><option>Action</option><option>Thriller</option><option>Fantasy</option><option>Other</option></select></label></div>' +
   '<div class="two"><label>Drama series<select name="parentDramaId"><option value="">Create a new drama series</option>'+ownerVideos.filter(v=>!v.parent_drama_id).map(v=>'<option value="'+esc(v.id)+'" data-title="'+esc(v.title)+'">'+esc(v.title)+' · '+esc(v.episode||'Episode 1')+'</option>').join('')+'</select></label><label>Episode number<input name="episodeNumber" type="number" min="1" max="999" value="1" required></label></div><p class="muted">Choose an existing series to add Episode 2, Episode 3, and more. Episodes appear together in Watch Episodes.</p>' +
-  '<label>Upload video file (MP4, WebM, or MOV · max 500 MB)<input name="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"></label><p class="muted">Choose a video from your phone, or use a direct HTTPS video URL below. Do not paste a TikTok page link; it is not a playable video file.</p><label>Or direct video URL (optional)<input name="url" type="url" placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional; otherwise captured from your video)<input name="poster" type="url" placeholder="https://..."></label><label>Subtitles (optional .VTT or .SRT)<input name="subtitleFile" type="file" accept=".vtt,.srt,text/vtt,application/x-subrip"></label><small class="muted">Subtitles stay off unless a valid subtitle file is uploaded.</small>' +
+  '<label>Upload video file (MP4, WebM, or MOV · max 500 MB)<input name="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"></label><div id="videoUploadProgress" class="video-upload-progress" hidden role="status" aria-live="polite"><div class="video-upload-progress-top"><span id="videoUploadStatus">Preparing video upload…</span><strong id="videoUploadPercent">0%</strong></div><progress id="videoUploadBar" max="100" value="0">0%</progress></div><p class="muted">Choose a video from your phone, or use a direct HTTPS video URL below. Do not paste a TikTok page link; it is not a playable video file.</p><label>Or direct video URL (optional)<input name="url" type="url" placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional; otherwise captured from your video)<input name="poster" type="url" placeholder="https://..."></label><label>Subtitles (optional .VTT or .SRT)<input name="subtitleFile" type="file" accept=".vtt,.srt,text/vtt,application/x-subrip"></label><small class="muted">Subtitles stay off unless a valid subtitle file is uploaded.</small>' +
   '<div class="two"><label>Creator name<input name="creator" required maxlength="120" placeholder="Original creator"></label><label>Original source URL<input name="source" type="url" required placeholder="https://original-post..."></label></div>' +
   '<label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label><button class="gold" type="submit">PUBLISH DRAMA</button></form></section>' +
   '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><button id="repairThumbnails" class="gold-outline" type="button">REBUILD ALL VIDEO THUMBNAILS</button><p class="muted">Replaces missing or incorrect covers with real frames captured from each uploaded video stored in NEXORA storage.</p><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
@@ -907,9 +938,19 @@ async function renderAdmin() {
         if(userError||!userData?.user) throw new Error('Your owner session expired. Sign in again.');
         const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-100);
         storagePath=userData.user.id+'/'+Date.now()+'-'+safeName;
-        const {error:uploadError}=await supabase.storage.from('nexora-drama-videos').upload(storagePath,file,{contentType:inferredFileType,upsert:false,cacheControl:'3600'});
-        if(uploadError) throw uploadError;
-        videoUrl=supabase.storage.from('nexora-drama-videos').getPublicUrl(storagePath).data.publicUrl;
+        const progressPanel=form.querySelector('#videoUploadProgress');
+        const progressBar=form.querySelector('#videoUploadBar');
+        const progressPercent=form.querySelector('#videoUploadPercent');
+        const progressStatus=form.querySelector('#videoUploadStatus');
+        if(progressPanel)progressPanel.hidden=false;
+        if(progressBar)progressBar.value=0;
+        if(progressPercent)progressPercent.textContent='0%';
+        if(progressStatus)progressStatus.textContent='Uploading video…';
+        videoUrl=await uploadDramaVideoWithProgress(storagePath,file,inferredFileType,percent=>{
+          if(progressBar)progressBar.value=percent;
+          if(progressPercent)progressPercent.textContent=percent+'%';
+          if(progressStatus)progressStatus.textContent=percent>=100?'Upload complete. Saving…':'Uploading video…';
+        });
       }
       submit.textContent='SAVING VIDEO COVER…';
       if(!posterUrl){
@@ -933,6 +974,8 @@ async function renderAdmin() {
     } catch(error) {
       if(!published){const cleanup=[storagePath,posterPath,subtitlePath].filter(Boolean);if(cleanup.length)await supabase.storage.from('nexora-drama-videos').remove(cleanup).catch(()=>{});}
       alert('Could not publish drama: '+(error?.message||'Please check your connection and try again.'));
+      const progressPanel=form.querySelector('#videoUploadProgress');
+      if(progressPanel)progressPanel.hidden=true;
       submit.disabled=false;submit.textContent='PUBLISH DRAMA';
     }
   };
