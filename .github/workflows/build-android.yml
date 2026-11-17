@@ -395,17 +395,14 @@ jobs:
           activity_path = java / "MainActivity.java"
           activity = activity_path.read_text(encoding="utf-8")
           if "ApkInstallerPlugin.class" not in activity:
-              activity = activity.replace("import com.getcapacitor.BridgeActivity;", "import com.getcapacitor.BridgeActivity;
-import com.nexora.aidrama.ApkInstallerPlugin;")
-              activity = activity.replace("super.onCreate(savedInstanceState);", "registerPlugin(ApkInstallerPlugin.class);
-        super.onCreate(savedInstanceState);", 1)
+              activity = activity.replace("import com.getcapacitor.BridgeActivity;", "import com.getcapacitor.BridgeActivity;\nimport com.nexora.aidrama.ApkInstallerPlugin;")
+              activity = activity.replace("super.onCreate(savedInstanceState);", "registerPlugin(ApkInstallerPlugin.class);\n        super.onCreate(savedInstanceState);", 1)
               activity_path.write_text(activity, encoding="utf-8")
           manifest = base / "AndroidManifest.xml"
           xml = manifest.read_text(encoding="utf-8")
           permission = '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />'
           if permission not in xml:
-              xml = xml.replace("<application", permission + "
-    <application", 1)
+              xml = xml.replace("<application", permission + "\n    <application", 1)
           provider = '''        <provider
                   android:name="androidx.core.content.FileProvider"
                   android:authorities="${applicationId}.fileprovider"
