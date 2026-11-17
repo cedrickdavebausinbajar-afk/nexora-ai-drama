@@ -346,7 +346,9 @@ function renderScreen() {
   if (!screen) return;
   if (view === 'home') {
     const publishedDramas = items.filter(x => !builtInIds.has(x.id) && x.url);
+    const mostWatched = [...publishedDramas].sort((a,b) => (b.watchCount||0) - (a.watchCount||0))[0];
     screen.innerHTML = `<section class="db-home"><div class="db-greeting"><span class="db-kicker">DRAMABOX</span><h1>Discover your next favorite drama.</h1><p>Explore romance, revenge, secrets and original stories.</p></div><button class="db-hero" id="dbHero"><b>FEATURED ORIGINAL</b><strong>LOVE BEHIND THE LIES</strong><small>Romance · Mystery</small><span>EXPLORE SERIES　›</span></button><h2>Popular dramas</h2><div class="db-poster-row">${originalSeries.slice(0,6).map((x,i)=>'<button class="db-poster" data-db="'+x.id+'"><span class="db-art art-'+(i%6)+'">'+esc(x.title)+'</span><small>'+esc(x.genre)+'</small></button>').join('')}</div><h2>Newly published episodes</h2><div class="home-published">${publishedDramas.length ? publishedDramas.map(card).join('') : '<p class="muted">New episodes will appear here automatically after they are published.</p>'}</div><h2>Stories, not just videos</h2><div class="db-story-actions"><button id="dbRead">▤　READ A STORY</button><button id="dbCreate">＋　CREATE A STORY</button></div><div class="db-feature-row"><button data-go="shorts">DRAMA SHORTS</button><button data-go="saved">SAVED DRAMAS</button><button data-go="search">SEARCH</button></div></section>`;
+    if (mostWatched) { const list = screen.querySelector('.home-published'); list?.insertAdjacentHTML('beforebegin', '<h2>Most watched</h2><div class="home-published most-watched">'+card(mostWatched)+'</div>'); }
     wireCards();
     screen.querySelector('#dbHero').onclick=()=>{selectedSeries=originalSeries[0].id;view='originals';render();};
     screen.querySelectorAll('[data-db]').forEach(b=>b.onclick=()=>{selectedSeries=b.dataset.db;view='originals';render();});
@@ -527,7 +529,17 @@ function renderScreen() {
       }
     };
     startButton.onclick = startPlayback;
-    video.addEventListener('playing', () => { overlay.classList.add('playing'); errorBox.hidden = true; });
+    let recordedDramaView = false;
+    video.addEventListener('playing', () => {
+      overlay.classList.add('playing'); errorBox.hidden = true;
+      if (!recordedDramaView && supabase && !builtInIds.has(x.id)) {
+        recordedDramaView = true;
+        supabase.rpc('record_drama_view', {drama_id:x.id}).then(({error}) => {
+          if (error) console.warn('Could not record drama view:', error.message);
+          else loadCloudDramas();
+        });
+      }
+    });
     video.addEventListener('waiting', () => { status.textContent = 'Buffering…'; });
     video.addEventListener('canplay', () => { status.textContent = 'Ready to play'; startButton.disabled = false; });
     video.addEventListener('playing', () => { cancelContinueNotification(); });
@@ -681,9 +693,9 @@ async function renderAdmin() {
 }
 async function loadCloudDramas() {
   if(!supabase)return;
-  const {data,error}=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url').eq('published',true).order('created_at',{ascending:false});
+  const {data,error}=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
   if(error){console.warn('NEXORA cloud library could not load:',error.message);return;}
-  const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url,poster:row.poster_url||''}));
+  const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url,poster:row.poster_url||'',watchCount:Number(row.watch_count||0)}));
 
   const demoIds=new Set(seed.map(x=>x.id)),cloudIds=new Set(cloud.map(x=>x.id));
   items=[...seed,...cloud,...items.filter(x=>!demoIds.has(x.id)&&!cloudIds.has(x.id))];
