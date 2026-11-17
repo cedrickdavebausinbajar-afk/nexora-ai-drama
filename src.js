@@ -529,20 +529,27 @@ function renderScreen() {
     };
     startButton.onclick = startPlayback;
     let recordedDramaView = false;
+    let playbackStartedAt = 0;
+    let accumulatedPlaybackMs = 0;
+    const maybeRecordDramaView = () => {
+      if (recordedDramaView || !supabase || builtInIds.has(x.id)) return;
+      const watchedMs = accumulatedPlaybackMs + (playbackStartedAt ? Date.now() - playbackStartedAt : 0);
+      if (watchedMs < 30000) return;
+      recordedDramaView = true;
+      supabase.rpc('record_drama_view', {drama_id:x.id}).then(({error}) => {
+        if (error) console.warn('Could not record drama view:', error.message);
+        else loadCloudDramas();
+      });
+    };
     video.addEventListener('playing', () => {
       overlay.classList.add('playing'); errorBox.hidden = true;
-      if (!recordedDramaView && supabase && !builtInIds.has(x.id)) {
-        recordedDramaView = true;
-        supabase.rpc('record_drama_view', {drama_id:x.id}).then(({error}) => {
-          if (error) console.warn('Could not record drama view:', error.message);
-          else loadCloudDramas();
-        });
-      }
+      if (!playbackStartedAt) playbackStartedAt = Date.now();
     });
     video.addEventListener('waiting', () => { status.textContent = 'Buffering…'; });
     video.addEventListener('canplay', () => { status.textContent = 'Ready to play'; startButton.disabled = false; });
     video.addEventListener('playing', () => { cancelContinueNotification(); });
     video.addEventListener('timeupdate', () => {
+      maybeRecordDramaView();
       if (video.currentTime - lastProgressWrite < 15) return;
       lastProgressWrite = video.currentTime;
       try { localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify({id:x.id,title:x.title,episode:x.episode||'Episode',time:Math.floor(video.currentTime),updatedAt:Date.now()})); } catch {}
@@ -553,6 +560,11 @@ function renderScreen() {
       }
     };
     video.addEventListener('pause', () => {
+      if (playbackStartedAt) {
+        accumulatedPlaybackMs += Date.now() - playbackStartedAt;
+        playbackStartedAt = 0;
+        maybeRecordDramaView();
+      }
       overlay.classList.remove('playing');
       saveResumeReminder();
     });
@@ -569,6 +581,11 @@ function renderScreen() {
       saveResumeReminder();
     });
     video.addEventListener('ended', () => {
+      if (playbackStartedAt) {
+        accumulatedPlaybackMs += Date.now() - playbackStartedAt;
+        playbackStartedAt = 0;
+        maybeRecordDramaView();
+      }
       overlay.classList.remove('playing'); status.textContent = 'Video finished';
       cancelContinueNotification();
       try { const p=JSON.parse(localStorage.getItem(WATCH_PROGRESS_KEY)||'null'); if(p?.id===x.id) localStorage.removeItem(WATCH_PROGRESS_KEY); } catch {}
@@ -726,7 +743,7 @@ async function renderAdmin() {
       alert('Choose an MP4, WebM, or MOV file up to 500 MB, or enter a direct HTTPS video URL. Add the original HTTPS source and confirm publishing rights.');
       submit.disabled=false;submit.textContent='PUBLISH DRAMA';return;
     }
-    let videoUrl=directUrl,storagePath=null;
+    let videoUrl=directUrl,storagePath=null,published=false;
     try {
       if(file){
         submit.textContent='UPLOADING VIDEO…';
@@ -746,9 +763,10 @@ async function renderAdmin() {
         creator:String(f.get('creator')||'').trim(),source_url:source,permission_confirmed:true,published:true
       });
       if(insertError) throw insertError;
+      published=true;
       await loadCloudDramas();await renderAdmin();
     } catch(error) {
-      if(storagePath) await supabase.storage.from('nexora-drama-videos').remove([storagePath]).catch(()=>{});
+      if(storagePath&&!published) await supabase.storage.from('nexora-drama-videos').remove([storagePath]).catch(()=>{});
       alert('Could not publish drama: '+(error?.message||'Please check your connection and try again.'));
       submit.disabled=false;submit.textContent='PUBLISH DRAMA';
     }
