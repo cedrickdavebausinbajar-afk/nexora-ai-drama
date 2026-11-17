@@ -47,10 +47,11 @@ jobs:
         run: |
           node -e "const fs=require('fs'); const n=process.env.GITHUB_RUN_NUMBER; fs.writeFileSync('public/app-version.json', JSON.stringify({versionName:'1.0.'+n,versionCode:Number(n)}));"
 
-      - name: Build web app
+      - name: Build direct-download APK web app
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_STORE_DISTRIBUTION: 'false'
         run: npm run build
 
       - name: Create Android project
