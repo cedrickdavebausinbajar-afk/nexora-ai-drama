@@ -949,28 +949,31 @@ async function uploadDramaVideoWithProgress(path,file,contentType,onProgress){
   if(error)throw error;
   const token=data?.session?.access_token;
   if(!token)throw new Error('Your owner session expired. Sign in again.');
-  const objectPath=path.split('/').map(encodeURIComponent).join('/');
-  const endpoint=SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/object/nexora-drama-videos/'+objectPath;
+  if(!file||!file.size)throw new Error('Choose a non-empty video file.');
+  const endpoint=SUPABASE_URL.replace(/\\/$/,'')+'/storage/v1/upload/resumable';
   return new Promise((resolve,reject)=>{
-    const request=new XMLHttpRequest();
-    request.open('POST',endpoint,true);
-    request.setRequestHeader('apikey',SUPABASE_ANON_KEY);
-    request.setRequestHeader('Authorization','Bearer '+token);
-    request.setRequestHeader('Content-Type',contentType);
-    request.setRequestHeader('cache-control','3600');
-    request.setRequestHeader('x-upsert','false');
-    request.upload.onprogress=event=>{
-      if(event.lengthComputable&&typeof onProgress==='function')onProgress(Math.min(100,Math.round(event.loaded/event.total*100)),event.loaded,event.total);
-    };
-    request.onload=()=>{
-      if(request.status>=200&&request.status<300){if(onProgress)onProgress(100,file.size,file.size);resolve();}
-      else{let detail='Storage returned HTTP '+request.status+'.';try{const body=JSON.parse(request.responseText);detail=body.message||body.error||detail;}catch{}reject(new Error(detail));}
-    };
-    request.onerror=()=>reject(new Error('Video upload connection failed. Check your internet connection and retry.'));
-    request.onabort=()=>reject(new Error('Video upload was cancelled.'));
-    request.ontimeout=()=>reject(new Error('Video upload timed out. Please retry.'));
-    request.timeout=30*60*1000;
-    request.send(file);
+    const upload=new Upload(file,{
+      endpoint,
+      retryDelays:[0,1000,3000,5000,10000,20000],
+      chunkSize:6*1024*1024,
+      headers:{
+        apikey:SUPABASE_ANON_KEY,
+        authorization:'Bearer '+token,
+        'x-upsert':'false'
+      },
+      metadata:{
+        bucketName:'nexora-drama-videos',
+        objectName:path,
+        contentType,
+        cacheControl:'3600'
+      },
+      onError(error){reject(new Error('Resumable video upload failed: '+(error?.message||'Please retry.')));},
+      onProgress(bytesUploaded,bytesTotal){
+        if(typeof onProgress==='function')onProgress(Math.min(100,Math.round(bytesUploaded/bytesTotal*100)),bytesUploaded,bytesTotal);
+      },
+      onSuccess(){if(typeof onProgress==='function')onProgress(100,file.size,file.size);resolve();}
+    });
+    upload.start();
   });
 }
 function subtitleFileToVtt(file){
