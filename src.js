@@ -599,10 +599,11 @@ function renderScreen() {
     video.addEventListener('playing', () => { cancelContinueNotification(); });
     video.addEventListener('timeupdate', () => {
       maybeRecordDramaView();
-      if (video.currentTime - lastProgressWrite < 2) return;
+      if (Math.abs(video.currentTime - lastProgressWrite) < 2) return;
       lastProgressWrite = video.currentTime;
       savePlaybackPosition();
     });
+    video.addEventListener('seeked', savePlaybackPosition);
     const saveResumeReminder = () => {
       if (!video.ended && video.currentTime >= 30 && (!video.duration || video.duration - video.currentTime > 5)) {
         scheduleContinueNotification(x, video.currentTime);
