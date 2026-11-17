@@ -345,7 +345,8 @@ function renderScreen() {
   const screen = document.querySelector('#screen');
   if (!screen) return;
   if (view === 'home') {
-    const uploadedVideos = items.filter(x => !builtInIds.has(x.id) && x.url);
+    const uploadedVideos = items.filter(x => !builtInIds.has(x.id) && x.url)
+      .sort((a, b) => Number(b.watchCount || 0) - Number(a.watchCount || 0));
     const popularDrama = uploadedVideos.slice(0, 1);
     const otherFeatured = uploadedVideos.slice(1);
     screen.innerHTML = `<section class="db-home"><div class="db-greeting"><span class="db-kicker">DRAMABOX</span><h1>Discover your next favorite drama.</h1><p>Explore videos uploaded by creators and original text stories.</p></div><h2>Popular Drama</h2><div class="home-published popular-drama">${popularDrama.length ? popularDrama.map(card).join('') : '<p class="muted">Your published videos will appear here after you upload and publish them.</p>'}</div><h2>Other Featured</h2><div class="home-published other-featured">${otherFeatured.length ? otherFeatured.map(card).join('') : '<p class="muted">Other uploaded videos will appear here when you publish more videos.</p>'}</div><section class="db-story-only"><h2>Drama Story Only</h2><p class="muted">Read and write drama stories in text only. No videos in this section.</p><div class="db-story-actions"><button id="dbRead">▤　READ TEXT STORIES</button><button id="dbCreate">＋　WRITE A STORY</button></div></section><div class="db-feature-row"><button data-go="shorts">DRAMA SHORTS</button><button data-go="saved">SAVED DRAMAS</button><button data-go="search">SEARCH</button></div></section>`;
