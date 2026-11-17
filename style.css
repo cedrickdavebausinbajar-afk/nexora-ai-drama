@@ -572,3 +572,13 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
 .upload-progress progress::-webkit-progress-value{background:linear-gradient(90deg,#8d6421,#d8b45e,#fff0b8);border-radius:999px;box-shadow:0 0 15px #d8b45e77}
 .upload-progress progress::-moz-progress-bar{background:linear-gradient(90deg,#8d6421,#d8b45e,#fff0b8);border-radius:999px}
 .upload-progress small{display:block;margin-top:9px;color:#bdb095;font-size:11px;line-height:1.5}
+
+
+/* Live APK update download progress */
+.update-progress{margin:18px 0 14px;padding:14px;border:1px solid #d8b45e55;border-radius:12px;background:#08080888;text-align:left}
+.update-progress[hidden]{display:none}
+.update-progress-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.update-progress-heading strong{color:#f0d889;font-size:22px;font-variant-numeric:tabular-nums}
+.update-progress-heading span{color:#c9c0ad;font-size:11px;line-height:1.4;text-align:right}
+.update-progress-track{height:9px;overflow:hidden;border-radius:99px;background:#ffffff20}
+.update-progress-bar{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#a77d31,#f0d889);transition:width .18s ease}
