@@ -300,6 +300,7 @@ let active = 0;
 let view = 'home';
 let ownerFlowActive = false;
 const WATCH_PROGRESS_KEY = 'nexora-watch-progress-v1';
+const WATCH_HISTORY_KEY = 'nexora-watch-history-v1';
 const WATCH_NOTIFICATION_ID = 7301;
 let pendingResumeId = '';
 let activePlayerController = null;
@@ -365,6 +366,7 @@ function shell() {
   <div class="drawer-section-label">NEXORA BOOKSHELF</div>
   <button class="drawer-link" data-view="stories">▤ &nbsp; Story Mode <span>READ & WRITE</span></button>
   <button class="drawer-link" data-view="saved">♥ &nbsp; Saved dramas</button>
+  <button class="drawer-link" data-view="history">◷ &nbsp; Watch history</button>
   <button class="drawer-link" data-view="updates">↻ &nbsp; Updates <span id="updateBadge">CHECKING</span></button>
   <div class="drawer-divider"></div>
   <a class="drawer-link" href="https://cedrickdavebausinbajar-afk.github.io/nexora-official-website/" target="_blank" rel="noopener">◎ &nbsp; Official website ↗</a>
@@ -407,13 +409,18 @@ function renderScreen() {
     const uploadedVideos = items.filter(x => !builtInIds.has(x.id) && x.url);
     const trendingDramas = [...uploadedVideos].sort((a,b)=>Number(b.watchCount||0)-Number(a.watchCount||0)).slice(0,8);
     const latestEpisodes = uploadedVideos.slice(0,8);
+    let continueProgress = null; let watchHistory = [];
+    try { continueProgress = JSON.parse(localStorage.getItem(WATCH_PROGRESS_KEY) || 'null'); } catch {}
+    try { watchHistory = JSON.parse(localStorage.getItem(WATCH_HISTORY_KEY) || '[]'); if (!Array.isArray(watchHistory)) watchHistory=[]; } catch {}
+    const continueItem = continueProgress && !continueProgress.completed ? items.find(entry=>entry.id===continueProgress.id) : null;
+    const recentItems = watchHistory.map(entry=>items.find(item=>item.id===entry.id)).filter(Boolean).filter(entry=>entry.id!==continueItem?.id).slice(0,8);
     const genreShelves = [...new Set(uploadedVideos.map(x=>String(x.category||'').trim()).filter(Boolean))]
       .slice(0,6).map(genre=>{
         const matches=uploadedVideos.filter(x=>String(x.category||'').toLowerCase()===genre.toLowerCase()).slice(0,8);
         return matches.length ? `<h2>${esc(genre)} Dramas</h2><div class="home-published genre-shelf">${matches.map(card).join('')}</div>` : '';
       }).join('');
     const emptyLibrary = '<p class="muted">Your streaming library is ready. Publish licensed videos from the Owner Dashboard and they will appear here automatically.</p>';
-    screen.innerHTML = `<section class="db-home"><div class="db-greeting"><span class="db-kicker">NEXORA STREAMING</span><h1>Discover your next favorite drama.</h1><p>Explore trending stories, new episodes and creator-authorized videos.</p></div><h2>Trending Now</h2><div class="home-published popular-drama">${trendingDramas.length ? trendingDramas.map(card).join('') : emptyLibrary}</div><h2>New Episodes</h2><div class="home-published latest-episodes">${latestEpisodes.length ? latestEpisodes.map(card).join('') : '<p class="muted">New episodes will appear here as soon as they are published.</p>'}</div>${genreShelves}<section class="db-story-only"><h2>Drama Story Only</h2><p class="muted">Read and write drama stories in text only. No videos in this section.</p><div class="db-story-actions"><button id="dbRead">▤　READ TEXT STORIES</button><button id="dbCreate">＋　WRITE A STORY</button></div></section><div class="db-feature-row"><button data-go="shorts">DRAMA SHORTS</button><button data-go="saved">SAVED DRAMAS</button><button data-go="search">SEARCH</button></div></section>`;
+    screen.innerHTML = `<section class="db-home"><div class="db-greeting"><span class="db-kicker">NEXORA STREAMING</span><h1>Discover your next favorite drama.</h1><p>Explore trending stories, new episodes and creator-authorized videos.</p></div>${continueItem ? `<h2>Continue Watching</h2><div class="continue-watching"><div class="continue-poster">${continueItem.poster ? `<img src="${esc(continueItem.poster)}" alt="${esc(continueItem.title)} poster">` : `<span>✦ NEXORA</span>`}</div><div class="continue-copy"><b>${esc(continueItem.title)}</b><small>${esc(continueItem.episode||'Episode')} · Resume at ${Math.floor((continueProgress.time||0)/60)}:${String((continueProgress.time||0)%60).padStart(2,'0')}</small><div class="continue-progress"><i style="width:${Math.max(2,Math.min(98,Math.round((continueProgress.time||0)/(continueProgress.duration||((continueProgress.time||0)+60))*100)))}%"></i></div><button class="gold-outline" data-play="${esc(continueItem.id)}">▶ CONTINUE WATCHING</button></div></div>` : ''}${recentItems.length ? `<h2>Recently Watched</h2><div class="home-published recent-watched">${recentItems.map(card).join('')}</div>` : ''}<h2>Trending Now</h2><div class="home-published popular-drama">${trendingDramas.length ? trendingDramas.map(card).join('') : emptyLibrary}</div><h2>New Episodes</h2><div class="home-published latest-episodes">${latestEpisodes.length ? latestEpisodes.map(card).join('') : '<p class="muted">New episodes will appear here as soon as they are published.</p>'}</div>${genreShelves}<section class="db-story-only"><h2>Drama Story Only</h2><p class="muted">Read and write drama stories in text only. No videos in this section.</p><div class="db-story-actions"><button id="dbRead">▤　READ TEXT STORIES</button><button id="dbCreate">＋　WRITE A STORY</button></div></section><div class="db-feature-row"><button data-go="shorts">DRAMA SHORTS</button><button data-go="saved">SAVED DRAMAS</button><button data-go="search">SEARCH</button></div></section>`;
     wireCards();
     screen.querySelector('#dbRead').onclick=()=>{view='stories';render();};
     screen.querySelector('#dbCreate').onclick=()=>{view='stories';render();};
@@ -468,6 +475,14 @@ function renderScreen() {
       wireCards();
     };
     q.dispatchEvent(new Event('input'));
+    return;
+  }
+  if (view === 'history') {
+    let history=[]; try { history=JSON.parse(localStorage.getItem(WATCH_HISTORY_KEY)||'[]'); if(!Array.isArray(history))history=[]; } catch {}
+    const watched=history.map(entry=>items.find(item=>item.id===entry.id)).filter(Boolean);
+    screen.innerHTML=`<section class="panel"><div class="eyebrow">YOUR NEXORA ACTIVITY</div><h1>Watch history</h1><p class="muted">Your recently watched dramas on this device.</p>${watched.length?watched.map(card).join(''):'<p class="muted">Your watch history will appear here after you play a drama.</p>'}<button id="clearWatchHistory" class="gold-outline" ${watched.length?'':'hidden'}>CLEAR WATCH HISTORY</button></section>`;
+    wireCards();
+    const clear=document.querySelector('#clearWatchHistory'); if(clear)clear.onclick=()=>{localStorage.removeItem(WATCH_HISTORY_KEY);renderScreen();};
     return;
   }
   if (view === 'saved') {
@@ -530,7 +545,7 @@ function renderScreen() {
     try {
       localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify({
         id:x.id,title:x.title,episode:x.episode||'Episode',
-        time:Math.floor(video.currentTime),updatedAt:Date.now()
+        time:Math.floor(video.currentTime),duration:Number.isFinite(video.duration)?Math.floor(video.duration):0,updatedAt:Date.now()
       }));
     } catch {}
   };
@@ -696,6 +711,11 @@ function renderScreen() {
     });
     syncPremiumPlayButton();
     video.addEventListener('play', () => {
+      try {
+        const history=JSON.parse(localStorage.getItem(WATCH_HISTORY_KEY)||'[]');
+        const next=[{id:x.id,title:x.title,episode:x.episode||'Episode',lastWatched:Date.now()},...(Array.isArray(history)?history.filter(entry=>entry.id!==x.id):[])].slice(0,30);
+        localStorage.setItem(WATCH_HISTORY_KEY,JSON.stringify(next));
+      } catch {}
       trackNexoraEvent('drama_play_start', {content_title: x.title || 'unknown', content_category: x.category || 'unknown'});
     });
     let recordedDramaView = false;
@@ -760,6 +780,11 @@ function renderScreen() {
       }
       cancelContinueNotification();
       try { const p=JSON.parse(localStorage.getItem(WATCH_PROGRESS_KEY)||'null'); if(p?.id===x.id) localStorage.removeItem(WATCH_PROGRESS_KEY); } catch {}
+      const nextEpisode=seriesEpisodes.find(entry=>(Number(entry.episodeNumber)||1)>(Number(x.episodeNumber)||1));
+      if(nextEpisode){
+        const nextIndex=items.findIndex(entry=>entry.id===nextEpisode.id);
+        if(nextIndex>=0){active=nextIndex;render();requestAnimationFrame(()=>{const nextVideo=document.querySelector('#dramaVideo');if(nextVideo)nextVideo.play().catch(()=>{});});}
+      }
     });
     video.addEventListener('error', () => {
       const code = video.error?.code;
