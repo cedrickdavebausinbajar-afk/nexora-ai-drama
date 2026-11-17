@@ -29,7 +29,22 @@ function trackNexoraEvent(eventName, params = {}) {
 }
 
 
-let updateDownload = {status:'idle', path:'', message:''};
+function formatUpdateBytes(bytes) {
+  const value = Number(bytes) || 0;
+  if (value < 1024) return value + ' B';
+  if (value < 1024 * 1024) return (value / 1024).toFixed(1) + ' KB';
+  return (value / (1024 * 1024)).toFixed(2) + ' MB';
+}
+function setUpdateProgress(percent, label) {
+  const safe = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  const bar = document.querySelector('#updateProgressBar');
+  const value = document.querySelector('#updateProgressPercent');
+  const detail = document.querySelector('#updateProgressDetail');
+  if (bar) bar.style.width = safe + '%';
+  if (value) value.textContent = safe + '%';
+  if (detail) detail.textContent = label || 'Preparing update…';
+}
+\nlet updateDownload = {status:'idle', path:'', message:''};
 function refreshUpdateUI() {
   const status = document.querySelector('#updateStatus');
   if (status) status.textContent = updateInfo.message;
@@ -57,16 +72,32 @@ async function startUpdateFlow() {
     if (action) { action.disabled = true; action.textContent = 'DOWNLOADING…'; }
     const popupAction = document.querySelector('#popupUpdateNow');
     if (popupAction) { popupAction.disabled = true; popupAction.textContent = 'DOWNLOADING…'; }
+    let progressHandle = null;
+    const progressWrap = document.querySelector('#updateProgressWrap');
+    if (progressWrap) progressWrap.hidden = false;
+    setUpdateProgress(0, 'Connecting to update server…');
     try {
+      progressHandle = await ApkInstaller.addListener('downloadProgress', event => {
+        const percent = Math.max(0, Math.min(100, Number(event?.percent || 0)));
+        const downloaded = formatUpdateBytes(event?.downloadedBytes || 0);
+        const total = Number(event?.totalBytes || 0);
+        setUpdateProgress(percent, total > 0 ? `Downloading ${downloaded} of ${formatUpdateBytes(total)}` : `Downloaded ${downloaded}`);
+      });
       const result = await ApkInstaller.downloadAndInstall({url: downloadUrl});
       if (result?.requiresPermission) {
         updateInfo.message = 'Allow NEXORA to install unknown apps in Android settings, return here, and tap UPDATE NOW again.';
+      } else if (result?.started) {
+        setUpdateProgress(100, 'Download complete · Opening Android installer…');
+        updateInfo.message = 'Download complete. Android installer opened. Tap Install to finish updating.';
       } else {
-        updateInfo.message = 'APK downloaded. Android package installer opened; approve the update to finish.';
+        throw new Error('Android installer did not confirm that it opened.');
       }
     } catch (error) {
-      updateInfo.message = 'Update could not start: ' + (error?.message || 'Please try again.');
+      const message = error?.message || 'Please try again.';
+      updateInfo.message = 'Update failed: ' + message;
+      setUpdateProgress(0, 'Update failed · ' + message);
     } finally {
+      if (progressHandle) { try { await progressHandle.remove(); } catch (_) {} }
       refreshUpdateUI();
       const nextAction = document.querySelector('#updateAction');
       if (nextAction) { nextAction.disabled = false; nextAction.textContent = 'DOWNLOAD UPDATE'; }
@@ -109,6 +140,10 @@ function showUpdatePopup() {
     <h2 id="updatePopupTitle">A new version is ready</h2>
     <p>Update to ${esc(updateInfo.latest)} for the latest NEXORA AI DRAMA experience.</p>
     <div class="update-popup-version">Installed: ${esc(updateInfo.installed)} <span>→</span> Latest: ${esc(updateInfo.latest)}</div>
+    <div class="update-progress" id="updateProgressWrap" hidden>
+      <div class="update-progress-heading"><strong id="updateProgressPercent">0%</strong><span id="updateProgressDetail">Preparing update…</span></div>
+      <div class="update-progress-track"><div class="update-progress-bar" id="updateProgressBar"></div></div>
+    </div>
     <button class="gold update-popup-primary" id="popupUpdateNow">UPDATE NOW</button>
     <button class="update-popup-later" id="popupUpdateLater">Maybe later</button>
     <small>Android will ask you to confirm the installation.</small>
