@@ -600,14 +600,26 @@ function renderScreen() {
     const videoLoading = document.querySelector('#videoLoading');
     const syncPremiumPlayButton = () => {
       if (!premiumPlayButton) return;
-      const show = video.paused || video.ended;
-      premiumPlayButton.hidden = !show;
-      premiumPlayButton.setAttribute('aria-label', video.ended ? 'Replay video' : 'Play video');
+      // Keep one premium control available during playback so it can pause,
+      // resume, and replay without relying only on the tiny native controls.
+      premiumPlayButton.hidden = false;
+      const state = video.ended ? 'replay' : video.paused ? 'play' : 'pause';
+      premiumPlayButton.dataset.state = state;
+      premiumPlayButton.setAttribute('aria-label', state === 'replay' ? 'Replay video' : state === 'pause' ? 'Pause video' : 'Play video');
+      const icon = premiumPlayButton.querySelector('.nexora-play-icon');
       const label = premiumPlayButton.querySelector('.nexora-play-label');
-      if (label) label.textContent = video.ended ? 'REPLAY EPISODE' : 'PLAY EPISODE';
+      if (icon) icon.textContent = state === 'pause' ? 'Ⅱ' : '▶';
+      if (label) label.textContent = state === 'replay' ? 'REPLAY EPISODE' : state === 'pause' ? 'PAUSE VIDEO' : 'PLAY EPISODE';
     };
     if (premiumPlayButton) premiumPlayButton.addEventListener('click', async () => {
-      if (video.ended) { try { video.currentTime = 0; } catch {} }
+      if (!video.paused && !video.ended) {
+        video.pause();
+        syncPremiumPlayButton();
+        return;
+      }
+      if (video.ended) {
+        try { video.currentTime = 0; } catch {}
+      }
       if (errorBox) errorBox.hidden = true;
       if (videoLoading) videoLoading.hidden = false;
       premiumPlayButton.disabled = true;
@@ -615,21 +627,22 @@ function renderScreen() {
         await video.play();
       } catch (err) {
         if (videoLoading) videoLoading.hidden = true;
-        premiumPlayButton.disabled = false;
-        syncPremiumPlayButton();
         if (errorMessage) errorMessage.textContent = err?.name === 'NotAllowedError'
           ? 'Tap PLAY EPISODE again to allow playback, or use the video controls.'
           : 'Playback could not start. Check your connection and tap RETRY.';
         if (errorBox) errorBox.hidden = false;
+      } finally {
+        premiumPlayButton.disabled = false;
+        syncPremiumPlayButton();
       }
     });
     video.addEventListener('play', () => {
       if (videoLoading) videoLoading.hidden = false;
-      if (premiumPlayButton) premiumPlayButton.hidden = true;
+      syncPremiumPlayButton();
     });
     video.addEventListener('playing', () => {
       if (videoLoading) videoLoading.hidden = true;
-      if (premiumPlayButton) premiumPlayButton.hidden = true;
+      syncPremiumPlayButton();
       if (errorBox) errorBox.hidden = true;
     });
     video.addEventListener('waiting', () => { if (videoLoading) videoLoading.hidden = false; });
