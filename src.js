@@ -853,7 +853,7 @@ async function renderAdmin() {
         if(downloadError)throw downloadError;
         const frame=await captureDramaThumbnail(blob);if(!frame)throw new Error('Could not capture a video frame');
         const posterPath=entry.video_storage_path+'.jpg';
-        const posterUrl=await uploadDramaAsset(posterPath,frame,'image/jpeg');
+        const posterUrl=(await uploadDramaAsset(posterPath,frame,'image/jpeg'))+'?v='+Date.now();
         const {error:updateError}=await supabase.from('dramas').update({poster_url:posterUrl,poster_storage_path:posterPath}).eq('id',entry.id);
         if(updateError)throw updateError;
         fixed++;
