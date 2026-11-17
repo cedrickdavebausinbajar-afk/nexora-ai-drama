@@ -781,8 +781,8 @@ function card(x) {
   const title = esc(x.title || 'Untitled drama');
   return `<article class="rowcard home-video-card">
     <div class="home-video-thumb">
-      <img class="mini-poster" ${x.poster ? 'src="' + esc(x.poster) + '"' : 'hidden'} data-video-thumbnail="${esc(x.id)}" alt="Real video thumbnail for ${title}">
-      <div class="home-thumb-fallback" ${x.poster ? 'hidden' : ''}><span>✦ NEXORA AI DRAMA</span><b>${title}</b><small>LOADING VIDEO FRAME…</small></div>
+      <img class="mini-poster" ${x.poster ? 'src="' + esc(x.poster) + '"' : 'hidden'} data-video-thumbnail="${esc(x.id)}" alt="Video thumbnail for ${title}" loading="eager" fetchpriority="high" decoding="async">
+      <div class="home-thumb-fallback" ${x.poster ? 'hidden' : ''}><span>✦ NEXORA AI DRAMA</span><b>${title}</b><small>DRAMA PREVIEW</small></div>
       <span class="home-thumb-play" aria-hidden="true">▶</span>
     </div>
     <div class="home-video-copy"><b>${title}</b><small>${esc(x.category || 'Drama')} · ${esc(x.episode || 'Episode 1')}</small><p>${esc(x.creator || 'Creator not listed')}</p><button class="gold-outline" data-play="${esc(x.id)}">WATCH DRAMA</button></div>
