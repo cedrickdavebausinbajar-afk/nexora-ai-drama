@@ -70,8 +70,8 @@ jobs:
               if not path.exists():
                   continue
               data = path.read_text(encoding='utf-8')
-              updated = re.sub(r'(?m)(compileSdkVersion\\s*[=:]\\s*)\\d+', r'\\g<1>36', data)
-              updated = re.sub(r'(?m)(targetSdkVersion\\s*[=:]\\s*)\\d+', r'\\g<1>36', updated)
+              updated = re.sub(r'(?m)(compileSdkVersion\s*[=:]\s*)\d+', r'\g<1>36', data)
+              updated = re.sub(r'(?m)(targetSdkVersion\s*[=:]\s*)\d+', r'\g<1>36', updated)
               if updated != data:
                   path.write_text(updated, encoding='utf-8')
                   changed.append(str(path))
