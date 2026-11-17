@@ -445,7 +445,7 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug
 
-      - name: Prepare and build signed release APK and Play Store AAB
+      - name: Build signed direct-download APK
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -458,7 +458,42 @@ jobs:
           fi
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-key.jks
           cd android
-          ./gradlew assembleRelease bundleRelease \
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file="$PWD/release-key.jks" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+          rm -f release-key.jks
+
+      - name: Build Google Play AAB without self-update permission
+        if: ${{ success() && hashFiles('android/app/build/outputs/apk/release/app-release.apk') != '' }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_STORE_DISTRIBUTION: 'true'
+        run: |
+          npm run build
+          npx cap copy android
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          xml = manifest.read_text(encoding="utf-8")
+          permission = 'android.permission.REQUEST_INSTALL_PACKAGES'
+          if permission not in xml:
+              raise SystemExit("Expected direct-APK installer permission was not found before creating the store bundle.")
+          xml = re.sub(r'\s*<uses-permission android:name="android\.permission\.REQUEST_INSTALL_PACKAGES"\s*/>', '', xml)
+          if permission in xml:
+              raise SystemExit("Store bundle still contains the restricted installer permission.")
+          manifest.write_text(xml, encoding="utf-8")
+          PY
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-key.jks
+          cd android
+          ./gradlew bundleRelease \
             -Pandroid.injected.signing.store.file="$PWD/release-key.jks" \
             -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
@@ -481,7 +516,6 @@ jobs:
             Install over your existing NEXORA AI DRAMA app. Android will ask you to confirm.
           files: |
             NEXORA-AI-DRAMA.apk
-            NEXORA-AI-DRAMA.aab
           make_latest: true
 
 
