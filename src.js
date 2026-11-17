@@ -145,6 +145,25 @@ async function checkForUpdates() {
   } catch {
     updateInfo = {...updateInfo,status:'error',message:'Could not check for updates. Please try again.'};
   }
+  if (updateInfo.status === 'available' && Capacitor.isNativePlatform()) {
+    const notifiedVersion = localStorage.getItem('nexora-update-notified-v1');
+    if (notifiedVersion !== updateInfo.latest) {
+      try {
+        const permission = await LocalNotifications.checkPermissions();
+        if (permission.display === 'granted') {
+          await LocalNotifications.schedule({notifications:[{
+            id:7302,
+            title:'NEXORA AI DRAMA update available',
+            body:`Version ${updateInfo.latest} is ready. Open NEXORA to install the latest update.`,
+            schedule:{at:new Date(Date.now()+1000),allowWhileIdle:true},
+            channelId:'nexora-updates',
+            extra:{type:'app-update'}
+          }]});
+          localStorage.setItem('nexora-update-notified-v1', updateInfo.latest);
+        }
+      } catch (_) {}
+    }
+  }
   const badge=document.querySelector('#updateBadge');
   if(badge) badge.textContent=updateInfo.status==='available'?'UPDATE':updateInfo.status==='current'?'LATEST':updateInfo.status==='checking'?'CHECKING':'RETRY';
   const status=document.querySelector('#updateStatus');
