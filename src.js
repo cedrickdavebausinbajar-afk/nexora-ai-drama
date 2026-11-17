@@ -38,6 +38,11 @@ function refreshUpdateUI() {
   if (popupAction) popupAction.textContent = 'DOWNLOAD UPDATE';
 }
 async function startUpdateFlow() {
+  if (APP_STORE_DISTRIBUTION) {
+    updateInfo.message = 'Updates are managed by the app store where you installed NEXORA.';
+    refreshUpdateUI();
+    return;
+  }
   const downloadUrl = updateInfo.url;
   if (!downloadUrl) {
     updateInfo.message = 'The update download is not available yet. Please try again later.';
@@ -87,6 +92,7 @@ if (Capacitor.isNativePlatform()) {
 }
 
 const APP_REPO = 'cedrickdavebausinbajar-afk/nexora-ai-drama';
+const APP_STORE_DISTRIBUTION = import.meta.env.VITE_APP_STORE_DISTRIBUTION === 'true';
 let updateInfo = {status:'checking', installed:'', latest:'', url:'', message:'Checking for updates…'};
 let updatePromptShown = false;
 function showUpdatePopup() {
@@ -116,25 +122,34 @@ function showUpdatePopup() {
 
 async function performUpdateCheck() {
   try {
-    const [localRes, remoteRes] = await Promise.all([
-      fetch('/app-version.json', {cache:'no-store'}),
-      fetch(`https://api.github.com/repos/${APP_REPO}/releases/latest`, {headers:{Accept:'application/vnd.github+json'}, cache:'no-store'})
-    ]);
-    if (!localRes.ok || !remoteRes.ok) throw new Error('Update service unavailable');
+    const localRes = await fetch('/app-version.json', {cache:'no-store'});
+    if (!localRes.ok) throw new Error('App version metadata unavailable');
     const local = await localRes.json();
-    const release = await remoteRes.json();
-    const latestCode = Number(String(release.tag_name || '').match(/^v\d+\.\d+\.(\d+)$/)?.[1] || 0);
-    const installedCode = Number(local.versionCode || 0);
-    const apk = (release.assets || []).find(item => item.name === 'NEXORA-AI-DRAMA.apk' && /^https:\/\/github\.com\/cedrickdavebausinbajar-afk\/nexora-ai-drama\/releases\/download\//i.test(item.browser_download_url || ''));
-    const newerVersion = latestCode > installedCode;
-    const downloadUrl = apk?.browser_download_url || (!Capacitor.isNativePlatform() ? (release.html_url || '') : '');
-    updateInfo = {
-      status:newerVersion ? (downloadUrl ? 'available' : 'error') : 'current',
-      installed:local.versionName || 'Unknown',
-      latest:release.tag_name || 'Unknown',
-      url:downloadUrl,
-      message:newerVersion ? (downloadUrl ? 'A new version is ready. Download the official APK and approve the Android installer.' : 'A newer version was found, but its official APK asset is not published yet. Please try again later.') : 'Your app is up to date!'
-    };
+    if (APP_STORE_DISTRIBUTION) {
+      updateInfo = {
+        status:'current',
+        installed:local.versionName || 'Unknown',
+        latest:'Managed by app store',
+        url:'',
+        message:'Updates are delivered through the app store where you installed NEXORA.'
+      };
+    } else {
+      const remoteRes = await fetch(`https://api.github.com/repos/${APP_REPO}/releases/latest`, {headers:{Accept:'application/vnd.github+json'}, cache:'no-store'});
+      if (!remoteRes.ok) throw new Error('Update service unavailable');
+      const release = await remoteRes.json();
+      const latestCode = Number(String(release.tag_name || '').match(/^v\d+\.\d+\.(\d+)$/)?.[1] || 0);
+      const installedCode = Number(local.versionCode || 0);
+      const apk = (release.assets || []).find(item => item.name === 'NEXORA-AI-DRAMA.apk' && /^https:\/\/github\.com\/cedrickdavebausinbajar-afk\/nexora-ai-drama\/releases\/download\//i.test(item.browser_download_url || ''));
+      const newerVersion = latestCode > installedCode;
+      const downloadUrl = apk?.browser_download_url || (!Capacitor.isNativePlatform() ? (release.html_url || '') : '');
+      updateInfo = {
+        status:newerVersion ? (downloadUrl ? 'available' : 'error') : 'current',
+        installed:local.versionName || 'Unknown',
+        latest:release.tag_name || 'Unknown',
+        url:downloadUrl,
+        message:newerVersion ? (downloadUrl ? 'A new version is ready. Download the official APK and approve the Android installer.' : 'A newer version was found, but its official APK asset is not published yet. Please try again later.') : 'Your app is up to date!'
+      };
+    }
   } catch {
     updateInfo = {...updateInfo,status:'error',message:'Could not check for updates. Please try again.'};
   }
@@ -370,7 +385,7 @@ function renderScreen() {
   }
   if (view === 'stories') { renderStoryMode(screen, () => { view='feed'; render(); }); return; }
   if (view === 'updates') {
-    screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">Android updates download directly from NEXORA. After the APK downloads, open it and approve the installation. Google Play is not used.</small></section>`;
+    screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">${APP_STORE_DISTRIBUTION ? 'Updates are delivered through the app store where you installed NEXORA.' : 'Android updates download directly from NEXORA. After the APK downloads, approve the Android installer. This direct APK channel does not use Google Play.'}</small></section>`;
     document.querySelector('#checkUpdates').onclick=()=>{updateDownload={status:'idle',path:'',message:''};document.querySelector('#updateStatus').textContent='Checking for updates…';checkForUpdates(true);};
     document.querySelector('#updateAction').onclick=startUpdateFlow;
     checkForUpdates();
