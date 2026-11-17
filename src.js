@@ -250,7 +250,7 @@ async function cancelContinueNotification() {
   if (!Capacitor.isNativePlatform()) return;
   try { await LocalNotifications.cancel({notifications:[{id:WATCH_NOTIFICATION_ID}]}); } catch {}
 }
-async async function scheduleContinueNotification(item, seconds) {
+async function scheduleContinueNotification(item, seconds) {
   if (!Capacitor.isNativePlatform() || !item?.id || seconds < 30) return;
   const progress = {id:item.id,title:item.title||'your drama',episode:item.episode||'Episode',time:Math.floor(seconds),updatedAt:Date.now()};
   try { localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify(progress)); } catch {}
@@ -265,7 +265,7 @@ async async function scheduleContinueNotification(item, seconds) {
     }]});
   } catch (_) {}
 }
-async async function initializePhoneNotifications() {
+async function initializePhoneNotifications() {
   if (!Capacitor.isNativePlatform()) return;
   try {
     let permission = await LocalNotifications.checkPermissions();
