@@ -951,7 +951,7 @@ async function uploadDramaVideoWithProgress(path,file,contentType,onProgress){
   const token=data?.session?.access_token;
   if(!token)throw new Error('Your owner session expired. Sign in again.');
   if(!file||!file.size)throw new Error('Choose a non-empty video file.');
-  const endpoint=SUPABASE_URL.replace(/\\/$/,'')+'/storage/v1/upload/resumable';
+  const endpoint=SUPABASE_URL.replace(/\/$/,'')+'/storage/v1/upload/resumable';
   return new Promise((resolve,reject)=>{
     const upload=new Upload(file,{
       endpoint,
