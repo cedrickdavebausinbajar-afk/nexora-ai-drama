@@ -352,11 +352,16 @@ function renderScreen() {
   const screen = document.querySelector('#screen');
   if (!screen) return;
   if (view === 'home') {
-    const uploadedVideos = items.filter(x => !builtInIds.has(x.id) && x.url)
-      .sort((a, b) => Number(b.watchCount || 0) - Number(a.watchCount || 0));
-    const popularDrama = uploadedVideos.slice(0, 1);
-    const otherFeatured = uploadedVideos.slice(1);
-    screen.innerHTML = `<section class="db-home"><div class="db-greeting"><span class="db-kicker">DRAMABOX</span><h1>Discover your next favorite drama.</h1><p>Explore videos uploaded by creators and original text stories.</p></div><h2>Popular Drama</h2><div class="home-published popular-drama">${popularDrama.length ? popularDrama.map(card).join('') : '<p class="muted">Your published videos will appear here after you upload and publish them.</p>'}</div><h2>Other Featured</h2><div class="home-published other-featured">${otherFeatured.length ? otherFeatured.map(card).join('') : '<p class="muted">Other uploaded videos will appear here when you publish more videos.</p>'}</div><section class="db-story-only"><h2>Drama Story Only</h2><p class="muted">Read and write drama stories in text only. No videos in this section.</p><div class="db-story-actions"><button id="dbRead">▤　READ TEXT STORIES</button><button id="dbCreate">＋　WRITE A STORY</button></div></section><div class="db-feature-row"><button data-go="shorts">DRAMA SHORTS</button><button data-go="saved">SAVED DRAMAS</button><button data-go="search">SEARCH</button></div></section>`;
+    const uploadedVideos = items.filter(x => !builtInIds.has(x.id) && x.url);
+    const trendingDramas = [...uploadedVideos].sort((a,b)=>Number(b.watchCount||0)-Number(a.watchCount||0)).slice(0,8);
+    const latestEpisodes = uploadedVideos.slice(0,8);
+    const genreShelves = [...new Set(uploadedVideos.map(x=>String(x.category||'').trim()).filter(Boolean))]
+      .slice(0,6).map(genre=>{
+        const matches=uploadedVideos.filter(x=>String(x.category||'').toLowerCase()===genre.toLowerCase()).slice(0,8);
+        return matches.length ? `<h2>${esc(genre)} Dramas</h2><div class="home-published genre-shelf">${matches.map(card).join('')}</div>` : '';
+      }).join('');
+    const emptyLibrary = '<p class="muted">Your streaming library is ready. Publish licensed videos from the Owner Dashboard and they will appear here automatically.</p>';
+    screen.innerHTML = `<section class="db-home"><div class="db-greeting"><span class="db-kicker">NEXORA STREAMING</span><h1>Discover your next favorite drama.</h1><p>Explore trending stories, new episodes and creator-authorized videos.</p></div><h2>Trending Now</h2><div class="home-published popular-drama">${trendingDramas.length ? trendingDramas.map(card).join('') : emptyLibrary}</div><h2>New Episodes</h2><div class="home-published latest-episodes">${latestEpisodes.length ? latestEpisodes.map(card).join('') : '<p class="muted">New episodes will appear here as soon as they are published.</p>'}</div>${genreShelves}<section class="db-story-only"><h2>Drama Story Only</h2><p class="muted">Read and write drama stories in text only. No videos in this section.</p><div class="db-story-actions"><button id="dbRead">▤　READ TEXT STORIES</button><button id="dbCreate">＋　WRITE A STORY</button></div></section><div class="db-feature-row"><button data-go="shorts">DRAMA SHORTS</button><button data-go="saved">SAVED DRAMAS</button><button data-go="search">SEARCH</button></div></section>`;
     wireCards();
     screen.querySelector('#dbRead').onclick=()=>{view='stories';render();};
     screen.querySelector('#dbCreate').onclick=()=>{view='stories';render();};
@@ -1101,7 +1106,11 @@ async function performCloudDramasLoad() {
   const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,episodeNumber:Number(row.episode_number||String(row.episode||'').match(/\d+/)?.[0]||1),parentDramaId:row.parent_drama_id||null,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url||(row.video_storage_path?supabase.storage.from('nexora-drama-videos').getPublicUrl(row.video_storage_path).data.publicUrl:''),videoStoragePath:row.video_storage_path||'',poster:row.poster_url||'',subtitle:row.subtitle_url||'',watchCount:Number(row.watch_count||0)}));
 
   const demoIds=new Set(seed.map(x=>x.id)),cloudIds=new Set(cloud.map(x=>x.id));
-  items=[...seed,...cloud,...items.filter(x=>!demoIds.has(x.id)&&!cloudIds.has(x.id))];
+  const previousCatalog=items.filter(x=>!demoIds.has(x.id)).map(x=>[x.id,x.watchCount||0,x.url||'',x.poster||''].join('|')).join('~');
+  const nextItems=[...seed,...cloud,...items.filter(x=>!demoIds.has(x.id)&&!cloudIds.has(x.id))];
+  const nextCatalog=nextItems.filter(x=>!demoIds.has(x.id)).map(x=>[x.id,x.watchCount||0,x.url||'',x.poster||''].join('|')).join('~');
+  const catalogueChanged=previousCatalog!==nextCatalog;
+  items=nextItems;
   if (pendingResumeId && !ownerFlowActive) {
     const resumeIndex=items.findIndex(entry=>entry.id===pendingResumeId);
     if (resumeIndex>=0) { active=resumeIndex; view='feed'; pendingResumeId=''; render(); return; }
@@ -1109,7 +1118,7 @@ async function performCloudDramasLoad() {
   // Never rebuild the active video DOM during playback. The 30-second catalogue
   // refresh and watch-count realtime events used to recreate the <video> element,
   // sending playback back to the beginning (especially noticeable in fullscreen).
-  if(!ownerFlowActive && (view==='home'||view==='search'))render();
+  if(catalogueChanged && !ownerFlowActive && (view==='home'||view==='search'))render();
 }
 let cloudLoadPromise = null;
 let cloudRefreshQueued = false;
