@@ -903,10 +903,9 @@ async function renderAdmin() {
     const form=e.currentTarget,submit=form.querySelector('button[type="submit"]');
     submit.disabled=true;submit.textContent='PUBLISHING…';
     const f=new FormData(form),file=form.elements.videoFile.files?.[0]||null,subtitleFile=form.elements.subtitleFile.files?.[0]||null,parentDramaId=String(f.get('parentDramaId')||'').trim()||null,episodeNumber=Math.max(1,Number(f.get('episodeNumber')||1)),directUrl=String(f.get('url')||'').trim(),source=String(f.get('source')||'').trim(),poster=String(f.get('poster')||'').trim();
-    const allowedTypes=['video/mp4','video/webm','video/quicktime'];
     const allowedExt=/\.(mp4|webm|mov)$/i;
     const inferredFileType=file?(file.name.toLowerCase().endsWith('.webm')?'video/webm':file.name.toLowerCase().endsWith('.mov')?'video/quicktime':'video/mp4'):'';
-    if((!file&&!isSupportedVideoUrl(directUrl))||(file&&((file.type&&!allowedTypes.includes(file.type))||!allowedExt.test(file.name)))||(file&&file.size>524288000)||!/^https:\/\//i.test(source)||(poster&&!/^https:\/\//i.test(poster))||f.get('permission')!=='on'){
+    if((!file&&!isSupportedVideoUrl(directUrl))||(file&&!allowedExt.test(file.name))||(file&&file.size>524288000)||!/^https:\/\//i.test(source)||(poster&&!/^https:\/\//i.test(poster))||f.get('permission')!=='on'){
       alert('Choose an MP4, WebM, or MOV file up to 500 MB, or enter a direct HTTPS video-file URL ending in .mp4, .webm, or .mov. TikTok and other watch-page links are not playable files. Add the original HTTPS source and confirm publishing rights.');
       submit.disabled=false;submit.textContent='PUBLISH DRAMA';return;
     }
@@ -920,7 +919,7 @@ async function renderAdmin() {
         if(userError||!userData?.user) throw new Error('Your owner session expired. Sign in again.');
         const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-100);
         storagePath=userData.user.id+'/'+Date.now()+'-'+safeName;
-        const {error:uploadError}=await supabase.storage.from('nexora-drama-videos').upload(storagePath,file,{contentType:file.type||inferredFileType,upsert:false,cacheControl:'3600'});
+        const {error:uploadError}=await supabase.storage.from('nexora-drama-videos').upload(storagePath,file,{contentType:inferredFileType,upsert:false,cacheControl:'3600'});
         if(uploadError) throw uploadError;
         videoUrl=supabase.storage.from('nexora-drama-videos').getPublicUrl(storagePath).data.publicUrl;
       }
