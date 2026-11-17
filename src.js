@@ -418,6 +418,8 @@ function renderScreen() {
   }
   active = Math.min(active, items.length - 1);
   const x = items[active];
+  const seriesRootId=x.parentDramaId||x.id;
+  const seriesEpisodes=items.filter(entry=>entry.id===seriesRootId||entry.parentDramaId===seriesRootId).sort((a,b)=>(a.episodeNumber||1)-(b.episodeNumber||1));
   const peerTubeId = String(x.url || '').match(/(?:webseed|download\/videos)\/([0-9a-f-]{36})/i)?.[1];
   const peerTubeEmbed = peerTubeId
     ? `https://video.blender.org/videos/embed/${peerTubeId}?p2p=0&warningTitle=0`
@@ -444,9 +446,11 @@ function renderScreen() {
   <small class="license">${esc(x.license||'Creator-authorized video')}</small></div>
   <div class="actions"><button id="like" class="action">${liked.has(x.id)?'♥':'♡'}<small>SAVE</small></button><button id="share" class="action">↗<small>SHARE</small></button></div>
 </div>
+<section class="episode-picker"><h3>WATCH EPISODES</h3><p>${esc(x.title)}</p><div class="episode-list">${seriesEpisodes.map(entry=>'<button type="button" class="episode-choice '+(entry.id===x.id?'active':'')+'" data-episode-play="'+esc(entry.id)+'"><b>EP '+(entry.episodeNumber||1)+'</b><span>'+esc(entry.episode||('Episode '+(entry.episodeNumber||1)))+'</span></button>').join('')}</div></section>
 <div class="feed-controls"><button id="prev" ${active===0?'disabled':''}>↑ PREVIOUS</button><span>${active+1} / ${items.length}</span><button id="nextText" ${active===items.length-1?'disabled':''}>NEXT ↓</button></div>
 <p class="credit">Credit: ${esc(x.creator||'Not provided')} · ${esc(x.license||'Authorized content')}. <a href="${esc(x.source||'#')}" target="_blank" rel="noopener">Source and license details ↗</a></p>
 </section>`;
+  document.querySelectorAll('[data-episode-play]').forEach(button=>button.onclick=()=>{const nextIndex=items.findIndex(entry=>entry.id===button.dataset.episodePlay);if(nextIndex>=0){active=nextIndex;render();}});
   const playerFrame = document.querySelector('#player');
   const fullscreenButton = document.querySelector('#fullscreenPlayer');
   if (fullscreenButton && playerFrame) {
@@ -737,12 +741,15 @@ async function renderAdmin() {
   const ownerVideos=videos||[];
   app.innerHTML='<header class="top"><div class="brand"><img class="brand-logo" src="/nexora-logo.svg" alt="NEXORA logo"><div><b>NEXORA</b><small>PRIVATE OWNER PANEL</small></div></div><button class="gold-outline" id="signOut">SIGN OUT</button></header>' +
   '<main class="admin"><section class="panel"><div class="eyebrow">CONTENT MANAGEMENT</div><h1>Owner dashboard</h1><p class="muted">Published dramas are stored in a shared database. Only authorized owner accounts can publish or remove content.</p>' +
-  '<form id="addForm"><label>Drama title<input name="title" required maxlength="120" placeholder="e.g. The Secret Heiress"></label><div class="two"><label>Episode<input name="episode" maxlength="80" placeholder="Episode 1"></label><label>Category<select name="category"><option>Romance</option><option>Revenge</option><option>Family</option><option>Comedy</option><option>Action</option><option>Thriller</option><option>Fantasy</option><option>Other</option></select></label></div>' +
+  '<form id="addForm"><label>Drama title<input name="title" required maxlength="120" placeholder="e.g. The Secret Heiress"></label><div class="two"><label>Episode label<input name="episode" maxlength="80" placeholder="Episode 1"></label><label>Category<select name="category"><option>Romance</option><option>Revenge</option><option>Family</option><option>Comedy</option><option>Action</option><option>Thriller</option><option>Fantasy</option><option>Other</option></select></label></div>' +
+  '<div class="two"><label>Drama series<select name="parentDramaId"><option value="">Create a new drama series</option>'+ownerVideos.filter(v=>!v.parent_drama_id).map(v=>'<option value="'+esc(v.id)+'" data-title="'+esc(v.title)+'">'+esc(v.title)+' · '+esc(v.episode||'Episode 1')+'</option>').join('')+'</select></label><label>Episode number<input name="episodeNumber" type="number" min="1" max="999" value="1" required></label></div><p class="muted">Choose an existing series to add Episode 2, Episode 3, and more. Episodes appear together in Watch Episodes.</p>' +
   '<label>Upload video file (MP4, WebM, or MOV · max 500 MB)<input name="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"></label><p class="muted">Choose a video from your phone, or use a direct HTTPS video URL below. Do not paste a TikTok page link; it is not a playable video file.</p><label>Or direct video URL (optional)<input name="url" type="url" placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional; otherwise captured from your video)<input name="poster" type="url" placeholder="https://..."></label><label>Subtitles (optional .VTT or .SRT)<input name="subtitleFile" type="file" accept=".vtt,.srt,text/vtt,application/x-subrip"></label><small class="muted">Subtitles stay off unless a valid subtitle file is uploaded.</small>' +
   '<div class="two"><label>Creator name<input name="creator" required maxlength="120" placeholder="Original creator"></label><label>Original source URL<input name="source" type="url" required placeholder="https://original-post..."></label></div>' +
   '<label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label><button class="gold" type="submit">PUBLISH DRAMA</button></form></section>' +
   '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><button id="repairThumbnails" class="gold-outline" type="button">REPAIR MISSING VIDEO THUMBNAILS</button><p class="muted">Repairs old uploads stored in NEXORA storage using a real frame from each original video.</p><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
   document.querySelector('#signOut').onclick=async()=>{await supabase.auth.signOut();view='feed';render();};
+  const seriesSelect=document.querySelector('#addForm [name="parentDramaId"]');
+  seriesSelect.onchange=()=>{const selected=ownerVideos.find(v=>v.id===seriesSelect.value);if(selected){document.querySelector('#addForm [name="title"]').value=selected.title;const next=ownerVideos.filter(v=>v.parent_drama_id===selected.id).length+2;document.querySelector('#addForm [name="episodeNumber"]').value=String(next);document.querySelector('#addForm [name="episode"]').value='Episode '+next;}else{document.querySelector('#addForm [name="episodeNumber"]').value='1';document.querySelector('#addForm [name="episode"]').value='Episode 1';}};
   document.querySelector('#repairThumbnails').onclick=async()=>{
     const button=document.querySelector('#repairThumbnails');
     const repairable=ownerVideos.filter(v=>!v.poster_url&&v.video_storage_path);
@@ -768,7 +775,7 @@ async function renderAdmin() {
     e.preventDefault();
     const form=e.currentTarget,submit=form.querySelector('button[type="submit"]');
     submit.disabled=true;submit.textContent='PUBLISHING…';
-    const f=new FormData(form),file=form.elements.videoFile.files?.[0]||null,subtitleFile=form.elements.subtitleFile.files?.[0]||null,directUrl=String(f.get('url')||'').trim(),source=String(f.get('source')||'').trim(),poster=String(f.get('poster')||'').trim();
+    const f=new FormData(form),file=form.elements.videoFile.files?.[0]||null,subtitleFile=form.elements.subtitleFile.files?.[0]||null,parentDramaId=String(f.get('parentDramaId')||'').trim()||null,episodeNumber=Math.max(1,Number(f.get('episodeNumber')||1)),directUrl=String(f.get('url')||'').trim(),source=String(f.get('source')||'').trim(),poster=String(f.get('poster')||'').trim();
     const allowedTypes=['video/mp4','video/webm','video/quicktime'];
     const allowedExt=/\.(mp4|webm|mov)$/i;
     const inferredFileType=file?(file.name.toLowerCase().endsWith('.webm')?'video/webm':file.name.toLowerCase().endsWith('.mov')?'video/quicktime':'video/mp4'):'';
@@ -802,7 +809,7 @@ async function renderAdmin() {
         subtitleUrl=await uploadDramaAsset(subtitlePath,new Blob([vtt],{type:'text/vtt'}),'text/vtt');
       }
       const {error:insertError}=await supabase.from('dramas').insert({
-        title:String(f.get('title')||'').trim(),episode:String(f.get('episode')||'Episode 1').trim()||'Episode 1',
+        title:String(f.get('title')||'').trim(),episode:'Episode '+episodeNumber,episode_number:episodeNumber,parent_drama_id:parentDramaId,
         category:String(f.get('category')||'Other'),video_url:videoUrl,video_storage_path:storagePath,poster_url:posterUrl||null,poster_storage_path:posterPath,subtitle_url:subtitleUrl,subtitle_storage_path:subtitlePath,
         creator:String(f.get('creator')||'').trim(),source_url:source,permission_confirmed:true,published:true
       });
@@ -828,7 +835,7 @@ async function renderAdmin() {
 }
 async function loadCloudDramas() {
   if(!supabase)return;
-  let {data,error}=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,subtitle_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
+  let {data,error}=await supabase.from('dramas').select('id,title,episode,episode_number,parent_drama_id,category,video_url,poster_url,subtitle_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
   if(error && /subtitle_url|column/i.test(error.message)) {
     const fallback=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
     data=fallback.data;error=fallback.error;
@@ -838,7 +845,7 @@ async function loadCloudDramas() {
     data=fallback.data; error=fallback.error;
   }
   if(error){console.warn('NEXORA cloud library could not load:',error.message);return;}
-  const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url,poster:row.poster_url||'',subtitle:row.subtitle_url||'',watchCount:Number(row.watch_count||0)}));
+  const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,episodeNumber:Number(row.episode_number||String(row.episode||'').match(/\d+/)?.[0]||1),parentDramaId:row.parent_drama_id||null,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url,poster:row.poster_url||'',subtitle:row.subtitle_url||'',watchCount:Number(row.watch_count||0)}));
 
   const demoIds=new Set(seed.map(x=>x.id)),cloudIds=new Set(cloud.map(x=>x.id));
   items=[...seed,...cloud,...items.filter(x=>!demoIds.has(x.id)&&!cloudIds.has(x.id))];
