@@ -1,4 +1,5 @@
 import './style.css';
+import { Upload } from 'tus-js-client';
 import { createClient } from '@supabase/supabase-js';
 import { renderStoryMode } from './story-mode.js';
 import { Browser } from '@capacitor/browser';
