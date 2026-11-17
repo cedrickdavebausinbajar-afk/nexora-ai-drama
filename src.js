@@ -739,7 +739,8 @@ async function renderAdmin() {
     const f=new FormData(form),file=form.elements.videoFile.files?.[0]||null,directUrl=String(f.get('url')||'').trim(),source=String(f.get('source')||'').trim(),poster=String(f.get('poster')||'').trim();
     const allowedTypes=['video/mp4','video/webm','video/quicktime'];
     const allowedExt=/\.(mp4|webm|mov)$/i;
-    if((!file&&!/^https:\/\//i.test(directUrl))||(file&&(!allowedTypes.includes(file.type)||!allowedExt.test(file.name)))||(file&&file.size>524288000)||!/^https:\/\//i.test(source)||(poster&&!/^https:\/\//i.test(poster))||f.get('permission')!=='on'){
+    const inferredFileType=file?(file.name.toLowerCase().endsWith('.webm')?'video/webm':file.name.toLowerCase().endsWith('.mov')?'video/quicktime':'video/mp4'):'';
+    if((!file&&!/^https:\/\//i.test(directUrl))||(file&&((file.type&&!allowedTypes.includes(file.type))||!allowedExt.test(file.name)))||(file&&file.size>524288000)||!/^https:\/\//i.test(source)||(poster&&!/^https:\/\//i.test(poster))||f.get('permission')!=='on'){
       alert('Choose an MP4, WebM, or MOV file up to 500 MB, or enter a direct HTTPS video URL. Add the original HTTPS source and confirm publishing rights.');
       submit.disabled=false;submit.textContent='PUBLISH DRAMA';return;
     }
@@ -751,7 +752,7 @@ async function renderAdmin() {
         if(userError||!userData?.user) throw new Error('Your owner session expired. Sign in again.');
         const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-100);
         storagePath=userData.user.id+'/'+Date.now()+'-'+safeName;
-        const {error:uploadError}=await supabase.storage.from('nexora-drama-videos').upload(storagePath,file,{contentType:file.type,upsert:false,cacheControl:'3600'});
+        const {error:uploadError}=await supabase.storage.from('nexora-drama-videos').upload(storagePath,file,{contentType:file.type||inferredFileType,upsert:false,cacheControl:'3600'});
         if(uploadError) throw uploadError;
         videoUrl=supabase.storage.from('nexora-drama-videos').getPublicUrl(storagePath).data.publicUrl;
       }
