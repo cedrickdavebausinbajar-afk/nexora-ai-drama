@@ -17,6 +17,7 @@
     "@capacitor/filesystem": "^7.1.9",
     "@capacitor/file-transfer": "^1.0.12",
     "@supabase/supabase-js": "^2.57.0",
-    "@capacitor/local-notifications": "^7.0.2"
+    "@capacitor/local-notifications": "^7.0.2",
+    "tus-js-client": "^4.3.1"
   }
 }
