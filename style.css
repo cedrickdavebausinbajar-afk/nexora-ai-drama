@@ -410,6 +410,7 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
 .home-video-thumb{
   position:relative;
   width:100%;
+  max-height:142px;
   aspect-ratio:16/9;
   overflow:hidden;
   background:radial-gradient(ellipse at 70% 25%,#593879,#171020 58%,#08060d);
@@ -498,6 +499,7 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
 }
 @media(max-width:540px){
   .home-published{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .home-video-thumb{max-height:112px}
   .home-video-copy{padding:11px}
   .home-video-copy>b{font-size:16px}
   .home-video-copy>small{font-size:8px}
