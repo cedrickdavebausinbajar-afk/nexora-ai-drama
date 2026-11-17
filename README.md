@@ -49,3 +49,7 @@ The owner dashboard remains unavailable until the Supabase project and owner all
 CTTO/credit alone does not grant permission to copy, host, or stream another creator's copyrighted video. Use content with explicit permission, a license, or a provider's permitted embed/API.
 
 CTTO/credit alone does not grant permission to copy, host, or stream another creator's copyrighted video. Use content with explicit permission, a license, or a provider's permitted embed/API.
+
+### Grouping uploaded episodes into a drama series
+
+After applying the subtitle/thumbnail migration, run `supabase/migrations/202611170004_drama_series_episodes.sql` in the Supabase SQL Editor. In the Owner dashboard, choose an existing drama series when publishing Episode 2 or later. NEXORA will keep the episodes together and show a Watch Episodes selector on the player screen.
