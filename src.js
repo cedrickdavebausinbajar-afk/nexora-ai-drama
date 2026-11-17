@@ -171,7 +171,7 @@ async function checkForUpdates() {
   const versions=document.querySelector('#updateVersions');
   if(versions) versions.textContent=`Installed: ${updateInfo.installed||'—'} · Latest: ${updateInfo.latest||'—'}`;
   const action=document.querySelector('#updateAction');
-  if(action) { action.hidden=updateInfo.status!=='available'; action.onclick=()=>{if(updateInfo.url) Browser.open({url:updateInfo.url});}; }
+  if(action) { action.hidden=updateInfo.status!=='available'; action.onclick=startUpdateFlow; }
   showUpdatePopup();
   if (updateInfo.status === 'available' && Capacitor.isNativePlatform() && updateDownload.status === 'idle') {
     downloadUpdate().catch(() => {});
@@ -250,7 +250,7 @@ async function cancelContinueNotification() {
   if (!Capacitor.isNativePlatform()) return;
   try { await LocalNotifications.cancel({notifications:[{id:WATCH_NOTIFICATION_ID}]}); } catch {}
 }
-async function scheduleContinueNotification(item, seconds) {
+async async function scheduleContinueNotification(item, seconds) {
   if (!Capacitor.isNativePlatform() || !item?.id || seconds < 30) return;
   const progress = {id:item.id,title:item.title||'your drama',episode:item.episode||'Episode',time:Math.floor(seconds),updatedAt:Date.now()};
   try { localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify(progress)); } catch {}
@@ -265,7 +265,7 @@ async function scheduleContinueNotification(item, seconds) {
     }]});
   } catch (_) {}
 }
-async function initializePhoneNotifications() {
+async async function initializePhoneNotifications() {
   if (!Capacitor.isNativePlatform()) return;
   try {
     let permission = await LocalNotifications.checkPermissions();
