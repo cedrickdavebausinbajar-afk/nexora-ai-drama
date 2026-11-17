@@ -390,11 +390,14 @@ function renderScreen() {
   const x = items[active];
   const seriesRootId=x.parentDramaId||x.id;
   const seriesEpisodes=items.filter(entry=>entry.id===seriesRootId||entry.parentDramaId===seriesRootId).sort((a,b)=>(a.episodeNumber||1)-(b.episodeNumber||1));
-  const peerTubeId = String(x.url || '').match(/(?:webseed|download\/videos)\/([0-9a-f-]{36})/i)?.[1];
+  const playbackUrl = x.url || (x.videoStoragePath && supabase
+    ? supabase.storage.from('nexora-drama-videos').getPublicUrl(x.videoStoragePath).data.publicUrl
+    : '');
+  const peerTubeId = String(playbackUrl || '').match(/(?:webseed|download\/videos)\/([0-9a-f-]{36})/i)?.[1];
   const peerTubeEmbed = peerTubeId
     ? `https://video.blender.org/videos/embed/${peerTubeId}?p2p=0&warningTitle=0`
     : null;
-  const youtubeId = String(x.url || '').match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/)?.[1];
+  const youtubeId = String(playbackUrl || '').match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/)?.[1];
   const youtubeEmbed = youtubeId ? `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0` : null;
   const embeddedPlayer = peerTubeEmbed || youtubeEmbed;
   screen.innerHTML = `<section class="player-wrap">
@@ -546,8 +549,9 @@ function renderScreen() {
         else x.watchCount = Number(x.watchCount || 0) + 1;
       });
     };
+    video.addEventListener('canplay', () => { if (errorBox) errorBox.hidden = true; });
     video.addEventListener('playing', () => {
-      errorBox.hidden = true;
+      if (errorBox) errorBox.hidden = true;
       if (!playbackStartedAt) playbackStartedAt = Date.now();
     });
     video.addEventListener('playing', () => { cancelContinueNotification(); });
@@ -607,11 +611,25 @@ function renderScreen() {
       if (errorBox) errorBox.hidden = false;
     });
     document.querySelector('#retryVideo').onclick = () => {
-      errorBox.hidden = true;
+      if (errorBox) errorBox.hidden = true;
+      const source = playbackUrl || video.currentSrc || video.src;
+      if (!source) {
+        if (errorMessage) errorMessage.textContent = 'This episode has no playable video URL. Ask the owner to republish the video.';
+        if (errorBox) errorBox.hidden = false;
+        return;
+      }
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      video.src = source;
       video.load();
     };
     // Start the request only after every playback/error listener is attached.
-    if (x.url) { video.src = x.url; video.load(); }
+    if (playbackUrl) { video.src = playbackUrl; video.load(); }
+    else {
+      if (errorMessage) errorMessage.textContent = 'This episode has no playable video URL. Ask the owner to republish the video.';
+      if (errorBox) errorBox.hidden = false;
+    }
   }
   document.querySelector('#like').onclick = () => {
     liked.has(x.id) ? liked.delete(x.id) : liked.add(x.id);
@@ -931,17 +949,17 @@ async function renderAdmin() {
 }
 async function performCloudDramasLoad() {
   if(!supabase)return;
-  let {data,error}=await supabase.from('dramas').select('id,title,episode,episode_number,parent_drama_id,category,video_url,poster_url,subtitle_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
+  let {data,error}=await supabase.from('dramas').select('id,title,episode,episode_number,parent_drama_id,category,video_url,video_storage_path,poster_url,subtitle_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
   if(error && /subtitle_url|column/i.test(error.message)) {
-    const fallback=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
+    const fallback=await supabase.from('dramas').select('id,title,episode,category,video_url,video_storage_path,poster_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
     data=fallback.data;error=fallback.error;
   }
   if(error && /watch_count|column/i.test(error.message)) {
-    const fallback=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url').eq('published',true).order('created_at',{ascending:false});
+    const fallback=await supabase.from('dramas').select('id,title,episode,category,video_url,video_storage_path,poster_url,creator,source_url').eq('published',true).order('created_at',{ascending:false});
     data=fallback.data; error=fallback.error;
   }
   if(error){console.warn('NEXORA cloud library could not load:',error.message);return;}
-  const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,episodeNumber:Number(row.episode_number||String(row.episode||'').match(/\d+/)?.[0]||1),parentDramaId:row.parent_drama_id||null,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url,poster:row.poster_url||'',subtitle:row.subtitle_url||'',watchCount:Number(row.watch_count||0)}));
+  const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,episodeNumber:Number(row.episode_number||String(row.episode||'').match(/\d+/)?.[0]||1),parentDramaId:row.parent_drama_id||null,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url||(row.video_storage_path?supabase.storage.from('nexora-drama-videos').getPublicUrl(row.video_storage_path).data.publicUrl:''),videoStoragePath:row.video_storage_path||'',poster:row.poster_url||'',subtitle:row.subtitle_url||'',watchCount:Number(row.watch_count||0)}));
 
   const demoIds=new Set(seed.map(x=>x.id)),cloudIds=new Set(cloud.map(x=>x.id));
   items=[...seed,...cloud,...items.filter(x=>!demoIds.has(x.id)&&!cloudIds.has(x.id))];
