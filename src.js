@@ -696,3 +696,13 @@ async function loadCloudDramas() {
 shell();
 initializePhoneNotifications();
 loadCloudDramas();
+// Refresh the shared published catalogue when another authorized publisher uploads an episode.
+if (supabase) {
+  supabase.channel('nexora-drama-published-feed')
+    .on('postgres_changes', {event:'*', schema:'public', table:'dramas'}, () => loadCloudDramas())
+    .subscribe();
+}
+// Fallback refresh also covers projects where Supabase Realtime is not enabled for this table.
+window.setInterval(() => {
+  if (document.visibilityState === 'visible') loadCloudDramas();
+}, 30000);
