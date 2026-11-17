@@ -365,10 +365,10 @@ function renderScreen() {
     return;
   }
   if (view === 'shorts') {
-    const playable = items.filter(x => /^https:\/\//i.test(String(x.url || '')) && /\.mp4(?:[?#]|$)/i.test(String(x.url)));
+    const playable = items.filter(x => isSupportedVideoUrl(x.url));
     screen.innerHTML = `<section class="shorts-head"><h1>Drama Shorts</h1><p>Swipe up for the next short. Videos shown here are creator-credited catalogue entries; only videos you are authorized to publish should be added.</p></section>
       ${playable.length ? `<div class="shorts-feed">${playable.map((x,i)=>`<article class="short-card" data-short-index="${i}">
-        <video class="short-video" src="${esc(x.url)}" ${x.poster ? `poster="${esc(x.poster)}"` : ''} controls playsinline muted loop preload="metadata"></video>
+        <video class="short-video" src="${esc(x.url)}" ${videoMimeType(x.url) ? `type="${videoMimeType(x.url)}"` : ''} ${x.poster ? `poster="${esc(x.poster)}"` : ''} controls playsinline muted loop preload="metadata"></video>
         <div class="short-shade"></div><div class="short-meta"><span class="short-tag">NEXORA SHORTS</span><h2>${esc(x.title)}</h2><p>${esc(x.episode || x.category || 'Drama')}</p><small>Creator: ${esc(x.creator || 'Not listed')}</small>${x.source ? `<a href="${esc(x.source)}" target="_blank" rel="noopener">VIEW ORIGINAL SOURCE ↗</a>` : ''}</div>
         <span class="short-counter">${i+1} / ${playable.length}</span>
       </article>`).join('')}</div>` : `<div class="panel empty"><h2>No short videos available yet</h2><p class="muted">Add an authorized vertical MP4 video in the Owner section. TikTok videos are not copied automatically.</p></div>`}`;
@@ -432,7 +432,7 @@ function renderScreen() {
   ${embeddedPlayer
     ? `<iframe class="peer-player" src="${embeddedPlayer}" title="Watch ${esc(x.title)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>`
     : `<video id="dramaVideo" controls playsinline webkit-playsinline preload="metadata" poster="${esc(x.poster||'')}">
-      <source src="${esc(x.url||'')}" type="video/mp4">
+      <source src="${esc(x.url||'')}" ${videoMimeType(x.url) ? `type="${videoMimeType(x.url)}"` : ''}>
       Your device cannot play this video.
     </video>
     <div class="play-overlay" id="playOverlay"><button type="button" id="startPlayback">▶ PLAY VIDEO</button><small id="playStatus">Tap to start watching</small></div>
@@ -656,6 +656,17 @@ function renderAdminLogin(message = '') {
     await renderAdmin();
   };
 }
+function videoMimeType(videoUrl) {
+  const path=String(videoUrl||'').split(/[?#]/)[0].toLowerCase();
+  if(path.endsWith('.mp4')) return 'video/mp4';
+  if(path.endsWith('.webm')) return 'video/webm';
+  if(path.endsWith('.mov')) return 'video/quicktime';
+  return '';
+}
+function isSupportedVideoUrl(videoUrl) {
+  return /^https:\/\//i.test(String(videoUrl||'')) && /\.(mp4|webm|mov)(?:[?#]|$)/i.test(String(videoUrl||''));
+}
+
 async function captureDramaThumbnail(videoUrl) {
   return new Promise(resolve => {
     const video=document.createElement('video');
@@ -699,7 +710,7 @@ async function renderAdmin() {
   app.innerHTML='<header class="top"><div class="brand"><img class="brand-logo" src="/nexora-logo.svg" alt="NEXORA logo"><div><b>NEXORA</b><small>PRIVATE OWNER PANEL</small></div></div><button class="gold-outline" id="signOut">SIGN OUT</button></header>' +
   '<main class="admin"><section class="panel"><div class="eyebrow">CONTENT MANAGEMENT</div><h1>Owner dashboard</h1><p class="muted">Published dramas are stored in a shared database. Only authorized owner accounts can publish or remove content.</p>' +
   '<form id="addForm"><label>Drama title<input name="title" required maxlength="120" placeholder="e.g. The Secret Heiress"></label><div class="two"><label>Episode<input name="episode" maxlength="80" placeholder="Episode 1"></label><label>Category<select name="category"><option>Romance</option><option>Revenge</option><option>Family</option><option>Comedy</option><option>Action</option><option>Thriller</option><option>Fantasy</option><option>Other</option></select></label></div>' +
-  '<label>Direct video URL (MP4 or supported stream)<input name="url" type="url" required placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional)<input name="poster" type="url" placeholder="https://..."></label>' +
+  '<label>Upload video file (MP4, WebM, or MOV · max 500 MB)<input name="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"></label><p class="muted">Choose a video from your phone, or use a direct HTTPS video URL below. Do not paste a TikTok page link; it is not a playable video file.</p><label>Or direct video URL (optional)<input name="url" type="url" placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional)<input name="poster" type="url" placeholder="https://..."></label>' +
   '<div class="two"><label>Creator name<input name="creator" required maxlength="120" placeholder="Original creator"></label><label>Original source URL<input name="source" type="url" required placeholder="https://original-post..."></label></div>' +
   '<label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label><button class="gold" type="submit">PUBLISH DRAMA</button></form></section>' +
   '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
@@ -708,26 +719,50 @@ async function renderAdmin() {
     e.preventDefault();
     const form=e.currentTarget,submit=form.querySelector('button[type="submit"]');
     submit.disabled=true;submit.textContent='PUBLISHING…';
-    const f=new FormData(form),url=String(f.get('url')||'').trim(),source=String(f.get('source')||'').trim(),poster=String(f.get('poster')||'').trim();
-    if(!/^https:\/\//i.test(url)||!/^https:\/\//i.test(source)||(poster&&!/^https:\/\//i.test(poster))||f.get('permission')!=='on'){
-      alert('Use HTTPS links and confirm that you have permission to publish this video.');
+    const f=new FormData(form),file=form.elements.videoFile.files?.[0]||null,directUrl=String(f.get('url')||'').trim(),source=String(f.get('source')||'').trim(),poster=String(f.get('poster')||'').trim();
+    const allowedTypes=['video/mp4','video/webm','video/quicktime'];
+    const allowedExt=/\.(mp4|webm|mov)$/i;
+    if((!file&&!/^https:\/\//i.test(directUrl))||(file&&(!allowedTypes.includes(file.type)||!allowedExt.test(file.name)))||(file&&file.size>524288000)||!/^https:\/\//i.test(source)||(poster&&!/^https:\/\//i.test(poster))||f.get('permission')!=='on'){
+      alert('Choose an MP4, WebM, or MOV file up to 500 MB, or enter a direct HTTPS video URL. Add the original HTTPS source and confirm publishing rights.');
       submit.disabled=false;submit.textContent='PUBLISH DRAMA';return;
     }
-    submit.textContent='CREATING DRAMA COVER…';
-    const generatedPoster=poster||await captureDramaThumbnail(url);
-    const {error: insertError}=await supabase.from('dramas').insert({
-      title:String(f.get('title')||'').trim(),episode:String(f.get('episode')||'Episode 1').trim()||'Episode 1',
-      category:String(f.get('category')||'Other'),video_url:url,poster_url:generatedPoster||null,
-      creator:String(f.get('creator')||'').trim(),source_url:source,permission_confirmed:true,published:true
-    });
-    if(insertError){alert('Could not publish drama: '+insertError.message);submit.disabled=false;submit.textContent='PUBLISH DRAMA';return;}
-    await loadCloudDramas();await renderAdmin();
+    let videoUrl=directUrl,storagePath=null;
+    try {
+      if(file){
+        submit.textContent='UPLOADING VIDEO…';
+        const {data:userData,error:userError}=await supabase.auth.getUser();
+        if(userError||!userData?.user) throw new Error('Your owner session expired. Sign in again.');
+        const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_').slice(-100);
+        storagePath=userData.user.id+'/'+Date.now()+'-'+safeName;
+        const {error:uploadError}=await supabase.storage.from('nexora-drama-videos').upload(storagePath,file,{contentType:file.type,upsert:false,cacheControl:'3600'});
+        if(uploadError) throw uploadError;
+        videoUrl=supabase.storage.from('nexora-drama-videos').getPublicUrl(storagePath).data.publicUrl;
+      }
+      submit.textContent='CREATING DRAMA COVER…';
+      const generatedPoster=poster||await captureDramaThumbnail(videoUrl);
+      const {error:insertError}=await supabase.from('dramas').insert({
+        title:String(f.get('title')||'').trim(),episode:String(f.get('episode')||'Episode 1').trim()||'Episode 1',
+        category:String(f.get('category')||'Other'),video_url:videoUrl,video_storage_path:storagePath,poster_url:generatedPoster||null,
+        creator:String(f.get('creator')||'').trim(),source_url:source,permission_confirmed:true,published:true
+      });
+      if(insertError) throw insertError;
+      await loadCloudDramas();await renderAdmin();
+    } catch(error) {
+      if(storagePath) await supabase.storage.from('nexora-drama-videos').remove([storagePath]).catch(()=>{});
+      alert('Could not publish drama: '+(error?.message||'Please check your connection and try again.'));
+      submit.disabled=false;submit.textContent='PUBLISH DRAMA';
+    }
   };
   document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=async()=>{
     if(!confirm('Remove this published drama for everyone?'))return;
     b.disabled=true;
+    const selected=ownerVideos.find(x=>x.id===b.dataset.delete);
     const {error: deleteError}=await supabase.from('dramas').delete().eq('id',b.dataset.delete);
     if(deleteError){alert('Could not remove drama: '+deleteError.message);b.disabled=false;return;}
+    if(selected?.video_storage_path) {
+      const {error:storageError}=await supabase.storage.from('nexora-drama-videos').remove([selected.video_storage_path]);
+      if(storageError) console.warn('Drama removed but its stored video could not be deleted:',storageError.message);
+    }
     items=items.filter(x=>x.id!==b.dataset.delete);await renderAdmin();
   });
 }
