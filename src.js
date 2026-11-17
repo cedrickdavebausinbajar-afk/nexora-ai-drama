@@ -437,7 +437,6 @@ function renderScreen() {
       <source src="${esc(x.url||'')}" ${videoMimeType(x.url) ? `type="${videoMimeType(x.url)}"` : ''}>
       Your device cannot play this video.
     </video>
-    <div class="play-overlay" id="playOverlay"><button type="button" id="startPlayback">▶ PLAY VIDEO</button><small id="playStatus">Tap to start watching</small></div>
     <div id="videoError" class="video-error" hidden>Video could not load. Check your internet connection, then tap RETRY.<button id="retryVideo" type="button">RETRY</button></div>`}
   <div class="shade"></div>
   <div class="meta"><span class="tag">${esc(x.category||'DRAMA')}</span><h2>${esc(x.title)}</h2>
@@ -502,8 +501,7 @@ function renderScreen() {
           savePlaybackPosition();
           video.webkitEnterFullscreen();
         } else {
-          const status = document.querySelector('#playStatus');
-          if (status) status.textContent = 'Fullscreen is not supported on this device.';
+          console.warn('Fullscreen is not supported on this device.');
         }
       } catch (err) {
         if (video?.webkitEnterFullscreen) {
@@ -511,8 +509,7 @@ function renderScreen() {
           savePlaybackPosition();
           video.webkitEnterFullscreen();
         } else {
-          const status = document.querySelector('#playStatus');
-          if (status) status.textContent = 'Could not open fullscreen. Your video has not been restarted.';
+          console.warn('Could not open fullscreen. Video playback was not restarted.');
         }
       }
       syncFullscreenLabel();
@@ -557,26 +554,10 @@ function renderScreen() {
       }, {once:true});
     }
 
-    const overlay = document.querySelector('#playOverlay');
-    const status = document.querySelector('#playStatus');
     const errorBox = document.querySelector('#videoError');
-    const startButton = document.querySelector('#startPlayback');
-    const startPlayback = async () => {
+    video.addEventListener('play', () => {
       trackNexoraEvent('drama_play_start', {content_title: x.title || 'unknown', content_category: x.category || 'unknown'});
-
-      errorBox.hidden = true;
-      status.textContent = 'Loading video…';
-      startButton.disabled = true;
-      try {
-        await video.play();
-        overlay.classList.add('playing');
-      } catch (err) {
-        startButton.disabled = false;
-        status.textContent = 'Tap PLAY VIDEO to try again';
-        if (video.error) errorBox.hidden = false;
-      }
-    };
-    startButton.onclick = startPlayback;
+    });
     let recordedDramaView = false;
     let playbackStartedAt = 0;
     let accumulatedPlaybackMs = 0;
@@ -591,11 +572,9 @@ function renderScreen() {
       });
     };
     video.addEventListener('playing', () => {
-      overlay.classList.add('playing'); errorBox.hidden = true;
+      errorBox.hidden = true;
       if (!playbackStartedAt) playbackStartedAt = Date.now();
     });
-    video.addEventListener('waiting', () => { status.textContent = 'Buffering…'; });
-    video.addEventListener('canplay', () => { status.textContent = 'Ready to play'; startButton.disabled = false; });
     video.addEventListener('playing', () => { cancelContinueNotification(); });
     video.addEventListener('timeupdate', () => {
       maybeRecordDramaView();
@@ -616,7 +595,6 @@ function renderScreen() {
         playbackStartedAt = 0;
         maybeRecordDramaView();
       }
-      overlay.classList.remove('playing');
       saveResumeReminder();
     });
     // Android can background the WebView without delivering a normal pause event.
@@ -639,20 +617,14 @@ function renderScreen() {
         playbackStartedAt = 0;
         maybeRecordDramaView();
       }
-      overlay.classList.remove('playing'); status.textContent = 'Video finished';
       cancelContinueNotification();
       try { const p=JSON.parse(localStorage.getItem(WATCH_PROGRESS_KEY)||'null'); if(p?.id===x.id) localStorage.removeItem(WATCH_PROGRESS_KEY); } catch {}
     });
     video.addEventListener('error', () => {
       errorBox.hidden = false;
-      overlay.classList.remove('playing');
-      status.textContent = 'Unable to load video';
-      startButton.disabled = false;
     });
     document.querySelector('#retryVideo').onclick = () => {
       errorBox.hidden = true;
-      status.textContent = 'Retrying…';
-      startButton.disabled = false;
       video.load();
     };
   }
