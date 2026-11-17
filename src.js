@@ -453,9 +453,38 @@ function renderScreen() {
   document.querySelectorAll('[data-episode-play]').forEach(button=>button.onclick=()=>{const nextIndex=items.findIndex(entry=>entry.id===button.dataset.episodePlay);if(nextIndex>=0){active=nextIndex;render();}});
   const playerFrame = document.querySelector('#player');
   const fullscreenButton = document.querySelector('#fullscreenPlayer');
+  const video = document.querySelector('#dramaVideo');
+  const savePlaybackPosition = () => {
+    if (!video || video.ended || !Number.isFinite(video.currentTime)) return;
+    try {
+      localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify({
+        id:x.id,title:x.title,episode:x.episode||'Episode',
+        time:Math.floor(video.currentTime),updatedAt:Date.now()
+      }));
+    } catch {}
+  };
   if (fullscreenButton && playerFrame) {
+    let fullscreenWasActive = false;
+    let fullscreenSnapshot = null;
+    const restoreFullscreenPlayback = () => {
+      if (!video || !fullscreenSnapshot) return;
+      const snapshot = fullscreenSnapshot;
+      fullscreenSnapshot = null;
+      requestAnimationFrame(() => {
+        if (video.currentTime < snapshot.time - 2) video.currentTime = snapshot.time;
+        if (snapshot.wasPlaying && video.paused) video.play().catch(() => {});
+        savePlaybackPosition();
+      });
+    };
     const syncFullscreenLabel = () => {
       const activeFullscreen = document.fullscreenElement === playerFrame || document.webkitFullscreenElement === playerFrame;
+      if (activeFullscreen && !fullscreenWasActive && video) {
+        fullscreenSnapshot = {time:video.currentTime,wasPlaying:!video.paused};
+        savePlaybackPosition();
+      } else if (!activeFullscreen && fullscreenWasActive) {
+        restoreFullscreenPlayback();
+      }
+      fullscreenWasActive = activeFullscreen;
       fullscreenButton.innerHTML = activeFullscreen ? '⛶ <span>EXIT FULL SCREEN</span>' : '⛶ <span>FULL SCREEN</span>';
       fullscreenButton.setAttribute('aria-label', activeFullscreen ? 'Exit full screen' : 'Enter full screen');
     };
@@ -468,21 +497,36 @@ function renderScreen() {
           await playerFrame.requestFullscreen();
         } else if (playerFrame.webkitRequestFullscreen) {
           playerFrame.webkitRequestFullscreen();
+        } else if (video?.webkitEnterFullscreen) {
+          fullscreenSnapshot = {time:video.currentTime,wasPlaying:!video.paused};
+          savePlaybackPosition();
+          video.webkitEnterFullscreen();
         } else {
-          const nativeVideo = playerFrame.querySelector('video');
-          if (nativeVideo?.webkitEnterFullscreen) nativeVideo.webkitEnterFullscreen();
-          else if (nativeVideo) { nativeVideo.controls = true; await nativeVideo.play(); }
+          const status = document.querySelector('#playStatus');
+          if (status) status.textContent = 'Fullscreen is not supported on this device.';
         }
       } catch (err) {
-        const nativeVideo = playerFrame.querySelector('video');
-        if (nativeVideo?.webkitEnterFullscreen) nativeVideo.webkitEnterFullscreen();
+        if (video?.webkitEnterFullscreen) {
+          fullscreenSnapshot = {time:video.currentTime,wasPlaying:!video.paused};
+          savePlaybackPosition();
+          video.webkitEnterFullscreen();
+        } else {
+          const status = document.querySelector('#playStatus');
+          if (status) status.textContent = 'Could not open fullscreen. Your video has not been restarted.';
+        }
       }
       syncFullscreenLabel();
     };
     document.addEventListener('fullscreenchange', syncFullscreenLabel);
     document.addEventListener('webkitfullscreenchange', syncFullscreenLabel);
+    if (video) {
+      video.addEventListener('webkitbeginfullscreen', () => {
+        fullscreenSnapshot = {time:video.currentTime,wasPlaying:!video.paused};
+        savePlaybackPosition();
+      });
+      video.addEventListener('webkitendfullscreen', restoreFullscreenPlayback);
+    }
   }
-  const video = document.querySelector('#dramaVideo');
   if (video) {
     if(x.subtitle){const track=document.createElement('track');track.kind='subtitles';track.label='Subtitles';track.srclang='en';track.src=x.subtitle;video.appendChild(track);}
     const volumeToggle = document.querySelector('#volumeToggle');
@@ -543,7 +587,7 @@ function renderScreen() {
       recordedDramaView = true;
       supabase.rpc('record_drama_view', {drama_id:x.id}).then(({error}) => {
         if (error) console.warn('Could not record drama view:', error.message);
-        else loadCloudDramas();
+        else x.watchCount = Number(x.watchCount || 0) + 1;
       });
     };
     video.addEventListener('playing', () => {
@@ -555,9 +599,9 @@ function renderScreen() {
     video.addEventListener('playing', () => { cancelContinueNotification(); });
     video.addEventListener('timeupdate', () => {
       maybeRecordDramaView();
-      if (video.currentTime - lastProgressWrite < 15) return;
+      if (video.currentTime - lastProgressWrite < 2) return;
       lastProgressWrite = video.currentTime;
-      try { localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify({id:x.id,title:x.title,episode:x.episode||'Episode',time:Math.floor(video.currentTime),updatedAt:Date.now()})); } catch {}
+      savePlaybackPosition();
     });
     const saveResumeReminder = () => {
       if (!video.ended && video.currentTime >= 30 && (!video.duration || video.duration - video.currentTime > 5)) {
@@ -565,6 +609,7 @@ function renderScreen() {
       }
     };
     video.addEventListener('pause', () => {
+      savePlaybackPosition();
       if (playbackStartedAt) {
         accumulatedPlaybackMs += Date.now() - playbackStartedAt;
         playbackStartedAt = 0;
@@ -576,13 +621,15 @@ function renderScreen() {
     // Android can background the WebView without delivering a normal pause event.
     // Persist the exact playback point and schedule the same reminder in that case.
     document.addEventListener('visibilitychange', () => {
-      // Schedule a native Android alarm as soon as the app leaves the foreground,
-      // even if Android backgrounds the WebView before the video emits "pause".
-      if (document.hidden) saveResumeReminder();
-      else if (!video.paused) cancelContinueNotification();
+      // Save the exact position before Android backgrounds the WebView or opens another activity.
+      if (document.hidden) {
+        savePlaybackPosition();
+        saveResumeReminder();
+      } else if (!video.paused) cancelContinueNotification();
     });
     window.addEventListener('pagehide', () => {
       // pagehide may run during an app close while playback is still marked active.
+      savePlaybackPosition();
       saveResumeReminder();
     });
     video.addEventListener('ended', () => {
@@ -700,7 +747,11 @@ async function captureDramaThumbnail(source) {
     const timer=window.setTimeout(()=>done(null),20000);
     const finish=value=>{window.clearTimeout(timer);done(value);};
     video.onerror=()=>finish(null);
-    video.onloadedmetadata=()=>{try{video.currentTime=Math.min(1.5,Math.max(0,(video.duration||1)*0.08));}catch{finish(null);}};
+    video.onloadedmetadata=()=>{try{
+      const duration=Number(video.duration);
+      const target=Number.isFinite(duration)&&duration>0?Math.min(8,Math.max(1,duration*0.12)):1;
+      video.currentTime=target;
+    }catch{finish(null);}};
     video.onseeked=()=>{
       try{
         if(!video.videoWidth||!video.videoHeight)return finish(null);
@@ -853,7 +904,10 @@ async function loadCloudDramas() {
     const resumeIndex=items.findIndex(entry=>entry.id===pendingResumeId);
     if (resumeIndex>=0) { active=resumeIndex; view='feed'; pendingResumeId=''; render(); return; }
   }
-  if(view==='feed'||view==='home'||view==='search')render();
+  // Never rebuild the active video DOM during playback. The 30-second catalogue
+  // refresh and watch-count realtime events used to recreate the <video> element,
+  // sending playback back to the beginning (especially noticeable in fullscreen).
+  if(view==='home'||view==='search')render();
 }
 shell();
 initializePhoneNotifications();
