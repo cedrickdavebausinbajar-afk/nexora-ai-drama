@@ -31,14 +31,19 @@ function refreshUpdateUI() {
   const status = document.querySelector('#updateStatus');
   if (status) status.textContent = updateInfo.message;
   const action = document.querySelector('#updateAction');
-  if (action) { action.hidden = updateInfo.status !== 'available'; action.textContent = 'OPEN GOOGLE PLAY'; action.onclick = startUpdateFlow; }
+  if (action) { action.hidden = updateInfo.status !== 'available'; action.textContent = 'DOWNLOAD UPDATE'; action.onclick = startUpdateFlow; }
   const popupAction = document.querySelector('#popupUpdateNow');
-  if (popupAction) popupAction.textContent = 'OPEN GOOGLE PLAY';
+  if (popupAction) popupAction.textContent = 'DOWNLOAD UPDATE';
 }
 async function startUpdateFlow() {
-  const storeUrl = 'https://play.google.com/store/apps/details?id=com.nexora.aidrama';
-  try { await Browser.open({url: Capacitor.isNativePlatform() ? storeUrl : (updateInfo.url || storeUrl)}); }
-  catch (_) { window.open(storeUrl, '_blank', 'noopener'); }
+  const downloadUrl = updateInfo.url;
+  if (!downloadUrl) {
+    updateInfo.message = 'The update download is not available yet. Please try again later.';
+    refreshUpdateUI();
+    return;
+  }
+  try { await Browser.open({url: downloadUrl}); }
+  catch (_) { window.open(downloadUrl, '_blank', 'noopener'); }
 }
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -96,8 +101,8 @@ async function performUpdateCheck() {
     const apk = (release.assets || []).find(item => item.name === 'NEXORA-AI-DRAMA.apk');
     updateInfo = {status:latestCode > installedCode && (apk || Capacitor.isNativePlatform()) ? 'available' : 'current',
       installed:local.versionName || 'Unknown', latest:release.tag_name || 'Unknown',
-      url:Capacitor.isNativePlatform() ? 'https://play.google.com/store/apps/details?id=com.nexora.aidrama' : (apk?.browser_download_url || release.html_url || ''),
-      message:latestCode > installedCode ? (Capacitor.isNativePlatform() ? 'A new version may be available. Open Google Play to update.' : 'A new version is ready.') : 'Your app is up to date!'};
+      url:apk?.browser_download_url || release.html_url || '',
+      message:latestCode > installedCode ? (apk ? 'A new version is ready. Download the APK, then tap it to install the update.' : 'A new version was found, but its APK download is not available yet.') : 'Your app is up to date!'};
   } catch {
     updateInfo = {...updateInfo,status:'error',message:'Could not check for updates. Please try again.'};
   }
