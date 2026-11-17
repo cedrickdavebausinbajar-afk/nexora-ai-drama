@@ -836,17 +836,18 @@ async function renderAdmin() {
   '<label>Upload video file (MP4, WebM, or MOV · max 500 MB)<input name="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"></label><p class="muted">Choose a video from your phone, or use a direct HTTPS video URL below. Do not paste a TikTok page link; it is not a playable video file.</p><label>Or direct video URL (optional)<input name="url" type="url" placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional; otherwise captured from your video)<input name="poster" type="url" placeholder="https://..."></label><label>Subtitles (optional .VTT or .SRT)<input name="subtitleFile" type="file" accept=".vtt,.srt,text/vtt,application/x-subrip"></label><small class="muted">Subtitles stay off unless a valid subtitle file is uploaded.</small>' +
   '<div class="two"><label>Creator name<input name="creator" required maxlength="120" placeholder="Original creator"></label><label>Original source URL<input name="source" type="url" required placeholder="https://original-post..."></label></div>' +
   '<label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label><button class="gold" type="submit">PUBLISH DRAMA</button></form></section>' +
-  '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><button id="repairThumbnails" class="gold-outline" type="button">REPAIR MISSING VIDEO THUMBNAILS</button><p class="muted">Repairs old uploads stored in NEXORA storage using a real frame from each original video.</p><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
+  '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><button id="repairThumbnails" class="gold-outline" type="button">REBUILD ALL VIDEO THUMBNAILS</button><p class="muted">Replaces missing or incorrect covers with real frames captured from each uploaded video stored in NEXORA storage.</p><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
   document.querySelector('#signOut').onclick=async()=>{await supabase.auth.signOut();view='feed';render();};
   const seriesSelect=document.querySelector('#addForm [name="parentDramaId"]');
   seriesSelect.onchange=()=>{const selected=ownerVideos.find(v=>v.id===seriesSelect.value);if(selected){document.querySelector('#addForm [name="title"]').value=selected.title;const next=ownerVideos.filter(v=>v.parent_drama_id===selected.id).length+2;document.querySelector('#addForm [name="episodeNumber"]').value=String(next);document.querySelector('#addForm [name="episode"]').value='Episode '+next;}else{document.querySelector('#addForm [name="episodeNumber"]').value='1';document.querySelector('#addForm [name="episode"]').value='Episode 1';}};
   document.querySelector('#repairThumbnails').onclick=async()=>{
     const button=document.querySelector('#repairThumbnails');
-    const repairable=ownerVideos.filter(v=>!v.poster_url&&v.video_storage_path);
-    if(!repairable.length){alert('No missing thumbnails for videos stored in NEXORA storage. Direct external video URLs may need a manually supplied poster image.');return;}
+    const repairable=ownerVideos.filter(v=>v.video_storage_path);
+    if(!repairable.length){alert('No NEXORA-stored videos are available to rebuild. Direct external video URLs need a manually supplied poster image.');return;}
+    if(!confirm('Rebuild the thumbnail images for all '+repairable.length+' NEXORA-stored videos using real frames from their video files?'))return;
     button.disabled=true;let fixed=0,failed=0;
     for(const entry of repairable){
-      button.textContent='REPAIRING '+(fixed+failed+1)+' / '+repairable.length+'…';
+      button.textContent='REBUILDING '+(fixed+failed+1)+' / '+repairable.length+'…';
       try{
         const {data:blob,error:downloadError}=await supabase.storage.from('nexora-drama-videos').download(entry.video_storage_path);
         if(downloadError)throw downloadError;
@@ -858,7 +859,7 @@ async function renderAdmin() {
         fixed++;
       }catch(err){failed++;console.warn('Thumbnail repair failed for '+entry.title,err);}
     }
-    alert('Thumbnail repair complete. Fixed: '+fixed+'. Could not repair: '+failed+'.');
+    alert('Thumbnail rebuild complete. Updated: '+fixed+'. Could not rebuild: '+failed+'.');
     await loadCloudDramas();await renderAdmin();
   };
   document.querySelector('#addForm').onsubmit=async e=>{
