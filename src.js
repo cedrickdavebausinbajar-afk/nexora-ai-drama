@@ -693,7 +693,11 @@ async function renderAdmin() {
 }
 async function loadCloudDramas() {
   if(!supabase)return;
-  const {data,error}=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
+  let {data,error}=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
+  if(error && /watch_count|column/i.test(error.message)) {
+    const fallback=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url').eq('published',true).order('created_at',{ascending:false});
+    data=fallback.data; error=fallback.error;
+  }
   if(error){console.warn('NEXORA cloud library could not load:',error.message);return;}
   const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url,poster:row.poster_url||'',watchCount:Number(row.watch_count||0)}));
 
