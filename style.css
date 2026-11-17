@@ -592,3 +592,17 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
 .player .nexora-play-button[hidden]{display:none!important}
 .player .nexora-play-button .nexora-play-label{display:none}
 @media(max-width:540px){main{padding:14px 12px 36px}.player-wrap{max-width:100%}.player{max-height:none;aspect-ratio:16/9;min-height:0;border-radius:10px}.player .nexora-play-button{width:64px;height:64px}.player .nexora-play-icon{width:38px;height:38px;font-size:18px}.player .meta{bottom:10px;left:12px;right:65px}.player .meta h2{font-size:19px;margin:5px 0}.player .actions{right:8px;bottom:10px;gap:8px}.player .action{width:40px;height:40px;font-size:20px}}
+
+/* NEXORA streaming shelves: continue watching and recent activity */
+.continue-watching{display:flex;align-items:center;gap:15px;padding:13px;border:1px solid #d8b45e55;border-radius:15px;background:linear-gradient(115deg,#211a0d,#100d12 70%);margin:12px 0 24px;min-width:0}
+.continue-poster{width:92px;aspect-ratio:3/4;flex:0 0 92px;border-radius:9px;overflow:hidden;background:linear-gradient(145deg,#60401e,#17101f);display:grid;place-items:center;color:#f1d38c;font:600 13px Georgia,serif}
+.continue-poster img{width:100%;height:100%;object-fit:cover}
+.continue-copy{display:flex;flex:1;min-width:0;flex-direction:column;align-items:flex-start;gap:8px}
+.continue-copy>b{font:600 17px/1.2 Georgia,serif;color:#fff4dc;overflow-wrap:anywhere}
+.continue-copy>small{font-size:11px;color:#b9ad94}
+.continue-copy .gold-outline{padding:8px 11px;font-size:9px}
+.continue-progress{height:4px;width:100%;border-radius:99px;background:#ffffff22;overflow:hidden}
+.continue-progress i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#a77c37,#f0d58b)}
+.recent-watched{margin-bottom:25px}
+@media(max-width:540px){.continue-watching{gap:11px;padding:10px}.continue-poster{width:76px;flex-basis:76px}.continue-copy>b{font-size:15px}.continue-copy .gold-outline{font-size:8px}}
+
