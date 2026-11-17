@@ -790,21 +790,33 @@ async function captureDramaThumbnail(source) {
     const timer=window.setTimeout(()=>done(null),20000);
     const finish=value=>{window.clearTimeout(timer);done(value);};
     video.onerror=()=>finish(null);
-    video.onloadedmetadata=()=>{try{
-      const duration=Number(video.duration);
-      const target=Number.isFinite(duration)&&duration>0?Math.min(8,Math.max(1,duration*0.12)):1;
-      video.currentTime=target;
-    }catch{finish(null);}};
-    video.onseeked=()=>{
+    let frameRequested=false;
+    const captureFrame=()=>{
+      if(frameRequested||!video.videoWidth||!video.videoHeight||video.readyState<2)return false;
+      frameRequested=true;
       try{
-        if(!video.videoWidth||!video.videoHeight)return finish(null);
         const canvas=document.createElement('canvas'),width=640,height=Math.max(1,Math.round(width*video.videoHeight/video.videoWidth));
         canvas.width=width;canvas.height=height;
         const ctx=canvas.getContext('2d');if(!ctx)return finish(null);
         ctx.drawImage(video,0,0,width,height);
         canvas.toBlob(blob=>finish(blob),'image/jpeg',0.84);
+        return true;
+      }catch{finish(null);return true;}
+    };
+    let captureAtStart=false;
+    video.onloadedmetadata=()=>{
+      try{
+        const duration=Number(video.duration);
+        const target=Number.isFinite(duration)&&duration>0
+          ? Math.max(0,Math.min(8,duration*0.12,duration-Math.min(0.05,duration/4)))
+          : 0;
+        captureAtStart=target<=0.02;
+        if(captureAtStart){if(video.readyState>=2)captureFrame();}
+        else video.currentTime=target;
       }catch{finish(null);}
     };
+    video.onloadeddata=()=>{if(captureAtStart)captureFrame();};
+    video.onseeked=()=>{captureFrame();};
     video.src=objectUrl||source;video.load();
   });
 }
@@ -874,8 +886,8 @@ async function renderAdmin() {
     const allowedTypes=['video/mp4','video/webm','video/quicktime'];
     const allowedExt=/\.(mp4|webm|mov)$/i;
     const inferredFileType=file?(file.name.toLowerCase().endsWith('.webm')?'video/webm':file.name.toLowerCase().endsWith('.mov')?'video/quicktime':'video/mp4'):'';
-    if((!file&&!/^https:\/\//i.test(directUrl))||(file&&((file.type&&!allowedTypes.includes(file.type))||!allowedExt.test(file.name)))||(file&&file.size>524288000)||!/^https:\/\//i.test(source)||(poster&&!/^https:\/\//i.test(poster))||f.get('permission')!=='on'){
-      alert('Choose an MP4, WebM, or MOV file up to 500 MB, or enter a direct HTTPS video URL. Add the original HTTPS source and confirm publishing rights.');
+    if((!file&&!isSupportedVideoUrl(directUrl))||(file&&((file.type&&!allowedTypes.includes(file.type))||!allowedExt.test(file.name)))||(file&&file.size>524288000)||!/^https:\/\//i.test(source)||(poster&&!/^https:\/\//i.test(poster))||f.get('permission')!=='on'){
+      alert('Choose an MP4, WebM, or MOV file up to 500 MB, or enter a direct HTTPS video-file URL ending in .mp4, .webm, or .mov. TikTok and other watch-page links are not playable files. Add the original HTTPS source and confirm publishing rights.');
       submit.disabled=false;submit.textContent='PUBLISH DRAMA';return;
     }
     let videoUrl=directUrl,storagePath=null,published=false,posterUrl=poster,subtitleUrl=null,posterPath=null,subtitlePath=null,frameBlob=null;
