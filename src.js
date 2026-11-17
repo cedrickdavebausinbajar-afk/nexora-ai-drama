@@ -607,7 +607,16 @@ function renderScreen() {
   document.querySelector('#screen')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 function card(x) {
-  return `<article class="rowcard"><img class="mini-poster" src="${esc(x.poster||'')}" alt="" onerror="this.style.display='none'"><div><b>${esc(x.title)}</b><small>${esc(x.category)} · ${esc(x.episode||'')}</small><p>${esc(x.creator||'Creator not listed')}</p><button class="gold-outline" data-play="${esc(x.id)}">WATCH</button></div></article>`;
+  const poster = x.poster ? `poster="${esc(x.poster)}"` : '';
+  const title = esc(x.title || 'Untitled drama');
+  return `<article class="rowcard home-video-card">
+    <div class="home-video-thumb">
+      <video class="mini-poster" src="${esc(x.url)}" ${poster} muted playsinline preload="metadata" aria-label="Video thumbnail for ${title}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"></video>
+      <div class="home-thumb-fallback" hidden><span>✦ NEXORA AI DRAMA</span><b>${title}</b><small>VIDEO PREVIEW UNAVAILABLE</small></div>
+      <span class="home-thumb-play" aria-hidden="true">▶</span>
+    </div>
+    <div class="home-video-copy"><b>${title}</b><small>${esc(x.category || 'Drama')} · ${esc(x.episode || 'Episode 1')}</small><p>${esc(x.creator || 'Creator not listed')}</p><button class="gold-outline" data-play="${esc(x.id)}">WATCH DRAMA</button></div>
+  </article>`;
 }
 function wireCards() {
   document.querySelectorAll('[data-play]').forEach(b => b.onclick = () => {
