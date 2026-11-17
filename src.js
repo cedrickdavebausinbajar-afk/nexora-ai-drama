@@ -126,7 +126,7 @@ function showUpdatePopup() {
   };
 }
 
-async function checkForUpdates() {
+async function performUpdateCheck() {
   try {
     const [localRes, remoteRes] = await Promise.all([
       fetch('/app-version.json', {cache:'no-store'}),
@@ -176,6 +176,19 @@ async function checkForUpdates() {
   if (updateInfo.status === 'available' && Capacitor.isNativePlatform() && updateDownload.status === 'idle') {
     downloadUpdate().catch(() => {});
   }
+  return updateInfo;
+}
+
+const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+let updateCheckPromise = null;
+let lastUpdateCheckAt = 0;
+async function checkForUpdates(force = false) {
+  if (updateCheckPromise) return updateCheckPromise;
+  if (!force && Date.now() - lastUpdateCheckAt < UPDATE_CHECK_INTERVAL_MS) return updateInfo;
+  lastUpdateCheckAt = Date.now();
+  updateCheckPromise = performUpdateCheck();
+  try { return await updateCheckPromise; }
+  finally { updateCheckPromise = null; }
 }
 
 const KEY = 'nexora-drama-demo-v2';
@@ -246,6 +259,7 @@ let view = 'home';
 const WATCH_PROGRESS_KEY = 'nexora-watch-progress-v1';
 const WATCH_NOTIFICATION_ID = 7301;
 let pendingResumeId = '';
+let activePlayerController = null;
 async function cancelContinueNotification() {
   if (!Capacitor.isNativePlatform()) return;
   try { await LocalNotifications.cancel({notifications:[{id:WATCH_NOTIFICATION_ID}]}); } catch {}
@@ -342,6 +356,8 @@ ${view==='feed'?`<section class="welcome-strip"><img class="drama-cover-banner" 
 }
 function render() { shell(); }
 function renderScreen() {
+  activePlayerController?.abort();
+  activePlayerController = null;
   const screen = document.querySelector('#screen');
   if (!screen) return;
   if (view === 'home') {
@@ -359,7 +375,7 @@ function renderScreen() {
   if (view === 'stories') { renderStoryMode(screen, () => { view='feed'; render(); }); return; }
   if (view === 'updates') {
     screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">When a new version is found, NEXORA downloads it into private app storage automatically. Android will ask you to confirm installation. Old APKs are not added to your Downloads folder.</small></section>`;
-    document.querySelector('#checkUpdates').onclick=()=>{updateDownload={status:'idle',path:'',message:''};document.querySelector('#updateStatus').textContent='Checking for updates…';checkForUpdates();};
+    document.querySelector('#checkUpdates').onclick=()=>{updateDownload={status:'idle',path:'',message:''};document.querySelector('#updateStatus').textContent='Checking for updates…';checkForUpdates(true);};
     document.querySelector('#updateAction').onclick=startUpdateFlow;
     checkForUpdates();
     return;
@@ -437,7 +453,7 @@ function renderScreen() {
       <source src="${esc(x.url||'')}" ${videoMimeType(x.url) ? `type="${videoMimeType(x.url)}"` : ''}>
       Your device cannot play this video.
     </video>
-    <div id="videoError" class="video-error" hidden>Video could not load. Check your internet connection, then tap RETRY.<button id="retryVideo" type="button">RETRY</button></div>`}
+    <div id="videoError" class="video-error" hidden><span id="videoErrorMessage">Video could not load. Check your internet connection, then tap RETRY.</span><button id="retryVideo" type="button">RETRY</button></div>`}
   <div class="shade"></div>
   <div class="meta"><span class="tag">${esc(x.category||'DRAMA')}</span><h2>${esc(x.title)}</h2>
   <p>${esc(x.episode||'EPISODE 1')} · ${esc(x.creator||'Creator not listed')}</p>
@@ -449,6 +465,9 @@ function renderScreen() {
 <div class="feed-controls"><button id="prev" ${active===0?'disabled':''}>↑ PREVIOUS</button><span>${active+1} / ${items.length}</span><button id="nextText" ${active===items.length-1?'disabled':''}>NEXT ↓</button></div>
 <p class="credit">Credit: ${esc(x.creator||'Not provided')} · ${esc(x.license||'Authorized content')}. <a href="${esc(x.source||'#')}" target="_blank" rel="noopener">Source and license details ↗</a></p>
 </section>`;
+  const playerController = new AbortController();
+  activePlayerController = playerController;
+  const playerSignal = playerController.signal;
   document.querySelectorAll('[data-episode-play]').forEach(button=>button.onclick=()=>{const nextIndex=items.findIndex(entry=>entry.id===button.dataset.episodePlay);if(nextIndex>=0){active=nextIndex;render();}});
   const playerFrame = document.querySelector('#player');
   const fullscreenButton = document.querySelector('#fullscreenPlayer');
@@ -514,8 +533,8 @@ function renderScreen() {
       }
       syncFullscreenLabel();
     };
-    document.addEventListener('fullscreenchange', syncFullscreenLabel);
-    document.addEventListener('webkitfullscreenchange', syncFullscreenLabel);
+    document.addEventListener('fullscreenchange', syncFullscreenLabel, {signal:playerSignal});
+    document.addEventListener('webkitfullscreenchange', syncFullscreenLabel, {signal:playerSignal});
     if (video) {
       video.addEventListener('webkitbeginfullscreen', () => {
         fullscreenSnapshot = {time:video.currentTime,wasPlaying:!video.paused};
@@ -555,6 +574,7 @@ function renderScreen() {
     }
 
     const errorBox = document.querySelector('#videoError');
+    const errorMessage = document.querySelector('#videoErrorMessage');
     video.addEventListener('play', () => {
       trackNexoraEvent('drama_play_start', {content_title: x.title || 'unknown', content_category: x.category || 'unknown'});
     });
@@ -605,12 +625,12 @@ function renderScreen() {
         savePlaybackPosition();
         saveResumeReminder();
       } else if (!video.paused) cancelContinueNotification();
-    });
+    }, {signal:playerSignal});
     window.addEventListener('pagehide', () => {
       // pagehide may run during an app close while playback is still marked active.
       savePlaybackPosition();
       saveResumeReminder();
-    });
+    }, {signal:playerSignal});
     video.addEventListener('ended', () => {
       if (playbackStartedAt) {
         accumulatedPlaybackMs += Date.now() - playbackStartedAt;
@@ -621,7 +641,15 @@ function renderScreen() {
       try { const p=JSON.parse(localStorage.getItem(WATCH_PROGRESS_KEY)||'null'); if(p?.id===x.id) localStorage.removeItem(WATCH_PROGRESS_KEY); } catch {}
     });
     video.addEventListener('error', () => {
-      errorBox.hidden = false;
+      const code = video.error?.code;
+      const messages = {
+        1: 'Playback was interrupted. Tap RETRY to continue.',
+        2: 'A network error stopped this video. Check your connection, then retry.',
+        3: 'This video uses a format or codec your device cannot play. Upload an MP4 encoded with H.264 video and AAC audio.',
+        4: 'The video URL is unavailable or its format is unsupported. Check the published video file.'
+      };
+      if (errorMessage) errorMessage.textContent = messages[code] || 'Video could not load. Check the video link and your internet connection, then retry.';
+      if (errorBox) errorBox.hidden = false;
     });
     document.querySelector('#retryVideo').onclick = () => {
       errorBox.hidden = true;
@@ -670,7 +698,10 @@ function hydrateMissingDramaThumbnails(root = document) {
       try {
         const frame = await captureDramaThumbnail(entry.url);
         if (!frame) throw new Error('Video frame unavailable');
-        img.src = URL.createObjectURL(frame);
+        const previewUrl = URL.createObjectURL(frame);
+        img.addEventListener('load', () => URL.revokeObjectURL(previewUrl), {once:true});
+        img.addEventListener('error', () => URL.revokeObjectURL(previewUrl), {once:true});
+        img.src = previewUrl;
         img.hidden = false;
         img.dataset.generated = '1';
         if (fallback) fallback.hidden = true;
@@ -897,7 +928,7 @@ async function renderAdmin() {
     items=items.filter(x=>x.id!==b.dataset.delete);await renderAdmin();
   });
 }
-async function loadCloudDramas() {
+async function performCloudDramasLoad() {
   if(!supabase)return;
   let {data,error}=await supabase.from('dramas').select('id,title,episode,episode_number,parent_drama_id,category,video_url,poster_url,subtitle_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
   if(error && /subtitle_url|column/i.test(error.message)) {
@@ -921,6 +952,24 @@ async function loadCloudDramas() {
   // refresh and watch-count realtime events used to recreate the <video> element,
   // sending playback back to the beginning (especially noticeable in fullscreen).
   if(view==='home'||view==='search')render();
+}
+let cloudLoadPromise = null;
+let cloudRefreshQueued = false;
+async function loadCloudDramas() {
+  if (!supabase) return;
+  if (cloudLoadPromise) {
+    cloudRefreshQueued = true;
+    return cloudLoadPromise;
+  }
+  cloudLoadPromise = performCloudDramasLoad();
+  try { return await cloudLoadPromise; }
+  finally {
+    cloudLoadPromise = null;
+    if (cloudRefreshQueued) {
+      cloudRefreshQueued = false;
+      Promise.resolve().then(() => loadCloudDramas());
+    }
+  }
 }
 shell();
 initializePhoneNotifications();
