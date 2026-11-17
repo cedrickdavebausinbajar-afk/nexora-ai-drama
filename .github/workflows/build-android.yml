@@ -371,7 +371,7 @@ jobs:
                   if (install.resolveActivity(getContext().getPackageManager()) == null)
                     throw new Exception("No Android package installer is available on this device.");
                   getContext().startActivity(install);
-                  call.resolve(new com.getcapacitor.JSObject().put("started", true));
+                  com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();\n                  result.put("started", true);\n                  call.resolve(result);
                 } catch (Exception error) {
                   call.reject("APK download/install failed: " + error.getMessage(), error);
                 } finally {
@@ -381,7 +381,7 @@ jobs:
             }
             private static class JSObjectCompat {
               static void resolvePermission(PluginCall call) {
-                call.resolve(new com.getcapacitor.JSObject().put("requiresPermission", true));
+                com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();\n                result.put("requiresPermission", true);\n                call.resolve(result);
               }
             }
           }
@@ -397,7 +397,7 @@ jobs:
           xml = manifest.read_text(encoding="utf-8")
           permission = '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />'
           if permission not in xml:
-              xml = xml.replace("<application", permission + "\\n    <application", 1)
+              xml = xml.replace("<application", permission + "\n    <application", 1)
           provider = '''        <provider
                   android:name="androidx.core.content.FileProvider"
                   android:authorities="${applicationId}.fileprovider"
