@@ -63,7 +63,7 @@ export function renderStoryMode(root, onBack) {
     if (page === 'library') {
       const visible = stories.filter(s => filter === 'all' || (filter === 'saved' ? s.saved : filter === 'drafts' ? s.status !== 'published' : s.status === 'published'));
       root.innerHTML = `<section class="story-shell">
-        <div class="story-heading"><div><span class="story-kicker">NEXORA ORIGINAL READING</span><h1>Story Mode</h1><p>Pick a story to read, or write one of your own.</p></div><div class="story-heading-actions"><button class="gold-outline" id="storyRead">▤ READ STORIES</button><button class="gold story-create" id="storyCreate">＋ CREATE STORY</button></div></div>
+        <div class="story-heading"><div><span class="story-kicker">NEXORA TEXT-ONLY DRAMA</span><h1>Drama Story Only</h1><p>Read or write drama stories using text only. This section has no videos.</p></div><div class="story-heading-actions"><button class="gold-outline" id="storyRead">▤ READ STORIES</button><button class="gold story-create" id="storyCreate">＋ CREATE STORY</button></div></div>
         <div class="story-notice"><strong>Your writing stays on this device.</strong> Stories and drafts are saved in this app's local storage. They do not sync to other phones or publish online yet. Back up important writing separately.</div>
         <div class="story-filters" role="group" aria-label="Filter stories">
           <button data-filter="all" class="${filter==='all'?'active':''}">ALL STORIES</button>
