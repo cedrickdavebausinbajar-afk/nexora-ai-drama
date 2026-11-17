@@ -38,7 +38,7 @@ The Owner Dashboard uses Supabase Auth plus a server-side owner allowlist and Ro
 
 ### One-time Supabase setup
 1. Create a Supabase project.
-2. In the SQL Editor, run `supabase/migrations/202611160001_secure_owner_library.sql`, then `supabase/migrations/202611170001_nexora_video_storage.sql`.
+2. In the SQL Editor, run `supabase/migrations/202611160001_secure_owner_library.sql`, then `supabase/migrations/202611170001_nexora_video_storage.sql`, then `supabase/migrations/202611170002_drama_watch_counts.sql`.
 3. In Supabase Authentication, create the owner's account using your own email and a strong password.
 4. Copy that user's UUID from Authentication → Users, then run the INSERT statement at the bottom of the migration to add that UUID to `public.nexora_owner_users`.
 5. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the build environment. For GitHub Actions, add them as repository Actions secrets with those exact names. The anon/publishable key is intended for client apps; RLS is the security boundary. Never put a service-role key in the app.
