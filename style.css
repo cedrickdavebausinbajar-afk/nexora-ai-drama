@@ -506,3 +506,13 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
 @media(max-width:360px){
   .home-published{grid-template-columns:1fr}
 }
+
+/* Series episode selector */
+.episode-picker{margin:1rem 0;padding:1rem;border:1px solid rgba(212,175,55,.25);border-radius:16px;background:#101014}
+.episode-picker h3{margin:0 0 .35rem;color:#d8b86a;font-size:.85rem;letter-spacing:.12em}
+.episode-picker>p{margin:.25rem 0 .8rem;color:#aaa}
+.episode-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.6rem}
+.episode-choice{display:flex;flex-direction:column;align-items:flex-start;gap:.25rem;padding:.8rem;border:1px solid #39343a;border-radius:10px;background:#19171c;color:#fff;text-align:left}
+.episode-choice b{color:#d8b86a;font-size:.75rem}
+.episode-choice.active{border-color:#d8b86a;background:#292219}
+.episode-choice span{font-size:.85rem}
