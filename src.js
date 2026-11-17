@@ -499,7 +499,6 @@ function renderScreen() {
     video.removeAttribute('src');
     video.querySelectorAll('source').forEach(source => source.remove());
     video.preload = 'auto';
-    if (x.url) { video.src = x.url; video.load(); }
     if(x.subtitle){const track=document.createElement('track');track.kind='subtitles';track.label='Subtitles';track.srclang='en';track.src=x.subtitle;video.appendChild(track);}
     const volumeToggle = document.querySelector('#volumeToggle');
     const syncVolumeToggle = () => {
@@ -611,6 +610,8 @@ function renderScreen() {
       errorBox.hidden = true;
       video.load();
     };
+    // Start the request only after every playback/error listener is attached.
+    if (x.url) { video.src = x.url; video.load(); }
   }
   document.querySelector('#like').onclick = () => {
     liked.has(x.id) ? liked.delete(x.id) : liked.add(x.id);
