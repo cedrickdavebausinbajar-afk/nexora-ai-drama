@@ -344,7 +344,17 @@ function render() { shell(); }
 function renderScreen() {
   const screen = document.querySelector('#screen');
   if (!screen) return;
-  if (view === 'home') { screen.innerHTML = '<section class="db-home"><div class="db-greeting"><span class="db-kicker">DRAMABOX</span><h1>Discover your next favorite drama.</h1><p>Explore romance, revenge, secrets and original stories.</p></div><button class="db-hero" id="dbHero"><b>FEATURED ORIGINAL</b><strong>LOVE BEHIND THE LIES</strong><small>Romance · Mystery</small><span>EXPLORE SERIES　›</span></button><h2>Popular dramas</h2><div class="db-poster-row">'+originalSeries.slice(0,6).map((x,i)=>'<button class="db-poster" data-db="'+x.id+'"><span class="db-art art-'+(i%6)+'">'+esc(x.title)+'</span><small>'+esc(x.genre)+'</small></button>').join('')+'</div><h2>Stories, not just videos</h2><div class="db-story-actions"><button id="dbRead">▤　READ A STORY</button><button id="dbCreate">＋　CREATE A STORY</button></div><div class="db-feature-row"><button data-go="shorts">DRAMA SHORTS</button><button data-go="saved">SAVED DRAMAS</button><button data-go="search">SEARCH</button></div></section>'; screen.querySelector('#dbHero').onclick=()=>{selectedSeries=originalSeries[0].id;view='originals';render();}; screen.querySelectorAll('[data-db]').forEach(b=>b.onclick=()=>{selectedSeries=b.dataset.db;view='originals';render();}); screen.querySelector('#dbRead').onclick=()=>{view='stories';render();}; screen.querySelector('#dbCreate').onclick=()=>{view='stories';render();}; screen.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{view=b.dataset.go;render();}); return; }
+  if (view === 'home') {
+    const publishedDramas = items.filter(x => !builtInIds.has(x.id) && x.url);
+    screen.innerHTML = `<section class="db-home"><div class="db-greeting"><span class="db-kicker">DRAMABOX</span><h1>Discover your next favorite drama.</h1><p>Explore romance, revenge, secrets and original stories.</p></div><button class="db-hero" id="dbHero"><b>FEATURED ORIGINAL</b><strong>LOVE BEHIND THE LIES</strong><small>Romance · Mystery</small><span>EXPLORE SERIES　›</span></button><h2>Popular dramas</h2><div class="db-poster-row">${originalSeries.slice(0,6).map((x,i)=>'<button class="db-poster" data-db="'+x.id+'"><span class="db-art art-'+(i%6)+'">'+esc(x.title)+'</span><small>'+esc(x.genre)+'</small></button>').join('')}</div><h2>Newly published episodes</h2><div class="home-published">${publishedDramas.length ? publishedDramas.map(card).join('') : '<p class="muted">New episodes will appear here automatically after they are published.</p>'}</div><h2>Stories, not just videos</h2><div class="db-story-actions"><button id="dbRead">▤　READ A STORY</button><button id="dbCreate">＋　CREATE A STORY</button></div><div class="db-feature-row"><button data-go="shorts">DRAMA SHORTS</button><button data-go="saved">SAVED DRAMAS</button><button data-go="search">SEARCH</button></div></section>`;
+    wireCards();
+    screen.querySelector('#dbHero').onclick=()=>{selectedSeries=originalSeries[0].id;view='originals';render();};
+    screen.querySelectorAll('[data-db]').forEach(b=>b.onclick=()=>{selectedSeries=b.dataset.db;view='originals';render();});
+    screen.querySelector('#dbRead').onclick=()=>{view='stories';render();};
+    screen.querySelector('#dbCreate').onclick=()=>{view='stories';render();};
+    screen.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{view=b.dataset.go;render();});
+    return;
+  }
   if (view === 'stories') { renderStoryMode(screen, () => { view='feed'; render(); }); return; }
   if (view === 'updates') {
     screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">When a new version is found, NEXORA downloads it into private app storage automatically. Android will ask you to confirm installation. Old APKs are not added to your Downloads folder.</small></section>`;
@@ -416,6 +426,7 @@ function renderScreen() {
   const embeddedPlayer = peerTubeEmbed || youtubeEmbed;
   screen.innerHTML = `<section class="player-wrap">
 <div class="player" id="player">
+  <button type="button" id="volumeToggle" class="volume-toggle" aria-label="Unmute video" aria-pressed="false" title="Turn sound on">🔇 <span>SOUND OFF</span></button>
   <button type="button" id="fullscreenPlayer" class="fullscreen-player" aria-label="Enter full screen" title="Full screen">⛶ <span>FULL SCREEN</span></button>
   ${embeddedPlayer
     ? `<iframe class="peer-player" src="${embeddedPlayer}" title="Watch ${esc(x.title)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>`
@@ -468,6 +479,25 @@ function renderScreen() {
   }
   const video = document.querySelector('#dramaVideo');
   if (video) {
+    const volumeToggle = document.querySelector('#volumeToggle');
+    const syncVolumeToggle = () => {
+      if (!volumeToggle) return;
+      const muted = video.muted || video.volume === 0;
+      volumeToggle.innerHTML = muted ? '🔇 <span>SOUND OFF</span>' : '🔊 <span>SOUND ON</span>';
+      volumeToggle.setAttribute('aria-label', muted ? 'Unmute video' : 'Mute video');
+      volumeToggle.setAttribute('aria-pressed', String(!muted));
+      volumeToggle.title = muted ? 'Turn sound on' : 'Mute sound';
+    };
+    if (volumeToggle) {
+      video.muted = true;
+      volumeToggle.onclick = () => {
+        video.muted = !video.muted;
+        if (!video.muted && video.volume === 0) video.volume = 1;
+        syncVolumeToggle();
+      };
+      video.addEventListener('volumechange', syncVolumeToggle);
+      syncVolumeToggle();
+    }
     let lastProgressWrite = 0;
     let savedProgress = null;
     try { savedProgress = JSON.parse(localStorage.getItem(WATCH_PROGRESS_KEY) || 'null'); } catch {}
