@@ -516,3 +516,18 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
 .episode-choice b{color:#d8b86a;font-size:.64rem;letter-spacing:.04em}
 .episode-choice.active{border-color:#d8b86a;background:#292219}
 .episode-choice span{font-size:.7rem;line-height:1.15}
+
+
+/* Compact drama player: native controls only; no duplicate play overlay */
+.player-wrap{max-width:420px}
+.player{height:min(62vh,620px);min-height:360px}
+.player video{object-fit:contain}
+.player .play-overlay{display:none!important}
+.player video::-webkit-media-controls-overlay-play-button,
+.player video::-webkit-media-controls-start-playback-button{display:none!important}
+@media(max-width:540px){
+  .player-wrap{max-width:100%}
+  .player{height:min(58vh,560px);min-height:320px;border-radius:15px}
+  .player .meta{bottom:70px}
+  .player .actions{bottom:78px}
+}
