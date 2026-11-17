@@ -737,11 +737,24 @@ function renderAdminLogin(message = '') {
     const form=e.currentTarget, button=form.querySelector('button[type="submit"]'), status=document.querySelector('#loginMessage');
     button.disabled=true; button.textContent='VERIFYING…'; status.textContent='';
     const values=new FormData(form);
-    const {error}=await supabase.auth.signInWithPassword({email:String(values.get('email')||'').trim(),password:String(values.get('password')||'')});
-    if(error){status.textContent='Sign-in failed. Check your credentials and try again.';button.disabled=false;button.textContent='SIGN IN SECURELY';return;}
-    const {data: allowed,error: roleError}=await supabase.rpc('is_nexora_owner');
-    if(roleError||allowed!==true){await supabase.auth.signOut();status.textContent='Access denied. This account is not on the NEXORA owner allowlist.';button.disabled=false;button.textContent='SIGN IN SECURELY';return;}
-    await renderAdmin();
+    try {
+      const {error}=await supabase.auth.signInWithPassword({email:String(values.get('email')||'').trim(),password:String(values.get('password')||'')});
+      if(error) throw error;
+      const {data: allowed,error: roleError}=await supabase.rpc('is_nexora_owner');
+      if(roleError) throw roleError;
+      if(allowed!==true) {
+        await supabase.auth.signOut();
+        status.textContent='Access denied. This account is not on the NEXORA owner allowlist.';
+        button.disabled=false;button.textContent='SIGN IN SECURELY';return;
+      }
+      await renderAdmin();
+    } catch(error) {
+      console.error('NEXORA owner sign-in failed:',error);
+      status.textContent=error?.message==='Invalid login credentials'
+        ? 'Sign-in failed. Check your email and password, then try again.'
+        : 'Could not verify owner access. Check your connection and retry.';
+      button.disabled=false;button.textContent='SIGN IN SECURELY';
+    }
   };
 }
 function videoMimeType(videoUrl) {
@@ -817,8 +830,9 @@ async function renderAdmin() {
   if(roleError||allowed!==true){await supabase.auth.signOut();renderAdminLogin('Owner authorization is required.');return;}
   const {data: videos,error}=await supabase.from('dramas').select('*').order('created_at',{ascending:false});
   if(error){
-    app.innerHTML='<main class="admin"><section class="panel"><h1>Owner dashboard unavailable</h1><p class="warning">'+esc(error.message)+'</p><button class="gold-outline" id="back">VIEW APP</button></section></main>';
-    document.querySelector('#back').onclick=()=>{view='feed';render();}; return;
+    app.innerHTML='<main class="admin"><section class="panel"><div class="eyebrow">OWNER DASHBOARD CONNECTION</div><h1>Owner dashboard unavailable</h1><p class="warning" role="alert">'+esc(error.message)+'</p><p class="muted">Your owner session is still active. Retry the dashboard, or safely return to the app.</p><div class="two"><button class="gold" id="retryDashboard" type="button">RETRY DASHBOARD</button><button class="gold-outline" id="back" type="button">VIEW APP</button></div></section></main>';
+    document.querySelector('#retryDashboard').onclick=()=>renderAdmin();
+    document.querySelector('#back').onclick=()=>{ownerFlowActive=false;view='feed';render();}; return;
   }
   const ownerVideos=videos||[];
   app.innerHTML='<header class="top"><div class="brand"><img class="brand-logo" src="/nexora-logo.svg" alt="NEXORA logo"><div><b>NEXORA</b><small>PRIVATE OWNER PANEL</small></div></div><button class="gold-outline" id="signOut">SIGN OUT</button></header>' +
