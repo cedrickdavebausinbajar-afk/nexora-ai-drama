@@ -295,7 +295,8 @@ jobs:
               if (status < 200 || status >= 300) throw new Exception("HTTP " + status);
               return result.toString();
             }
-            private void notify(Context context, int id, String title, String body, String channel) {
+            private boolean notify(Context context, int id, String title, String body, String channel) {
+              if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false;
               Intent intent = new Intent(context, MainActivity.class);
               intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
               PendingIntent pending = PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -303,7 +304,8 @@ jobs:
                 .setSmallIcon(R.mipmap.ic_launcher).setContentTitle(title).setContentText(body)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(body)).setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT).setContentIntent(pending);
-              try { NotificationManagerCompat.from(context).notify(id, builder.build()); } catch (SecurityException ignored) {}
+              try { NotificationManagerCompat.from(context).notify(id, builder.build()); return true; }
+              catch (SecurityException ignored) { return false; }
             }
             private void checkLatestAppVersion(Context context) {
               try {
@@ -320,8 +322,9 @@ jobs:
                   boolean hasApk = false;
                   if (assets != null) for (int i=0;i<assets.length();i++) if ("NEXORA-AI-DRAMA.apk".equals(assets.getJSONObject(i).optString("name"))) hasApk = true;
                   if (hasApk) {
-                    notify(context, 8102, "NEXORA AI DRAMA update available", "Version " + tag + " is ready. Tap to open NEXORA and update.", "nexora-updates");
-                    context.getSharedPreferences("nexora_notifications", 0).edit().putString("notified_release", tag).apply();
+                    if (notify(context, 8102, "NEXORA AI DRAMA update available", "Version " + tag + " is ready. Tap to open NEXORA and update.", "nexora-updates")) {
+                      context.getSharedPreferences("nexora_notifications", 0).edit().putString("notified_release", tag).apply();
+                    }
                   }
                 }
               } catch (Exception ignored) {}
@@ -347,8 +350,9 @@ jobs:
                 }
                 if (fresh > 0) {
                   String body = fresh == 1 ? firstTitle + " · " + firstEpisode : fresh + " new dramas or episodes are available.";
-                  notify(context, 8101, fresh == 1 ? "New drama on NEXORA" : "New dramas on NEXORA", body, "nexora-updates");
-                  prefs.edit().putString("last_drama_created_at", newest).apply();
+                  if (notify(context, 8101, fresh == 1 ? "New drama on NEXORA" : "New dramas on NEXORA", body, "nexora-updates")) {
+                    prefs.edit().putString("last_drama_created_at", newest).apply();
+                  }
                 }
               } catch (Exception ignored) {}
             }
@@ -364,9 +368,12 @@ jobs:
           import androidx.work.ExistingPeriodicWorkPolicy;
           import androidx.work.PeriodicWorkRequest;
           import androidx.work.WorkManager;
+          import androidx.work.Constraints;
+          import androidx.work.NetworkType;
           import java.util.concurrent.TimeUnit;""")
               activity = activity.replace("super.onCreate(savedInstanceState);", """super.onCreate(savedInstanceState);
-              PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(NexoraNotificationWorker.class, 15, TimeUnit.MINUTES).build();
+              Constraints constraints = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+              PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(NexoraNotificationWorker.class, 15, TimeUnit.MINUTES).setConstraints(constraints).build();
               WorkManager.getInstance(this).enqueueUniquePeriodicWork("nexora-background-notifications", ExistingPeriodicWorkPolicy.KEEP, request);""")
               activity_path.write_text(activity, encoding="utf-8")
 
