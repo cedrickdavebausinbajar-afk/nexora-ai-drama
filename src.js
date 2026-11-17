@@ -676,18 +676,57 @@ function renderScreen() {
   document.querySelector('#screen')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 function card(x) {
-  const poster = x.poster ? `poster="${esc(x.poster)}"` : '';
   const title = esc(x.title || 'Untitled drama');
   return `<article class="rowcard home-video-card">
     <div class="home-video-thumb">
-      <video class="mini-poster" src="${esc(x.url)}" ${poster} muted playsinline preload="metadata" aria-label="Video thumbnail for ${title}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"></video>
-      <div class="home-thumb-fallback" hidden><span>✦ NEXORA AI DRAMA</span><b>${title}</b><small>VIDEO PREVIEW UNAVAILABLE</small></div>
+      <img class="mini-poster" src="${esc(x.poster || '')}" ${x.poster ? '' : 'hidden'} data-video-thumbnail="${esc(x.id)}" alt="Real video thumbnail for ${title}">
+      <div class="home-thumb-fallback" ${x.poster ? 'hidden' : ''}><span>✦ NEXORA AI DRAMA</span><b>${title}</b><small>LOADING VIDEO FRAME…</small></div>
       <span class="home-thumb-play" aria-hidden="true">▶</span>
     </div>
     <div class="home-video-copy"><b>${title}</b><small>${esc(x.category || 'Drama')} · ${esc(x.episode || 'Episode 1')}</small><p>${esc(x.creator || 'Creator not listed')}</p><button class="gold-outline" data-play="${esc(x.id)}">WATCH DRAMA</button></div>
   </article>`;
 }
+function hydrateMissingDramaThumbnails(root = document) {
+  root.querySelectorAll('img[data-video-thumbnail]').forEach(img => {
+    const entry = items.find(item => item.id === img.dataset.videoThumbnail);
+    if (!entry || img.dataset.hydrating === '1' || img.dataset.generated === '1') return;
+    const fallback = img.nextElementSibling;
+    const generate = async () => {
+      if (img.dataset.hydrating === '1' || img.dataset.generated === '1') return;
+      img.dataset.hydrating = '1';
+      try {
+        const frame = await captureDramaThumbnail(entry.url);
+        if (!frame) throw new Error('Video frame unavailable');
+        img.src = URL.createObjectURL(frame);
+        img.hidden = false;
+        img.dataset.generated = '1';
+        if (fallback) fallback.hidden = true;
+      } catch (_) {
+        img.hidden = true;
+        if (fallback) fallback.hidden = false;
+        const note = fallback?.querySelector('small');
+        if (note) note.textContent = 'VIDEO THUMBNAIL NOT AVAILABLE';
+      } finally {
+        img.dataset.hydrating = '0';
+      }
+    };
+    img.addEventListener('load', () => {
+      if (img.naturalWidth > 0) {
+        img.hidden = false;
+        if (fallback) fallback.hidden = true;
+      }
+    }, {once:true});
+    img.addEventListener('error', generate, {once:true});
+    if (!img.getAttribute('src') || (img.complete && img.naturalWidth === 0)) generate();
+    else if (img.complete && img.naturalWidth > 0) {
+      img.hidden = false;
+      if (fallback) fallback.hidden = true;
+    }
+  });
+}
 function wireCards() {
+  const cardRoot = document.querySelector('#screen') || document;
+  hydrateMissingDramaThumbnails(cardRoot);
   document.querySelectorAll('[data-play]').forEach(b => b.onclick = () => {
     const index = items.findIndex(x => x.id === b.dataset.play);
     if (index >= 0) { active = index; view = 'feed'; render(); }
