@@ -741,8 +741,29 @@ async function renderAdmin() {
   '<label>Upload video file (MP4, WebM, or MOV · max 500 MB)<input name="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"></label><p class="muted">Choose a video from your phone, or use a direct HTTPS video URL below. Do not paste a TikTok page link; it is not a playable video file.</p><label>Or direct video URL (optional)<input name="url" type="url" placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional; otherwise captured from your video)<input name="poster" type="url" placeholder="https://..."></label><label>Subtitles (optional .VTT or .SRT)<input name="subtitleFile" type="file" accept=".vtt,.srt,text/vtt,application/x-subrip"></label><small class="muted">Subtitles stay off unless a valid subtitle file is uploaded.</small>' +
   '<div class="two"><label>Creator name<input name="creator" required maxlength="120" placeholder="Original creator"></label><label>Original source URL<input name="source" type="url" required placeholder="https://original-post..."></label></div>' +
   '<label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label><button class="gold" type="submit">PUBLISH DRAMA</button></form></section>' +
-  '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
+  '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><button id="repairThumbnails" class="gold-outline" type="button">REPAIR MISSING VIDEO THUMBNAILS</button><p class="muted">Repairs old uploads stored in NEXORA storage using a real frame from each original video.</p><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
   document.querySelector('#signOut').onclick=async()=>{await supabase.auth.signOut();view='feed';render();};
+  document.querySelector('#repairThumbnails').onclick=async()=>{
+    const button=document.querySelector('#repairThumbnails');
+    const repairable=ownerVideos.filter(v=>!v.poster_url&&v.video_storage_path);
+    if(!repairable.length){alert('No missing thumbnails for videos stored in NEXORA storage. Direct external video URLs may need a manually supplied poster image.');return;}
+    button.disabled=true;let fixed=0,failed=0;
+    for(const entry of repairable){
+      button.textContent='REPAIRING '+(fixed+failed+1)+' / '+repairable.length+'…';
+      try{
+        const {data:blob,error:downloadError}=await supabase.storage.from('nexora-drama-videos').download(entry.video_storage_path);
+        if(downloadError)throw downloadError;
+        const frame=await captureDramaThumbnail(blob);if(!frame)throw new Error('Could not capture a video frame');
+        const posterPath=entry.video_storage_path+'.jpg';
+        const posterUrl=await uploadDramaAsset(posterPath,frame,'image/jpeg');
+        const {error:updateError}=await supabase.from('dramas').update({poster_url:posterUrl,poster_storage_path:posterPath}).eq('id',entry.id);
+        if(updateError)throw updateError;
+        fixed++;
+      }catch(err){failed++;console.warn('Thumbnail repair failed for '+entry.title,err);}
+    }
+    alert('Thumbnail repair complete. Fixed: '+fixed+'. Could not repair: '+failed+'.');
+    await loadCloudDramas();await renderAdmin();
+  };
   document.querySelector('#addForm').onsubmit=async e=>{
     e.preventDefault();
     const form=e.currentTarget,submit=form.querySelector('button[type="submit"]');
@@ -782,7 +803,7 @@ async function renderAdmin() {
       }
       const {error:insertError}=await supabase.from('dramas').insert({
         title:String(f.get('title')||'').trim(),episode:String(f.get('episode')||'Episode 1').trim()||'Episode 1',
-        category:String(f.get('category')||'Other'),video_url:videoUrl,video_storage_path:storagePath,poster_url:posterUrl||null,subtitle_url:subtitleUrl,subtitle_storage_path:subtitlePath,
+        category:String(f.get('category')||'Other'),video_url:videoUrl,video_storage_path:storagePath,poster_url:posterUrl||null,poster_storage_path:posterPath,subtitle_url:subtitleUrl,subtitle_storage_path:subtitlePath,
         creator:String(f.get('creator')||'').trim(),source_url:source,permission_confirmed:true,published:true
       });
       if(insertError) throw insertError;
@@ -800,10 +821,8 @@ async function renderAdmin() {
     const selected=ownerVideos.find(x=>x.id===b.dataset.delete);
     const {error: deleteError}=await supabase.from('dramas').delete().eq('id',b.dataset.delete);
     if(deleteError){alert('Could not remove drama: '+deleteError.message);b.disabled=false;return;}
-    if(selected?.video_storage_path) {
-      const {error:storageError}=await supabase.storage.from('nexora-drama-videos').remove([selected.video_storage_path]);
-      if(storageError) console.warn('Drama removed but its stored video could not be deleted:',storageError.message);
-    }
+    const assetPaths=[selected?.video_storage_path,selected?.poster_storage_path,selected?.subtitle_storage_path].filter(Boolean);
+    if(assetPaths.length){const {error:storageError}=await supabase.storage.from('nexora-drama-videos').remove(assetPaths);if(storageError)console.warn('Drama removed but some stored media could not be deleted:',storageError.message);}
     items=items.filter(x=>x.id!==b.dataset.delete);await renderAdmin();
   });
 }
