@@ -44,7 +44,8 @@ function setUpdateProgress(percent, label) {
   if (value) value.textContent = safe + '%';
   if (detail) detail.textContent = label || 'Preparing update…';
 }
-\nlet updateDownload = {status:'idle', path:'', message:''};
+
+let updateDownload = {status:'idle', path:'', message:''};
 function refreshUpdateUI() {
   const status = document.querySelector('#updateStatus');
   if (status) status.textContent = updateInfo.message;
