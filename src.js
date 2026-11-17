@@ -2,6 +2,8 @@ import './style.css';
 import { createClient } from '@supabase/supabase-js';
 import { renderStoryMode } from './story-mode.js';
 import { Browser } from '@capacitor/browser';
+import { registerPlugin } from '@capacitor/core';
+const ApkInstaller = registerPlugin('ApkInstaller');
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 const NEXORA_GA_ID = 'G-VYQZ6HT0RD';
@@ -42,8 +44,33 @@ async function startUpdateFlow() {
     refreshUpdateUI();
     return;
   }
-  try { await Browser.open({url: downloadUrl}); }
-  catch (_) { window.open(downloadUrl, '_blank', 'noopener'); }
+  if (Capacitor.isNativePlatform()) {
+    updateInfo.message = 'Downloading the official NEXORA APK…';
+    refreshUpdateUI();
+    const action = document.querySelector('#updateAction');
+    if (action) { action.disabled = true; action.textContent = 'DOWNLOADING…'; }
+    const popupAction = document.querySelector('#popupUpdateNow');
+    if (popupAction) { popupAction.disabled = true; popupAction.textContent = 'DOWNLOADING…'; }
+    try {
+      const result = await ApkInstaller.downloadAndInstall({url: downloadUrl});
+      if (result?.requiresPermission) {
+        updateInfo.message = 'Allow NEXORA to install unknown apps in Android settings, return here, and tap UPDATE NOW again.';
+      } else {
+        updateInfo.message = 'APK downloaded. Android package installer opened; approve the update to finish.';
+      }
+    } catch (error) {
+      updateInfo.message = 'Update could not start: ' + (error?.message || 'Please try again.');
+    } finally {
+      refreshUpdateUI();
+      const nextAction = document.querySelector('#updateAction');
+      if (nextAction) { nextAction.disabled = false; nextAction.textContent = 'DOWNLOAD UPDATE'; }
+      const nextPopupAction = document.querySelector('#popupUpdateNow');
+      if (nextPopupAction) { nextPopupAction.disabled = false; nextPopupAction.textContent = 'UPDATE NOW'; }
+    }
+    return;
+  }
+  try { window.location.href = downloadUrl; }
+  catch (_) { await Browser.open({url: downloadUrl}); }
 }
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
