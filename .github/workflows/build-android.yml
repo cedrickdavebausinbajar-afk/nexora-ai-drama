@@ -133,8 +133,7 @@ jobs:
           gradle = Path("android/app/build.gradle")
           data = gradle.read_text()
           if "androidx.work:work-runtime" not in data:
-              data = data.replace("dependencies {", 'dependencies {
-    implementation "androidx.work:work-runtime:2.10.0"', 1)
+              data = data.replace("dependencies {", 'dependencies {\n    implementation "androidx.work:work-runtime:2.10.0"', 1)
           gradle.write_text(data)
 
           base = Path("android/app/src/main")
