@@ -544,6 +544,10 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
   transition:transform .18s ease,box-shadow .18s ease,opacity .18s ease;
 }
 .player .nexora-play-button[hidden]{display:none!important}
+.player .nexora-play-button[data-state="pause"]{width:82px;height:82px;opacity:.72;background:radial-gradient(circle at 35% 25%,#fff4bd33,#100b19dd 72%)}
+.player .nexora-play-button[data-state="pause"]:active{opacity:1}
+.player .nexora-play-button[data-state="pause"] .nexora-play-icon{width:42px;height:42px;padding-left:0;font-size:20px}
+.player .nexora-play-button[data-state="pause"] .nexora-play-label{font-size:8px}
 .player .nexora-play-button:active{transform:translate(-50%,-50%) scale(.94)}
 .player .nexora-play-button:focus-visible{outline:3px solid #fff;outline-offset:7px}
 .nexora-play-orbit{position:absolute;inset:7px;border:1px solid #f2d58b88;border-radius:50%;pointer-events:none}
