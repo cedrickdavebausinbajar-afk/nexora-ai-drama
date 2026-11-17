@@ -755,11 +755,11 @@ async function renderAdmin() {
       alert('Choose an MP4, WebM, or MOV file up to 500 MB, or enter a direct HTTPS video URL. Add the original HTTPS source and confirm publishing rights.');
       submit.disabled=false;submit.textContent='PUBLISH DRAMA';return;
     }
-    let videoUrl=directUrl,storagePath=null,published=false,posterUrl=poster,subtitleUrl=null,posterPath=null,subtitlePath=null;
+    let videoUrl=directUrl,storagePath=null,published=false,posterUrl=poster,subtitleUrl=null,posterPath=null,subtitlePath=null,frameBlob=null;
     try {
       if(file){
         submit.textContent='CAPTURING REAL VIDEO FRAME…';
-        const frameBlob=await captureDramaThumbnail(file);
+        frameBlob=await captureDramaThumbnail(file);
         submit.textContent='UPLOADING VIDEO…';
         const {data:userData,error:userError}=await supabase.auth.getUser();
         if(userError||!userData?.user) throw new Error('Your owner session expired. Sign in again.');
@@ -809,7 +809,11 @@ async function renderAdmin() {
 }
 async function loadCloudDramas() {
   if(!supabase)return;
-  let {data,error}=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
+  let {data,error}=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,subtitle_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
+  if(error && /subtitle_url|column/i.test(error.message)) {
+    const fallback=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
+    data=fallback.data;error=fallback.error;
+  }
   if(error && /watch_count|column/i.test(error.message)) {
     const fallback=await supabase.from('dramas').select('id,title,episode,category,video_url,poster_url,creator,source_url').eq('published',true).order('created_at',{ascending:false});
     data=fallback.data; error=fallback.error;
