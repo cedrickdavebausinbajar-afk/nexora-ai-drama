@@ -357,8 +357,18 @@ jobs:
                       total += count;
                       if (total > 600L * 1024L * 1024L) throw new Exception("APK exceeded the allowed download size.");
                       out.write(buffer, 0, count);
+                      com.getcapacitor.JSObject progress = new com.getcapacitor.JSObject();
+                      progress.put("downloadedBytes", total);
+                      progress.put("totalBytes", length);
+                      progress.put("percent", length > 0 ? Math.min(99, (int)((total * 100L) / length)) : 0);
+                      notifyListeners("downloadProgress", progress);
                     }
                     out.getFD().sync();
+                    com.getcapacitor.JSObject complete = new com.getcapacitor.JSObject();
+                    complete.put("downloadedBytes", apk.length());
+                    complete.put("totalBytes", apk.length());
+                    complete.put("percent", 100);
+                    notifyListeners("downloadProgress", complete);
                   }
                   if (!apk.isFile() || apk.length() < 4) throw new Exception("Downloaded APK is empty.");
                   try (InputStream check = new java.io.FileInputStream(apk)) {
