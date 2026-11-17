@@ -636,10 +636,10 @@ function renderScreen() {
     const videoLoading = document.querySelector('#videoLoading');
     const syncPremiumPlayButton = () => {
       if (!premiumPlayButton) return;
-      // Keep one premium control available during playback so it can pause,
-      // resume, and replay without relying only on the tiny native controls.
-      premiumPlayButton.hidden = false;
-      const state = video.ended ? 'replay' : video.paused ? 'play' : 'pause';
+      // DramaBox-style: hide the large center overlay while the episode is playing.
+      // Show it only before playback, while paused, or after the episode ends.
+      premiumPlayButton.hidden = !video.paused && !video.ended;
+      const state = video.ended ? 'replay' : 'play';
       premiumPlayButton.dataset.state = state;
       premiumPlayButton.setAttribute('aria-label', state === 'replay' ? 'Replay video' : state === 'pause' ? 'Pause video' : 'Play video');
       const icon = premiumPlayButton.querySelector('.nexora-play-icon');
