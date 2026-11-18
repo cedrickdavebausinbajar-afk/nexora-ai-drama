@@ -500,24 +500,33 @@ function renderScreen() {
     const playable = items.filter(x => isSupportedVideoUrl(x.url));
     screen.innerHTML = `<section class="shorts-head"><h1>Drama Shorts</h1><p>Swipe up for the next short. Videos shown here are creator-credited catalogue entries; only videos you are authorized to publish should be added.</p></section>
       ${playable.length ? `<div class="shorts-feed">${playable.map((x,i)=>`<article class="short-card" data-short-index="${i}">
-        <video class="short-video" src="${esc(x.url)}" ${videoMimeType(x.url) ? `type="${videoMimeType(x.url)}"` : ''} ${x.poster ? `poster="${esc(x.poster)}"` : ''} controls playsinline muted loop preload="metadata"></video>
+        <video class="short-video" data-src="${esc(x.url)}" ${videoMimeType(x.url) ? `data-type="${videoMimeType(x.url)}"` : ''} ${x.poster ? `poster="${esc(x.poster)}"` : ''} controls playsinline muted loop preload="none"></video>
         <div class="short-shade"></div><div class="short-meta"><span class="short-tag">NEXORA SHORTS</span><h2>${esc(x.title)}</h2><p>${esc(x.episode || x.category || 'Drama')}</p><small>Creator: ${esc(x.creator || 'Not listed')}</small>${x.source ? `<a href="${esc(x.source)}" target="_blank" rel="noopener">VIEW ORIGINAL SOURCE ↗</a>` : ''}</div>
         <span class="short-counter">${i+1} / ${playable.length}</span>
       </article>`).join('')}</div>` : `<article class="short-card short-demo-card">
-        <video class="short-video" src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" controls playsinline muted loop preload="metadata"></video>
+        <video class="short-video" data-src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" controls playsinline muted loop preload="none"></video>
         <div class="short-shade"></div><div class="short-meta"><span class="short-tag">TEMPORARY DEMO</span><h2>NEXORA SAMPLE REEL</h2><p>Playable sample clip · not an official drama episode</p><small>CC0 sample media · replaced automatically when your first short is published</small></div>
         <span class="short-counter">DEMO</span>
       </article>`}`;
     const cards=[...screen.querySelectorAll('.short-card')];
+    const attachShortVideo = video => {
+      if (!video || video.src || !video.dataset.src) return;
+      video.src = video.dataset.src;
+      if (video.dataset.type) video.setAttribute('type', video.dataset.type);
+      video.load();
+    };
     if ('IntersectionObserver' in window) {
       const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
       activeShortsObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{
         const video=entry.target.querySelector('video');
+        if(entry.isIntersecting && entry.intersectionRatio>.25) attachShortVideo(video);
         if(entry.isIntersecting && entry.intersectionRatio>.65){
           if(!reduceMotion) video?.play().catch(()=>{});
         } else if(video){video.pause();}
-      }),{threshold:[.25,.65,.9]});
+      }),{rootMargin:'160px 0px',threshold:[.25,.65,.9]});
       cards.forEach(card=>activeShortsObserver.observe(card));
+    } else {
+      attachShortVideo(cards[0]?.querySelector('video'));
     }
     return;
   }
@@ -909,7 +918,7 @@ function card(x) {
   const title = esc(x.title || 'Untitled drama');
   return `<article class="rowcard home-video-card">
     <div class="home-video-thumb">
-      <img class="mini-poster" ${x.poster ? 'src="' + esc(x.poster) + '"' : 'hidden'} data-video-thumbnail="${esc(x.id)}" alt="Video thumbnail for ${title}" loading="eager" fetchpriority="high" decoding="async">
+      <img class="mini-poster" ${x.poster ? 'src="' + esc(x.poster) + '"' : 'style="opacity:0"'} data-video-thumbnail="${esc(x.id)}" alt="Video thumbnail for ${title}" loading="lazy" fetchpriority="low" decoding="async">
       <div class="home-thumb-fallback" ${x.poster ? 'hidden' : ''}><span>✦ NEXORA AI DRAMA</span><b>${title}</b><small>DRAMA PREVIEW</small></div>
       <span class="home-thumb-play" aria-hidden="true">▶</span>
     </div>
@@ -922,7 +931,8 @@ function card(x) {
   </article>`;
 }
 function hydrateMissingDramaThumbnails(root = document) {
-  root.querySelectorAll('img[data-video-thumbnail]').forEach(img => {
+  const images = [...root.querySelectorAll('img[data-video-thumbnail]')];
+  const hydrate = img => {
     const entry = items.find(item => item.id === img.dataset.videoThumbnail);
     if (!entry || img.dataset.hydrating === '1' || img.dataset.generated === '1') return;
     const fallback = img.nextElementSibling;
@@ -937,6 +947,7 @@ function hydrateMissingDramaThumbnails(root = document) {
         img.addEventListener('error', () => URL.revokeObjectURL(previewUrl), {once:true});
         img.src = previewUrl;
         img.hidden = false;
+        img.style.opacity = '1';
         img.dataset.generated = '1';
         if (fallback) fallback.hidden = true;
       } catch (_) {
@@ -955,12 +966,25 @@ function hydrateMissingDramaThumbnails(root = document) {
       }
     }, {once:true});
     img.addEventListener('error', generate, {once:true});
-    if (!img.getAttribute('src') || (img.complete && img.naturalWidth === 0)) generate();
+    if (!img.getAttribute('src')) generate();
     else if (img.complete && img.naturalWidth > 0) {
       img.hidden = false;
       if (fallback) fallback.hidden = true;
     }
-  });
+  };
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      observer.unobserve(entry.target);
+      hydrate(entry.target);
+    }), {rootMargin:'280px 0px',threshold:0.01});
+    images.forEach(img => observer.observe(img));
+  } else {
+    images.filter(img => {
+      const rect = img.getBoundingClientRect();
+      return rect.top < window.innerHeight + 280 && rect.bottom > -280;
+    }).forEach(hydrate);
+  }
 }
 function openDramaDetails(dramaId) {
   const drama = items.find(entry => entry.id === dramaId);
@@ -1351,8 +1375,10 @@ async function performCloudDramasLoad() {
 }
 let cloudLoadPromise = null;
 let cloudRefreshQueued = false;
+let lastCloudLoadAt = 0;
 async function loadCloudDramas() {
   if (!supabase) return;
+  lastCloudLoadAt = Date.now();
   if (cloudLoadPromise) {
     cloudRefreshQueued = true;
     return cloudLoadPromise;
@@ -1372,13 +1398,26 @@ shell();
 window.dispatchEvent(new Event('nexora:app-ready'));
 initializePhoneNotifications();
 loadCloudDramas();
+// Coalesce realtime bursts (for example, watch-count updates) into one catalogue request.
+let cloudRefreshTimer = null;
+function scheduleCloudDramasRefresh(delay = 700) {
+  if (cloudRefreshTimer) window.clearTimeout(cloudRefreshTimer);
+  cloudRefreshTimer = window.setTimeout(() => {
+    cloudRefreshTimer = null;
+    if (document.visibilityState === 'visible') loadCloudDramas();
+  }, delay);
+}
 // Refresh the shared published catalogue when another authorized publisher uploads an episode.
 if (supabase) {
   supabase.channel('nexora-drama-published-feed')
-    .on('postgres_changes', {event:'*', schema:'public', table:'dramas'}, () => loadCloudDramas())
+    .on('postgres_changes', {event:'*', schema:'public', table:'dramas'}, () => scheduleCloudDramasRefresh())
     .subscribe();
 }
-// Fallback refresh also covers projects where Supabase Realtime is not enabled for this table.
+// Low-frequency fallback supports projects where Supabase Realtime is not enabled.
 window.setInterval(() => {
-  if (document.visibilityState === 'visible') loadCloudDramas();
-}, 30000);
+  if (document.visibilityState === 'visible' && Date.now() - lastCloudLoadAt >= 110000) loadCloudDramas();
+}, 120000);
+// Refresh on return only when the cached catalogue is stale; avoid needless background traffic.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && Date.now() - lastCloudLoadAt >= 60000) loadCloudDramas();
+});
