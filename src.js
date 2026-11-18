@@ -918,7 +918,7 @@ function card(x) {
   const title = esc(x.title || 'Untitled drama');
   return `<article class="rowcard home-video-card">
     <div class="home-video-thumb">
-      <img class="mini-poster" ${x.poster ? 'src="' + esc(x.poster) + '"' : 'hidden'} data-video-thumbnail="${esc(x.id)}" alt="Video thumbnail for ${title}" loading="lazy" fetchpriority="low" decoding="async">
+      <img class="mini-poster" ${x.poster ? 'src="' + esc(x.poster) + '"' : 'style="opacity:0"'} data-video-thumbnail="${esc(x.id)}" alt="Video thumbnail for ${title}" loading="lazy" fetchpriority="low" decoding="async">
       <div class="home-thumb-fallback" ${x.poster ? 'hidden' : ''}><span>✦ NEXORA AI DRAMA</span><b>${title}</b><small>DRAMA PREVIEW</small></div>
       <span class="home-thumb-play" aria-hidden="true">▶</span>
     </div>
@@ -947,6 +947,7 @@ function hydrateMissingDramaThumbnails(root = document) {
         img.addEventListener('error', () => URL.revokeObjectURL(previewUrl), {once:true});
         img.src = previewUrl;
         img.hidden = false;
+        img.style.opacity = '1';
         img.dataset.generated = '1';
         if (fallback) fallback.hidden = true;
       } catch (_) {
