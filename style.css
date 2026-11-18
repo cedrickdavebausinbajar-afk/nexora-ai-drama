@@ -664,3 +664,10 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
 .short-demo-card .short-tag{display:inline-block;padding:6px 9px;border-radius:4px;background:#d8b45e;color:#17130b;font-size:9px;font-weight:900;letter-spacing:1.2px}
 .short-demo-card .short-counter{position:absolute;right:14px;top:14px;padding:6px 9px;border-radius:5px;background:#080808b8;color:#f0d88d;font-size:9px;font-weight:900;letter-spacing:1px}
 @media(max-width:600px){.nx-hero-preview{object-position:58% center}.short-demo-card{max-width:100%;width:min(100%,390px);border-radius:12px}}
+
+
+/* Deep UI/UX pass: accessible labels, visible focus, and compact mobile navigation. */
+.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.tabs button:focus-visible,.drawer-link:focus-visible,.nx-primary:focus-visible,.nx-secondary:focus-visible,.nx-shelf-heading button:focus-visible,.nx-quick-links button:focus-visible{outline:2px solid #f5dfa0;outline-offset:3px}
+.tabs button[aria-current="page"]{color:var(--gold-bright,#f5dfa0);border-bottom:2px solid var(--gold,#d8b45e);text-shadow:0 0 14px #d8b45e44}
+@media(max-width:380px){.tabs{gap:2px;padding-inline:4px}.tabs button{min-width:0;flex:1;padding:9px 5px;font-size:8px;letter-spacing:1.1px}}
