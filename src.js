@@ -1346,17 +1346,27 @@ async function renderAdmin() {
 }
 async function performCloudDramasLoad() {
   if(!supabase)return;
-  let {data,error}=await supabase.from('dramas').select('id,title,episode,episode_number,parent_drama_id,category,video_url,video_storage_path,poster_url,subtitle_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
-  if(error && /subtitle_url|column/i.test(error.message)) {
-    const fallback=await supabase.from('dramas').select('id,title,episode,category,video_url,video_storage_path,poster_url,creator,source_url,watch_count').eq('published',true).order('created_at',{ascending:false});
-    data=fallback.data;error=fallback.error;
+  // Fetch in bounded pages so large creator catalogues are not silently truncated
+  // by the Supabase/PostgREST maximum-row setting.
+  const pageSize = 250;
+  let columns = 'id,title,episode,episode_number,parent_drama_id,category,video_url,video_storage_path,poster_url,subtitle_url,creator,source_url,watch_count';
+  const allRows = [];
+  for (let offset = 0; ; offset += pageSize) {
+    let result = await supabase.from('dramas').select(columns).eq('published',true).order('created_at',{ascending:false}).range(offset, offset + pageSize - 1);
+    if (result.error && /subtitle_url|column/i.test(result.error.message) && columns.includes('subtitle_url')) {
+      columns = 'id,title,episode,category,video_url,video_storage_path,poster_url,creator,source_url,watch_count';
+      result = await supabase.from('dramas').select(columns).eq('published',true).order('created_at',{ascending:false}).range(offset, offset + pageSize - 1);
+    }
+    if (result.error && /watch_count|column/i.test(result.error.message) && columns.includes('watch_count')) {
+      columns = 'id,title,episode,category,video_url,video_storage_path,poster_url,creator,source_url';
+      result = await supabase.from('dramas').select(columns).eq('published',true).order('created_at',{ascending:false}).range(offset, offset + pageSize - 1);
+    }
+    if (result.error) { console.warn('NEXORA cloud library could not load:',result.error.message); return; }
+    const page = result.data || [];
+    allRows.push(...page);
+    if (page.length < pageSize) break;
   }
-  if(error && /watch_count|column/i.test(error.message)) {
-    const fallback=await supabase.from('dramas').select('id,title,episode,category,video_url,video_storage_path,poster_url,creator,source_url').eq('published',true).order('created_at',{ascending:false});
-    data=fallback.data; error=fallback.error;
-  }
-  if(error){console.warn('NEXORA cloud library could not load:',error.message);return;}
-  const cloud=(data||[]).map(row=>({id:row.id,title:row.title,episode:row.episode,episodeNumber:Number(row.episode_number||String(row.episode||'').match(/\d+/)?.[0]||1),parentDramaId:row.parent_drama_id||null,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url||(row.video_storage_path?supabase.storage.from('nexora-drama-videos').getPublicUrl(row.video_storage_path).data.publicUrl:''),videoStoragePath:row.video_storage_path||'',poster:row.poster_url||'',subtitle:row.subtitle_url||'',watchCount:Number(row.watch_count||0)}));
+  const cloud=allRows.map(row=>({id:row.id,title:row.title,episode:row.episode,episodeNumber:Number(row.episode_number||String(row.episode||'').match(/\d+/)?.[0]||1),parentDramaId:row.parent_drama_id||null,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url||(row.video_storage_path?supabase.storage.from('nexora-drama-videos').getPublicUrl(row.video_storage_path).data.publicUrl:''),videoStoragePath:row.video_storage_path||'',poster:row.poster_url||'',subtitle:row.subtitle_url||'',watchCount:Number(row.watch_count||0)}));
 
   const demoIds=new Set(seed.map(x=>x.id)),cloudIds=new Set(cloud.map(x=>x.id));
   const previousCatalog=items.filter(x=>!demoIds.has(x.id)).map(x=>[x.id,x.watchCount||0,x.url||'',x.poster||''].join('|')).join('~');
