@@ -1271,7 +1271,16 @@ async function renderAdmin() {
         subtitlePath=(storagePath||('external/'+Date.now()))+'.vtt';
         subtitleUrl=await uploadDramaAsset(subtitlePath,new Blob([vtt],{type:'text/vtt'}),'text/vtt');
       }
+      // Re-verify the live Supabase identity immediately before the RLS-protected insert.
+      // This covers both uploaded files and direct video URLs and makes created_by explicit.
+      const {data: publishUserData,error: publishUserError}=await supabase.auth.getUser();
+      if(publishUserError)throw new Error('Could not verify your owner session: '+publishUserError.message);
+      if(!publishUserData?.user?.id)throw new Error('Your owner session expired. Sign in again.');
+      const {data: publishAllowed,error: publishRoleError}=await supabase.rpc('is_nexora_owner');
+      if(publishRoleError)throw new Error('Could not verify NEXORA owner permissions: '+publishRoleError.message);
+      if(publishAllowed!==true)throw new Error('This signed-in account is not authorized to publish dramas.');
       const {error:insertError}=await supabase.from('dramas').insert({
+        created_by:publishUserData.user.id,
         title:String(f.get('title')||'').trim(),episode:'Episode '+episodeNumber,episode_number:episodeNumber,parent_drama_id:parentDramaId,
         category:String(f.get('category')||'Other'),video_url:videoUrl,video_storage_path:storagePath,poster_url:posterUrl||null,poster_storage_path:posterPath,subtitle_url:subtitleUrl,subtitle_storage_path:subtitlePath,
         creator:String(f.get('creator')||'').trim(),source_url:source,permission_confirmed:true,published:true
