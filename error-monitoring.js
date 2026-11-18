@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider, getToken } from 'firebase/app-check';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Capacitor } from '@capacitor/core';
 
@@ -37,7 +37,7 @@ function initializeReporter() {
     const functions = getFunctions(app, 'us-central1');
     const callable = httpsCallable(functions, 'reportClientError');
     sendReport = async payload => {
-      await appCheck.getToken(false);
+      await getToken(appCheck, false);
       return callable(payload);
     };
   } catch (error) {
