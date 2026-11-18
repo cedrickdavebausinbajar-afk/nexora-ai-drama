@@ -421,15 +421,20 @@ function renderScreen() {
       }).join('');
     const emptyLibrary = '<p class="muted">Your streaming library is ready. Publish licensed videos from the Owner Dashboard and they will appear here automatically.</p>';
     const featuredDrama = trendingDramas[0] || latestEpisodes[0] || null;
-    const featuredStyle = featuredDrama?.poster ? `style="--nexora-hero-image:url('${esc(featuredDrama.poster)}')"` : '';
+    const demoVideoUrl = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
+    const featuredVideoUrl = featuredDrama?.url || demoVideoUrl;
+    const featuredPoster = featuredDrama?.poster || '';
+    const featuredStyle = featuredPoster ? `style="--nexora-hero-image:url('${esc(featuredPoster)}')"` : '';
     screen.innerHTML = `<section class="nx-stream-home">
-      <section class="nx-hero" ${featuredStyle}><div class="nx-hero-art" aria-hidden="true"></div><div class="nx-hero-content">
-        <span class="nx-eyebrow">NEXORA ORIGINALS · FEATURED STORY</span>
+      <section class="nx-hero nx-hero-video" ${featuredStyle}>
+        <video class="nx-hero-preview" src="${esc(featuredVideoUrl)}" ${videoMimeType(featuredVideoUrl) ? `type="${videoMimeType(featuredVideoUrl)}"` : ''} ${featuredPoster ? `poster="${esc(featuredPoster)}"` : ''} autoplay muted loop playsinline preload="metadata" aria-label="Featured video preview"></video>
+        <div class="nx-hero-art" aria-hidden="true"></div><div class="nx-hero-content">
+        <span class="nx-eyebrow">${featuredDrama ? 'NEXORA · FEATURED DRAMA' : 'NEXORA · TEMPORARY DEMO PREVIEW'}</span>
         <h1>${featuredDrama ? esc(featuredDrama.title) : 'Stories worth staying up for.'}</h1>
-        <p>${featuredDrama ? esc(featuredDrama.description || featuredDrama.logline || featuredDrama.episode || 'A featured story selected for your next watch.') : 'Discover premium short dramas, unforgettable characters and new stories.'}</p>
-        <div class="nx-hero-actions">${featuredDrama ? `<button class="nx-primary" data-play="${esc(featuredDrama.id)}">▶ &nbsp; PLAY NOW</button>` : `<button class="nx-primary" data-go="feed">EXPLORE DRAMAS</button>`}<button class="nx-secondary" data-go="originals">ⓘ &nbsp; MORE INFO</button></div>
-        <div class="nx-hero-meta"><span>✦ NEXORA PICK</span><span>HD STREAMING</span><span>SHORT DRAMA</span></div>
-      </div></section>
+        <p>${featuredDrama ? esc(featuredDrama.description || featuredDrama.logline || featuredDrama.episode || 'A featured story selected for your next watch.') : 'Your cinematic home is ready. This temporary sample clip will automatically give way to your first published drama.'}</p>
+        <div class="nx-hero-actions">${featuredDrama ? `<button class="nx-primary" data-play="${esc(featuredDrama.id)}">▶ &nbsp; PLAY NOW</button>` : `<button class="nx-primary" data-demo-play>▶ &nbsp; WATCH DEMO</button>`}<button class="nx-secondary" data-go="originals">ⓘ &nbsp; MORE INFO</button></div>
+        <div class="nx-hero-meta"><span>✦ NEXORA PICK</span><span>${featuredDrama ? 'YOUR UPLOADED VIDEO' : 'DEMO CLIP · CC0'}</span><span>SHORT DRAMA EXPERIENCE</span></div>
+      </div></section>`;
       ${continueItem ? `<section class="nx-shelf"><div class="nx-shelf-heading"><h2>Continue Watching</h2><span>Pick up where you left off</span></div><div class="nx-card-row"><article class="nx-continue-card"><div class="nx-continue-thumb">${continueItem.poster ? `<img src="${esc(continueItem.poster)}" alt="${esc(continueItem.title)} poster">` : '<span>NEXORA</span>'}<i style="width:${Math.max(2,Math.min(98,Math.round((continueProgress.time||0)/(continueProgress.duration||((continueProgress.time||0)+60))*100)))}%"></i></div><div class="nx-continue-info"><b>${esc(continueItem.title)}</b><small>${esc(continueItem.episode||'Episode')} · ${Math.floor((continueProgress.time||0)/60)}:${String((continueProgress.time||0)%60).padStart(2,'0')}</small><button data-play="${esc(continueItem.id)}">▶ CONTINUE</button></div></article></div></section>` : ''}
       ${recentItems.length ? `<section class="nx-shelf"><div class="nx-shelf-heading"><h2>Recently Watched</h2><button data-go="history">SEE ALL ›</button></div><div class="nx-card-row">${recentItems.map(card).join('')}</div></section>` : ''}
       <section class="nx-shelf"><div class="nx-shelf-heading"><h2>Trending Now</h2><button data-go="feed">SEE ALL ›</button></div><div class="nx-card-row">${trendingDramas.length ? trendingDramas.map(card).join('') : emptyLibrary}</div></section>
@@ -441,6 +446,22 @@ function renderScreen() {
     </section>`;
     screen.querySelectorAll('[data-series]').forEach(b=>b.onclick=()=>{selectedSeries=b.dataset.series;view='originals';render();});
     wireCards();
+    const demoPlayButton = screen.querySelector('[data-demo-play]');
+    if (demoPlayButton) demoPlayButton.onclick = () => {
+      const preview = screen.querySelector('.nx-hero-preview');
+      if (!preview) return;
+      preview.controls = true;
+      preview.muted = false;
+      preview.loop = false;
+      preview.play().catch(() => { preview.muted = true; preview.play().catch(() => {}); });
+      demoPlayButton.textContent = 'DEMO PLAYING';
+      demoPlayButton.disabled = true;
+    };
+    const heroPreview = screen.querySelector('.nx-hero-preview');
+    if (heroPreview) heroPreview.addEventListener('error', () => {
+      heroPreview.hidden = true;
+      screen.querySelector('.nx-hero')?.classList.add('nx-hero-preview-fallback');
+    }, {once:true});
     screen.querySelector('#dbRead').onclick=()=>{view='stories';render();};
     screen.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{view=b.dataset.go;render();});
     return;
@@ -460,7 +481,11 @@ function renderScreen() {
         <video class="short-video" src="${esc(x.url)}" ${videoMimeType(x.url) ? `type="${videoMimeType(x.url)}"` : ''} ${x.poster ? `poster="${esc(x.poster)}"` : ''} controls playsinline muted loop preload="metadata"></video>
         <div class="short-shade"></div><div class="short-meta"><span class="short-tag">NEXORA SHORTS</span><h2>${esc(x.title)}</h2><p>${esc(x.episode || x.category || 'Drama')}</p><small>Creator: ${esc(x.creator || 'Not listed')}</small>${x.source ? `<a href="${esc(x.source)}" target="_blank" rel="noopener">VIEW ORIGINAL SOURCE ↗</a>` : ''}</div>
         <span class="short-counter">${i+1} / ${playable.length}</span>
-      </article>`).join('')}</div>` : `<div class="panel empty"><h2>No short videos available yet</h2><p class="muted">Add an authorized vertical MP4 video in the Owner section. TikTok videos are not copied automatically.</p></div>`}`;
+      </article>`).join('')}</div>` : `<article class="short-card short-demo-card">
+        <video class="short-video" src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" controls playsinline muted loop preload="metadata"></video>
+        <div class="short-shade"></div><div class="short-meta"><span class="short-tag">TEMPORARY DEMO</span><h2>NEXORA SAMPLE REEL</h2><p>Playable sample clip · not an official drama episode</p><small>CC0 sample media · replaced automatically when your first short is published</small></div>
+        <span class="short-counter">DEMO</span>
+      </article>`}`;
     const cards=[...screen.querySelectorAll('.short-card')];
     if ('IntersectionObserver' in window) {
       const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{
