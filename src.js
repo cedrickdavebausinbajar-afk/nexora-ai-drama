@@ -1368,6 +1368,8 @@ async function loadCloudDramas() {
   }
 }
 shell();
+// Let the splash screen leave as soon as the first app shell is rendered.
+window.dispatchEvent(new Event('nexora:app-ready'));
 initializePhoneNotifications();
 loadCloudDramas();
 // Refresh the shared published catalogue when another authorized publisher uploads an episode.
