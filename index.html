@@ -45,17 +45,28 @@
 <script>
   (function(){
     var dismissed=false;
+    var startedAt=Date.now();
+    var minimumDisplayMs=3500;
+    var fallbackTimer;
     function hideSplash(){
       if(dismissed)return;
+      var remaining=Math.max(0,minimumDisplayMs-(Date.now()-startedAt));
+      if(remaining){
+        window.setTimeout(hideSplash,remaining);
+        return;
+      }
       var splash=document.getElementById('nexora-splash');
-      if(!splash){dismissed=true;return;}
+      if(!splash){dismissed=true;window.clearTimeout(fallbackTimer);return;}
       dismissed=true;
+      window.clearTimeout(fallbackTimer);
       splash.classList.add('is-leaving');
-      window.setTimeout(function(){splash.remove();},650);
+      window.setTimeout(function(){splash.remove();},750);
     }
+    // Keep the cinematic brand intro visible for at least 3.5 seconds,
+    // but wait for the app shell before dismissing it.
     window.addEventListener('nexora:app-ready',hideSplash,{once:true});
-    // Safety fallback: never leave the splash covering the app if startup JS fails.
-    window.setTimeout(hideSplash,1800);
+    // Safety fallback: recover if startup JavaScript never signals readiness.
+    fallbackTimer=window.setTimeout(hideSplash,12000);
   })();
 </script>
 <script type="module" src="/src.js"></script>
