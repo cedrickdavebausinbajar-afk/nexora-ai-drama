@@ -47,7 +47,7 @@
     var dismissed=false;
     var startedAt=Date.now();
     var minimumDisplayMs=3500;
-    var fallbackTimer=window.setTimeout(hideSplash,12000);
+    var fallbackTimer;
     function hideSplash(){
       if(dismissed)return;
       var remaining=Math.max(0,minimumDisplayMs-(Date.now()-startedAt));
