@@ -304,6 +304,7 @@ const WATCH_HISTORY_KEY = 'nexora-watch-history-v1';
 const WATCH_NOTIFICATION_ID = 7301;
 let pendingResumeId = '';
 let activePlayerController = null;
+let activeShortsObserver = null;
 async function cancelContinueNotification() {
   if (!Capacitor.isNativePlatform()) return;
   try { await LocalNotifications.cancel({notifications:[{id:WATCH_NOTIFICATION_ID}]}); } catch {}
@@ -375,7 +376,7 @@ function shell() {
   <button class="drawer-link owner-link" id="adminOpen">♛ &nbsp; Owner Dashboard</button>
   <p class="drawer-foot">© 2026 NEXORA AI DRAMA</p>
 </aside>
-<nav class="tabs"><button data-view="home">HOME</button><button class="${view==='feed'?'active':''}" data-view="feed">DISCOVER</button><button class="${view==='search'?'active':''}" data-view="search">SEARCH</button><button class="${view==='saved'?'active':''}" data-view="saved">SAVED</button></nav>
+<nav class="tabs" aria-label="Primary navigation"><button data-view="home" class="${view==='home'?'active':''}" aria-current="${view==='home'?'page':'false'}">HOME</button><button class="${view==='feed'?'active':''}" data-view="feed" aria-current="${view==='feed'?'page':'false'}">DISCOVER</button><button data-view="search" class="${view==='search'?'active':''}" aria-current="${view==='search'?'page':'false'}">SEARCH</button><button data-view="saved" class="${view==='saved'?'active':''}" aria-current="${view==='saved'?'page':'false'}">SAVED</button></nav>
 ${view==='feed'?`<section class="welcome-strip"><img class="drama-cover-banner" src="/nexora-drama-cover.svg" alt="NEXORA AI DRAMA premium purple cover"><div class="welcome-copy"><span class="welcome-kicker">THE PREMIUM SHORT-FILM CLUB</span><h1>Stories worth<br><em>staying up for.</em></h1><p>Discover a handpicked collection of creator-credited films and stories.</p><div class="welcome-tags"><span>CURATED STORIES</span><span>BLACK LABEL</span><span>NEW DISCOVERIES</span></div></div><div class="welcome-emblem"><img src="/nexora-logo.svg" alt="NEXORA emblem"></div></section>`:''}
 <main id="screen"></main>
 <footer>© ${new Date().getFullYear()} NEXORA AI DRAMA <span>Open films · creator credits and license details shown per title · Watch responsibly</span></footer>`;
@@ -403,6 +404,8 @@ function render() { shell(); }
 function renderScreen() {
   activePlayerController?.abort();
   activePlayerController = null;
+  activeShortsObserver?.disconnect();
+  activeShortsObserver = null;
   const screen = document.querySelector('#screen');
   if (!screen) return;
   if (view === 'home') {
@@ -488,12 +491,14 @@ function renderScreen() {
       </article>`}`;
     const cards=[...screen.querySelectorAll('.short-card')];
     if ('IntersectionObserver' in window) {
-      const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+      activeShortsObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{
         const video=entry.target.querySelector('video');
-        if(entry.isIntersecting && entry.intersectionRatio>.65){video?.play().catch(()=>{});}
-        else if(video){video.pause();}
+        if(entry.isIntersecting && entry.intersectionRatio>.65){
+          if(!reduceMotion) video?.play().catch(()=>{});
+        } else if(video){video.pause();}
       }),{threshold:[.25,.65,.9]});
-      cards.forEach(card=>observer.observe(card));
+      cards.forEach(card=>activeShortsObserver.observe(card));
     }
     return;
   }
@@ -509,7 +514,7 @@ function renderScreen() {
     return;
   }
   if (view === 'search') {
-    screen.innerHTML = `<section class="panel"><h1>Find your next story</h1><input id="q" placeholder="Search drama titles or categories"><div id="results"></div></section>`;
+    screen.innerHTML = `<section class="panel"><h1>Find your next story</h1><label class="visually-hidden" for="q">Search dramas by title, category, or creator</label><input id="q" type="search" autocomplete="off" enterkeyhint="search" aria-label="Search dramas by title, category, or creator" placeholder="Search drama titles or categories"><div id="results" aria-live="polite"></div></section>`;
     const q = document.querySelector('#q');
     q.oninput = () => {
       const v = q.value.toLowerCase();
