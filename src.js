@@ -347,6 +347,7 @@ async function initializePhoneNotifications() {
 }
 
 let selectedSeries = null;
+let selectedDramaId = null;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const save = () => localStorage.setItem(KEY, JSON.stringify(items));
 const builtInIds = new Set(seed.map(x => x.id));
@@ -451,7 +452,7 @@ function renderScreen() {
         <span class="nx-eyebrow">${featuredDrama ? 'NEXORA · FEATURED DRAMA' : 'NEXORA · TEMPORARY DEMO PREVIEW'}</span>
         <h1>${featuredDrama ? esc(featuredDrama.title) : 'Stories worth staying up for.'}</h1>
         <p>${featuredDrama ? esc(featuredDrama.description || featuredDrama.logline || featuredDrama.episode || 'A featured story selected for your next watch.') : 'Your cinematic home is ready. This temporary sample clip will automatically give way to your first published drama.'}</p>
-        <div class="nx-hero-actions">${featuredDrama ? `<button class="nx-primary" data-play="${esc(featuredDrama.id)}">▶ &nbsp; PLAY NOW</button>` : `<button class="nx-primary" data-demo-play>▶ &nbsp; WATCH DEMO</button>`}<button class="nx-secondary" data-go="originals">ⓘ &nbsp; MORE INFO</button></div>
+        <div class="nx-hero-actions">${featuredDrama ? `<button class="nx-primary" data-play="${esc(featuredDrama.id)}">▶ &nbsp; PLAY NOW</button>` : `<button class="nx-primary" data-demo-play>▶ &nbsp; WATCH DEMO</button>`}${featuredDrama ? `<button class="nx-secondary" data-details="${esc(featuredDrama.id)}">ⓘ &nbsp; MORE INFO</button>` : `<button class="nx-secondary" data-go="originals">ⓘ &nbsp; MORE INFO</button>`}</div>
         <div class="nx-hero-meta"><span>✦ NEXORA PICK</span><span>${featuredDrama ? 'YOUR UPLOADED VIDEO' : 'DEMO CLIP · CC0'}</span><span>SHORT DRAMA EXPERIENCE</span></div>
       </div></section>
       ${continueItem ? `<section class="nx-shelf"><div class="nx-shelf-heading"><h2>Continue Watching</h2><span>Pick up where you left off</span></div><div class="nx-card-row"><article class="nx-continue-card"><div class="nx-continue-thumb">${continueItem.poster ? `<img src="${esc(continueItem.poster)}" alt="${esc(continueItem.title)} poster">` : '<span>NEXORA</span>'}<i style="width:${Math.max(2,Math.min(98,Math.round((continueProgress.time||0)/(continueProgress.duration||((continueProgress.time||0)+60))*100)))}%"></i></div><div class="nx-continue-info"><b>${esc(continueItem.title)}</b><small>${esc(continueItem.episode||'Episode')} · ${Math.floor((continueProgress.time||0)/60)}:${String((continueProgress.time||0)%60).padStart(2,'0')}</small><button data-play="${esc(continueItem.id)}">▶ CONTINUE</button></div></article></div></section>` : ''}
@@ -464,6 +465,7 @@ function renderScreen() {
       <div class="nx-quick-links"><button data-go="shorts">DRAMA SHORTS</button><button data-go="saved">MY LIST</button><button data-go="search">SEARCH</button></div>
     </section>`;
     screen.querySelectorAll('[data-series]').forEach(b=>b.onclick=()=>{selectedSeries=b.dataset.series;view='originals';render();});
+    screen.querySelectorAll('[data-details]').forEach(b=>b.onclick=()=>{selectedDramaId=b.dataset.details;view='details';render();});
     wireCards();
     const demoPlayButton = screen.querySelector('[data-demo-play]');
     if (demoPlayButton) demoPlayButton.onclick = () => {
@@ -483,6 +485,39 @@ function renderScreen() {
     }, {once:true});
     screen.querySelector('#dbRead').onclick=()=>{view='stories';render();};
     screen.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{view=b.dataset.go;render();});
+    return;
+  }
+  if (view === 'details') {
+    const drama = items.find(entry => entry.id === selectedDramaId);
+    if (!drama) {
+      screen.innerHTML = '<section class="panel"><button class="gold-outline" id="detailsBack">← BACK HOME</button><h1>Drama not found</h1><p class="muted">This drama may have been removed from the catalogue.</p></section>';
+      screen.querySelector('#detailsBack').onclick=()=>{view='home';render();};
+      return;
+    }
+    const groupKey = String(drama.seriesId || drama.dramaId || drama.title || drama.id).trim().toLowerCase();
+    const episodes = items.filter(entry => String(entry.seriesId || entry.dramaId || entry.title || entry.id).trim().toLowerCase() === groupKey && entry.url);
+    const episodeList = episodes.length ? episodes : (drama.url ? [drama] : []);
+    const synopsis = drama.description || drama.logline || drama.synopsis || 'Synopsis has not been added yet.';
+    screen.innerHTML = `<section class="nx-drama-details">
+      <button class="nx-details-back" id="detailsBack">← BACK TO HOME</button>
+      <div class="nx-details-hero">
+        <div class="nx-details-poster">${drama.poster ? `<img src="${esc(drama.poster)}" alt="${esc(drama.title)} poster">` : `<div class="nx-details-poster-fallback">✦<b>NEXORA</b></div>`}</div>
+        <div class="nx-details-copy">
+          <span class="nx-eyebrow">NEXORA · DRAMA DETAILS</span>
+          <h1>${esc(drama.title || 'Untitled drama')}</h1>
+          <div class="nx-details-tags"><span>${esc(drama.category || 'Drama')}</span><span>${episodeList.length} ${episodeList.length === 1 ? 'EPISODE' : 'EPISODES'}</span></div>
+          <p>${esc(synopsis)}</p>
+          <div class="nx-details-creator"><small>CREATED BY</small><strong>${esc(drama.creator || 'Creator not listed')}</strong></div>
+          ${drama.source ? `<a class="nx-details-source" href="${esc(drama.source)}" target="_blank" rel="noopener noreferrer">VIEW ORIGINAL SOURCE ↗</a>` : ''}
+          ${drama.url ? `<button class="nx-primary" data-play="${esc(drama.id)}">▶ &nbsp; WATCH NOW</button>` : ''}
+        </div>
+      </div>
+      <section class="nx-details-episodes"><div class="nx-shelf-heading"><h2>Episodes</h2><span>${episodeList.length} available</span></div>
+        ${episodeList.length ? episodeList.map((episode,index)=>`<article class="nx-details-episode"><div class="nx-details-episode-art">${episode.poster ? `<img src="${esc(episode.poster)}" alt="">` : '<span>▶</span>'}</div><div class="nx-details-episode-copy"><b>${esc(episode.episode || 'Episode ' + (index+1))}</b><small>${esc(episode.title || drama.title || 'NEXORA Drama')}</small></div><button class="nx-details-episode-play" data-play="${esc(episode.id)}" aria-label="Play ${esc(episode.episode || 'episode ' + (index+1))}">▶</button></article>`).join('') : '<p class="muted">No published episodes are available yet.</p>'}
+      </section>
+    </section>`;
+    screen.querySelector('#detailsBack').onclick=()=>{view='home';render();};
+    wireCards();
     return;
   }
   if (view === 'stories') { renderStoryMode(screen, () => { view='feed'; render(); }); return; }
