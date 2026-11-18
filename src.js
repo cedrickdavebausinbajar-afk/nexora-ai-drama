@@ -465,7 +465,7 @@ function renderScreen() {
       <div class="nx-quick-links"><button data-go="shorts">DRAMA SHORTS</button><button data-go="saved">MY LIST</button><button data-go="search">SEARCH</button></div>
     </section>`;
     screen.querySelectorAll('[data-series]').forEach(b=>b.onclick=()=>{selectedSeries=b.dataset.series;view='originals';render();});
-    screen.querySelectorAll('[data-details]').forEach(b=>b.onclick=()=>{selectedDramaId=b.dataset.details;view='details';render();});
+    screen.querySelectorAll('[data-details]').forEach(b=>b.onclick=()=>openDramaDetails(b.dataset.details));
     wireCards();
     const demoPlayButton = screen.querySelector('[data-demo-play]');
     if (demoPlayButton) demoPlayButton.onclick = () => {
@@ -485,39 +485,6 @@ function renderScreen() {
     }, {once:true});
     screen.querySelector('#dbRead').onclick=()=>{view='stories';render();};
     screen.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{view=b.dataset.go;render();});
-    return;
-  }
-  if (view === 'details') {
-    const drama = items.find(entry => entry.id === selectedDramaId);
-    if (!drama) {
-      screen.innerHTML = '<section class="panel"><button class="gold-outline" id="detailsBack">← BACK HOME</button><h1>Drama not found</h1><p class="muted">This drama may have been removed from the catalogue.</p></section>';
-      screen.querySelector('#detailsBack').onclick=()=>{view='home';render();};
-      return;
-    }
-    const groupKey = String(drama.seriesId || drama.dramaId || drama.title || drama.id).trim().toLowerCase();
-    const episodes = items.filter(entry => String(entry.seriesId || entry.dramaId || entry.title || entry.id).trim().toLowerCase() === groupKey && entry.url);
-    const episodeList = episodes.length ? episodes : (drama.url ? [drama] : []);
-    const synopsis = drama.description || drama.logline || drama.synopsis || 'Synopsis has not been added yet.';
-    screen.innerHTML = `<section class="nx-drama-details">
-      <button class="nx-details-back" id="detailsBack">← BACK TO HOME</button>
-      <div class="nx-details-hero">
-        <div class="nx-details-poster">${drama.poster ? `<img src="${esc(drama.poster)}" alt="${esc(drama.title)} poster">` : `<div class="nx-details-poster-fallback">✦<b>NEXORA</b></div>`}</div>
-        <div class="nx-details-copy">
-          <span class="nx-eyebrow">NEXORA · DRAMA DETAILS</span>
-          <h1>${esc(drama.title || 'Untitled drama')}</h1>
-          <div class="nx-details-tags"><span>${esc(drama.category || 'Drama')}</span><span>${episodeList.length} ${episodeList.length === 1 ? 'EPISODE' : 'EPISODES'}</span></div>
-          <p>${esc(synopsis)}</p>
-          <div class="nx-details-creator"><small>CREATED BY</small><strong>${esc(drama.creator || 'Creator not listed')}</strong></div>
-          ${drama.source ? `<a class="nx-details-source" href="${esc(drama.source)}" target="_blank" rel="noopener noreferrer">VIEW ORIGINAL SOURCE ↗</a>` : ''}
-          ${drama.url ? `<button class="nx-primary" data-play="${esc(drama.id)}">▶ &nbsp; WATCH NOW</button>` : ''}
-        </div>
-      </div>
-      <section class="nx-details-episodes"><div class="nx-shelf-heading"><h2>Episodes</h2><span>${episodeList.length} available</span></div>
-        ${episodeList.length ? episodeList.map((episode,index)=>`<article class="nx-details-episode"><div class="nx-details-episode-art">${episode.poster ? `<img src="${esc(episode.poster)}" alt="">` : '<span>▶</span>'}</div><div class="nx-details-episode-copy"><b>${esc(episode.episode || 'Episode ' + (index+1))}</b><small>${esc(episode.title || drama.title || 'NEXORA Drama')}</small></div><button class="nx-details-episode-play" data-play="${esc(episode.id)}" aria-label="Play ${esc(episode.episode || 'episode ' + (index+1))}">▶</button></article>`).join('') : '<p class="muted">No published episodes are available yet.</p>'}
-      </section>
-    </section>`;
-    screen.querySelector('#detailsBack').onclick=()=>{view='home';render();};
-    wireCards();
     return;
   }
   if (view === 'stories') { renderStoryMode(screen, () => { view='feed'; render(); }); return; }
@@ -993,6 +960,50 @@ function hydrateMissingDramaThumbnails(root = document) {
       if (fallback) fallback.hidden = true;
     }
   });
+}
+function openDramaDetails(dramaId) {
+  const drama = items.find(entry => entry.id === dramaId);
+  if (!drama) return;
+  const groupKey = String(drama.seriesId || drama.dramaId || drama.title || drama.id).trim().toLowerCase();
+  const episodes = items.filter(entry => String(entry.seriesId || entry.dramaId || entry.title || entry.id).trim().toLowerCase() === groupKey && entry.url);
+  const episodeList = episodes.length ? episodes : (drama.url ? [drama] : []);
+  const synopsis = drama.description || drama.logline || drama.synopsis || 'Synopsis has not been added yet.';
+  const existing = document.querySelector('#nxDramaDetailsModal');
+  existing?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'nxDramaDetailsModal';
+  modal.className = 'nx-details-overlay';
+  modal.setAttribute('role','dialog');
+  modal.setAttribute('aria-modal','true');
+  modal.setAttribute('aria-label', (drama.title || 'Drama') + ' details');
+  modal.innerHTML = `<div class="nx-details-backdrop" data-details-close></div>
+    <section class="nx-details-sheet">
+      <button class="nx-details-close" type="button" data-details-close aria-label="Close details">×</button>
+      <div class="nx-details-sheet-scroll">
+        <div class="nx-details-hero">
+          <div class="nx-details-poster">${drama.poster ? `<img src="${esc(drama.poster)}" alt="${esc(drama.title)} poster">` : `<div class="nx-details-poster-fallback">✦<b>NEXORA</b></div>`}</div>
+          <div class="nx-details-copy">
+            <span class="nx-eyebrow">NEXORA · DRAMA DETAILS</span>
+            <h1>${esc(drama.title || 'Untitled drama')}</h1>
+            <div class="nx-details-tags"><span>${esc(drama.category || 'Drama')}</span><span>${episodeList.length} ${episodeList.length === 1 ? 'EPISODE' : 'EPISODES'}</span></div>
+            <p>${esc(synopsis)}</p>
+            <div class="nx-details-creator"><small>CREATED BY</small><strong>${esc(drama.creator || 'Creator not listed')}</strong></div>
+            ${drama.source ? `<a class="nx-details-source" href="${esc(drama.source)}" target="_blank" rel="noopener noreferrer">VIEW ORIGINAL SOURCE ↗</a>` : ''}
+            ${drama.url ? `<button class="nx-primary" data-play="${esc(drama.id)}">▶ &nbsp; WATCH NOW</button>` : ''}
+          </div>
+        </div>
+        <section class="nx-details-episodes"><div class="nx-shelf-heading"><h2>Episodes</h2><span>${episodeList.length} available</span></div>
+          ${episodeList.length ? episodeList.map((episode,index)=>`<article class="nx-details-episode"><div class="nx-details-episode-art">${episode.poster ? `<img src="${esc(episode.poster)}" alt="">` : '<span>▶</span>'}</div><div class="nx-details-episode-copy"><b>${esc(episode.episode || 'Episode ' + (index+1))}</b><small>${esc(episode.title || drama.title || 'NEXORA Drama')}</small></div><button class="nx-details-episode-play" data-play="${esc(episode.id)}" aria-label="Play ${esc(episode.episode || 'episode ' + (index+1))}">▶</button></article>`).join('') : '<p class="muted">No published episodes are available yet.</p>'}
+        </section>
+      </div>
+    </section>`;
+  document.body.appendChild(modal);
+  const close = () => { modal.remove(); document.removeEventListener('keydown',onKey); };
+  const onKey = event => { if(event.key === 'Escape') close(); };
+  modal.querySelectorAll('[data-details-close]').forEach(el=>el.addEventListener('click',close));
+  document.addEventListener('keydown',onKey);
+  wireCards();
+  modal.querySelector('.nx-details-close')?.focus();
 }
 function wireCards() {
   const cardRoot = document.querySelector('#screen') || document;
