@@ -382,21 +382,36 @@ ${view==='feed'?`<section class="welcome-strip"><img class="drama-cover-banner" 
 <footer>© ${new Date().getFullYear()} NEXORA AI DRAMA <span>Open films · creator credits and license details shown per title · Watch responsibly</span></footer>`;
   const drawer = document.querySelector('#menuDrawer');
   const backdrop = document.querySelector('#menuBackdrop');
-  const closeMenu = () => {
+  const menuButton = document.querySelector('#menuOpen');
+  const closeMenu = (restoreFocus = false) => {
     drawer.hidden = true;
     backdrop.hidden = true;
-    document.querySelector('#menuOpen').setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+    menuButton.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) menuButton.focus();
   };
-  document.querySelector('#menuOpen').onclick = () => {
+  menuButton.onclick = () => {
     drawer.hidden = false;
     backdrop.hidden = false;
-    document.querySelector('#menuOpen').setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+    menuButton.setAttribute('aria-expanded', 'true');
+    drawer.querySelector('#menuClose')?.focus();
   };
   document.querySelector('#menuClose').onclick = closeMenu;
   backdrop.onclick = closeMenu;
   app.querySelectorAll('.drawer-link[data-view], .tabs [data-view]').forEach(b => b.onclick = () => { closeMenu(); view = b.dataset.view; render(); });
   document.querySelector('#adminOpen').onclick = () => { closeMenu(); ownerFlowActive = true; adminGate(); };
-  document.onkeydown = e => { if (e.key === 'Escape' && !drawer.hidden) { closeMenu(); document.querySelector('#menuOpen')?.focus(); } };
+  document.onkeydown = e => {
+    if (drawer.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeMenu(true); return; }
+    if (e.key === 'Tab') {
+      const focusable = [...drawer.querySelectorAll('button:not([disabled]), a[href]')].filter(el => !el.hidden);
+      if (!focusable.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  };
   renderScreen();
   checkForUpdates();
 }
