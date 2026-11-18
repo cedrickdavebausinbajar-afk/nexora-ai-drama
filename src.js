@@ -918,7 +918,7 @@ function card(x) {
   const title = esc(x.title || 'Untitled drama');
   return `<article class="rowcard home-video-card">
     <div class="home-video-thumb">
-      <img class="mini-poster" ${x.poster ? 'src="' + esc(x.poster) + '"' : 'hidden'} data-video-thumbnail="${esc(x.id)}" alt="Video thumbnail for ${title}" loading="eager" fetchpriority="high" decoding="async">
+      <img class="mini-poster" ${x.poster ? 'src="' + esc(x.poster) + '"' : 'hidden'} data-video-thumbnail="${esc(x.id)}" alt="Video thumbnail for ${title}" loading="lazy" fetchpriority="low" decoding="async">
       <div class="home-thumb-fallback" ${x.poster ? 'hidden' : ''}><span>✦ NEXORA AI DRAMA</span><b>${title}</b><small>DRAMA PREVIEW</small></div>
       <span class="home-thumb-play" aria-hidden="true">▶</span>
     </div>
@@ -931,7 +931,8 @@ function card(x) {
   </article>`;
 }
 function hydrateMissingDramaThumbnails(root = document) {
-  root.querySelectorAll('img[data-video-thumbnail]').forEach(img => {
+  const images = [...root.querySelectorAll('img[data-video-thumbnail]')];
+  const hydrate = img => {
     const entry = items.find(item => item.id === img.dataset.videoThumbnail);
     if (!entry || img.dataset.hydrating === '1' || img.dataset.generated === '1') return;
     const fallback = img.nextElementSibling;
@@ -964,12 +965,25 @@ function hydrateMissingDramaThumbnails(root = document) {
       }
     }, {once:true});
     img.addEventListener('error', generate, {once:true});
-    if (!img.getAttribute('src') || (img.complete && img.naturalWidth === 0)) generate();
+    if (!img.getAttribute('src')) generate();
     else if (img.complete && img.naturalWidth > 0) {
       img.hidden = false;
       if (fallback) fallback.hidden = true;
     }
-  });
+  };
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      observer.unobserve(entry.target);
+      hydrate(entry.target);
+    }), {rootMargin:'280px 0px',threshold:0.01});
+    images.forEach(img => observer.observe(img));
+  } else {
+    images.filter(img => {
+      const rect = img.getBoundingClientRect();
+      return rect.top < window.innerHeight + 280 && rect.bottom > -280;
+    }).forEach(hydrate);
+  }
 }
 function openDramaDetails(dramaId) {
   const drama = items.find(entry => entry.id === dramaId);
