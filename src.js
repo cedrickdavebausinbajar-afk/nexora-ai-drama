@@ -909,7 +909,12 @@ function card(x) {
       <div class="home-thumb-fallback" ${x.poster ? 'hidden' : ''}><span>✦ NEXORA AI DRAMA</span><b>${title}</b><small>DRAMA PREVIEW</small></div>
       <span class="home-thumb-play" aria-hidden="true">▶</span>
     </div>
-    <div class="home-video-copy"><b>${title}</b><small>${esc(x.category || 'Drama')} · ${esc(x.episode || 'Episode 1')}</small><p>${esc(x.creator || 'Creator not listed')}</p><button class="gold-outline" data-play="${esc(x.id)}">WATCH DRAMA</button></div>
+    <div class="home-video-copy">
+      <b class="home-video-title">${title}</b>
+      <div class="home-video-meta"><span>${esc(x.category || 'Drama')}</span><i aria-hidden="true">·</i><span>${esc(x.episode || 'Episode 1')}</span></div>
+      <p class="home-video-credit"><span>CREATOR / RIGHT HOLDER</span><strong>${esc(x.creator || 'Creator not listed')}</strong></p>
+      <button class="gold-outline home-watch-button" data-play="${esc(x.id)}">WATCH DRAMA <span aria-hidden="true">↗</span></button>
+    </div>
   </article>`;
 }
 function hydrateMissingDramaThumbnails(root = document) {
