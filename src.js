@@ -1,3 +1,4 @@
+import './error-monitoring.js';
 import './style.css';
 import { Upload } from 'tus-js-client';
 import { createClient } from '@supabase/supabase-js';
