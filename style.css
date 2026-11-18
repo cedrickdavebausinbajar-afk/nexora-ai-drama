@@ -860,3 +860,31 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
   .nx-card-row>.home-video-card .home-video-thumb{flex-basis:96px;width:96px;min-width:96px}
   .nx-card-row>.home-video-card .home-video-copy{padding:10px}
 }
+
+
+/* Featured drama information screen */
+.nx-drama-details{max-width:1080px;margin:0 auto;padding:18px 16px 48px;color:#f7f5f1}
+.nx-details-back{border:1px solid #65502a;border-radius:5px;background:#17140e;color:#e8cf91;padding:10px 14px;font-size:10px;font-weight:850;letter-spacing:1px}
+.nx-details-hero{display:grid;grid-template-columns:minmax(180px,300px) minmax(0,1fr);gap:clamp(20px,4vw,42px);align-items:center;margin:24px 0 36px}
+.nx-details-poster{width:100%;aspect-ratio:2/3;overflow:hidden;border:1px solid #6c552b;border-radius:10px;background:#17130d;box-shadow:0 14px 42px #0008}
+.nx-details-poster img{display:block;width:100%;height:100%;object-fit:cover}
+.nx-details-poster-fallback{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#d8b45e;font-size:34px;background:linear-gradient(145deg,#332515,#090909)}
+.nx-details-poster-fallback b{font:700 20px Georgia,serif;letter-spacing:3px}
+.nx-details-copy h1{margin:12px 0;font:750 clamp(28px,5vw,48px)/1.06 Georgia,serif;color:#fff2d5}
+.nx-details-tags{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.nx-details-tags span{padding:6px 9px;border:1px solid #d8b45e55;border-radius:4px;color:#e8cf91;font-size:9px;font-weight:850;letter-spacing:1px}
+.nx-details-copy>p{max-width:650px;color:#d0c8b9;font-size:14px;line-height:1.8}
+.nx-details-creator{display:grid;gap:5px;margin:20px 0}
+.nx-details-creator small{color:#a99bb5;font-size:9px;font-weight:850;letter-spacing:1.5px}
+.nx-details-creator strong{color:#f0d58f;font-size:14px}
+.nx-details-source{display:inline-block;margin:0 0 18px;color:#e8cf91;font-size:10px;font-weight:850}
+.nx-details-copy .nx-primary{display:block;min-width:170px}
+.nx-details-episodes{border-top:1px solid #ffffff20;padding-top:22px}
+.nx-details-episode{display:flex;align-items:center;gap:13px;padding:11px;margin:9px 0;border:1px solid #38332a;border-radius:8px;background:#141310}
+.nx-details-episode-art{width:92px;aspect-ratio:16/9;flex:0 0 92px;overflow:hidden;border-radius:5px;background:#292319;display:grid;place-items:center;color:#e8cf91}
+.nx-details-episode-art img{width:100%;height:100%;object-fit:cover}
+.nx-details-episode-copy{display:grid;gap:5px;min-width:0;flex:1}
+.nx-details-episode-copy b{color:#fff0d2;font-size:13px}
+.nx-details-episode-copy small{color:#a9a49a;font-size:10px;overflow-wrap:anywhere}
+.nx-details-episode-play{width:40px;height:40px;flex:0 0 40px;border:1px solid #d8b45e;border-radius:50%;background:#d8b45e;color:#17130b;font-weight:900}
+@media(max-width:600px){.nx-drama-details{padding:14px 12px 34px}.nx-details-hero{grid-template-columns:112px minmax(0,1fr);gap:14px;margin:18px 0 28px;align-items:start}.nx-details-poster{border-radius:7px}.nx-details-copy h1{font-size:23px;margin:8px 0}.nx-details-copy>p{font-size:11px;line-height:1.6}.nx-details-tags{gap:5px;margin:8px 0}.nx-details-tags span{font-size:8px;padding:5px 6px}.nx-details-creator{margin:10px 0}.nx-details-creator strong{font-size:11px}.nx-details-copy .nx-primary{min-width:0;min-height:37px;padding:0 10px;font-size:9px}.nx-details-episode{gap:9px;padding:8px}.nx-details-episode-art{width:72px;flex-basis:72px}.nx-details-episode-copy b{font-size:11px}.nx-details-episode-play{width:34px;height:34px;flex-basis:34px}}
