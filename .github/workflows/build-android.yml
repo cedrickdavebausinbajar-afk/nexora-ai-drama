@@ -52,6 +52,12 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_APP_STORE_DISTRIBUTION: 'false'
+          VITE_NEXORA_FIREBASE_API_KEY: ${{ secrets.VITE_NEXORA_FIREBASE_API_KEY }}
+          VITE_NEXORA_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_NEXORA_FIREBASE_AUTH_DOMAIN }}
+          VITE_NEXORA_FIREBASE_PROJECT_ID: ${{ secrets.VITE_NEXORA_FIREBASE_PROJECT_ID }}
+          VITE_NEXORA_FIREBASE_APP_ID: ${{ secrets.VITE_NEXORA_FIREBASE_APP_ID }}
+          VITE_NEXORA_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_NEXORA_APPCHECK_RECAPTCHA_SITE_KEY }}
+          VITE_APP_VERSION: 1.0.${{ github.run_number }}
         run: npm run build
 
       - name: Create Android project
