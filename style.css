@@ -765,3 +765,98 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
   .home-video-credit>strong{font-size:10px}
   .home-video-copy>.home-watch-button{min-height:38px;margin-top:11px;font-size:9px}
 }
+
+
+/* NEXORA episode shelf cards: full-width horizontal layout with stable 9:16 artwork. */
+.nx-card-row>.home-video-card{
+  display:flex;
+  flex:0 0 min(100%,680px);
+  width:100%;
+  min-width:0;
+  min-height:0;
+  flex-direction:row;
+  align-items:stretch;
+  gap:0;
+  padding:0;
+  overflow:hidden;
+}
+.nx-card-row>.home-video-card .home-video-thumb{
+  position:relative;
+  flex:0 0 110px;
+  width:110px;
+  min-width:110px;
+  height:auto;
+  min-height:196px;
+  max-height:none;
+  aspect-ratio:9 / 16;
+  align-self:stretch;
+}
+.nx-card-row>.home-video-card .mini-poster{
+  display:block;
+  width:100%;
+  height:100%;
+  min-height:196px;
+  max-height:none;
+  flex:0 0 auto;
+  aspect-ratio:9 / 16;
+  object-fit:cover;
+}
+.nx-card-row>.home-video-card .home-thumb-fallback{inset:0}
+.nx-card-row>.home-video-card .home-video-copy{
+  display:flex;
+  flex:1 1 0;
+  min-width:0;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  padding:16px;
+  gap:8px;
+}
+.nx-card-row>.home-video-card .home-video-title{
+  display:-webkit-box;
+  max-width:100%;
+  overflow:hidden;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  font-size:clamp(16px,2.5vw,20px);
+  line-height:1.2;
+}
+.nx-card-row>.home-video-card .home-video-meta{max-width:100%;flex-wrap:wrap}
+.nx-card-row>.home-video-card .home-video-credit{
+  display:block;
+  max-width:100%;
+  margin:2px 0 4px;
+  padding:0;
+  border:0;
+  color:#c9c0ad;
+  font-size:12px;
+  line-height:1.4;
+}
+.nx-card-row>.home-video-card .home-video-credit strong{
+  display:block;
+  overflow-wrap:anywhere;
+  font-size:12px;
+  font-weight:600;
+}
+.nx-card-row>.home-video-card .home-watch-button{
+  margin-top:auto;
+  align-self:flex-start;
+  max-width:100%;
+}
+@media(max-width:540px){
+  .nx-card-row>.home-video-card{flex-basis:100%;width:100%}
+  .nx-card-row>.home-video-card .home-video-thumb{
+    flex:0 0 110px;
+    width:110px;
+    min-width:110px;
+    min-height:196px;
+  }
+  .nx-card-row>.home-video-card .home-video-copy{padding:12px;gap:7px}
+  .nx-card-row>.home-video-card .home-video-title{font-size:16px}
+}
+@media(max-width:360px){
+  .nx-card-row>.home-video-card .home-video-thumb{flex-basis:96px;width:96px;min-width:96px}
+  .nx-card-row>.home-video-card .home-video-copy{padding:10px}
+}
