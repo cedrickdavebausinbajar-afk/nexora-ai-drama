@@ -26,6 +26,9 @@ jobs:
           java-version: '21'
       - name: Install web dependencies
         run: npm install
+      - name: Set isolated test app identity
+        run: |
+          node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('capacitor.config.json','utf8')); p.appId='com.nexora.aidrama.storytest'; p.appName='NEXORA AI DRAMA STORY TEST'; fs.writeFileSync('capacitor.config.json',JSON.stringify(p,null,2));"
       - name: Build web app
         run: npm run build
       - name: Create Android wrapper if missing
