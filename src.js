@@ -442,7 +442,6 @@ function renderScreen() {
     screen.querySelectorAll('[data-series]').forEach(b=>b.onclick=()=>{selectedSeries=b.dataset.series;view='originals';render();});
     wireCards();
     screen.querySelector('#dbRead').onclick=()=>{view='stories';render();};
-    screen.querySelector('#dbCreate').onclick=()=>{view='stories';render();};
     screen.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{view=b.dataset.go;render();});
     return;
   }
