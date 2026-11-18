@@ -888,3 +888,33 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
 .nx-details-episode-copy small{color:#a9a49a;font-size:10px;overflow-wrap:anywhere}
 .nx-details-episode-play{width:40px;height:40px;flex:0 0 40px;border:1px solid #d8b45e;border-radius:50%;background:#d8b45e;color:#17130b;font-weight:900}
 @media(max-width:600px){.nx-drama-details{padding:14px 12px 34px}.nx-details-hero{grid-template-columns:112px minmax(0,1fr);gap:14px;margin:18px 0 28px;align-items:start}.nx-details-poster{border-radius:7px}.nx-details-copy h1{font-size:23px;margin:8px 0}.nx-details-copy>p{font-size:11px;line-height:1.6}.nx-details-tags{gap:5px;margin:8px 0}.nx-details-tags span{font-size:8px;padding:5px 6px}.nx-details-creator{margin:10px 0}.nx-details-creator strong{font-size:11px}.nx-details-copy .nx-primary{min-width:0;min-height:37px;padding:0 10px;font-size:9px}.nx-details-episode{gap:9px;padding:8px}.nx-details-episode-art{width:72px;flex-basis:72px}.nx-details-episode-copy b{font-size:11px}.nx-details-episode-play{width:34px;height:34px;flex-basis:34px}}
+
+
+/* Netflix-style drama details modal / mobile bottom sheet */
+.nx-details-overlay{position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;padding:24px}
+.nx-details-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(7px)}
+.nx-details-sheet{position:relative;z-index:1;width:min(920px,100%);max-height:min(88vh,820px);overflow:hidden;border:1px solid #806735;border-radius:16px;background:linear-gradient(145deg,#211c14,#0b0b0b 58%);box-shadow:0 28px 100px #000c;color:#f7f5f1;animation:nxDetailsIn .22s ease-out}
+.nx-details-sheet-scroll{max-height:min(88vh,820px);overflow:auto;padding:28px}
+.nx-details-close{position:absolute;z-index:3;right:14px;top:14px;width:40px;height:40px;border:1px solid #ffffff40;border-radius:50%;background:#080808d9;color:#fff;font-size:27px;line-height:1}
+.nx-details-sheet .nx-details-hero{grid-template-columns:minmax(170px,250px) minmax(0,1fr);margin:0 0 26px;gap:28px}
+.nx-details-sheet .nx-details-poster{aspect-ratio:2/3}
+.nx-details-sheet .nx-details-episodes{padding-top:20px}
+@keyframes nxDetailsIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:600px){
+ .nx-details-overlay{align-items:flex-end;padding:0}
+ .nx-details-sheet{width:100%;max-height:90dvh;border-radius:18px 18px 0 0;border-bottom:0;animation:nxDetailsSheetIn .24s ease-out}
+ .nx-details-sheet-scroll{max-height:90dvh;overflow-y:auto;padding:52px 16px max(24px,env(safe-area-inset-bottom))}
+ .nx-details-sheet .nx-details-hero{grid-template-columns:108px minmax(0,1fr);gap:13px;align-items:start;margin:0 0 22px}
+ .nx-details-sheet .nx-details-copy h1{font-size:22px;margin:7px 0}
+ .nx-details-sheet .nx-details-copy>p{font-size:11px;line-height:1.6}
+ .nx-details-sheet .nx-details-tags{gap:5px;margin:8px 0}
+ .nx-details-sheet .nx-details-tags span{font-size:8px;padding:5px 6px}
+ .nx-details-sheet .nx-details-creator{margin:10px 0}
+ .nx-details-sheet .nx-details-creator strong{font-size:11px}
+ .nx-details-sheet .nx-details-copy .nx-primary{min-width:0;min-height:38px;padding:0 10px;font-size:9px}
+ .nx-details-sheet .nx-details-episode{gap:9px;padding:8px}
+ .nx-details-sheet .nx-details-episode-art{width:72px;flex-basis:72px}
+ .nx-details-sheet .nx-details-episode-copy b{font-size:11px}
+ .nx-details-sheet .nx-details-episode-play{width:34px;height:34px;flex-basis:34px}
+}
+@keyframes nxDetailsSheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}
