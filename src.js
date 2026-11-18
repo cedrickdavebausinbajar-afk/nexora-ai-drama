@@ -439,6 +439,7 @@ function renderScreen() {
       }).join('');
     const emptyLibrary = '<p class="muted">Your streaming library is ready. Publish licensed videos from the Owner Dashboard and they will appear here automatically.</p>';
     const featuredDrama = trendingDramas[0] || latestEpisodes[0] || null;
+    const newEpisodeCards = latestEpisodes.filter(entry => entry.id !== featuredDrama?.id);
     const demoVideoUrl = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
     const featuredVideoUrl = featuredDrama?.url || demoVideoUrl;
     const featuredPoster = featuredDrama?.poster || '';
@@ -456,7 +457,7 @@ function renderScreen() {
       ${continueItem ? `<section class="nx-shelf"><div class="nx-shelf-heading"><h2>Continue Watching</h2><span>Pick up where you left off</span></div><div class="nx-card-row"><article class="nx-continue-card"><div class="nx-continue-thumb">${continueItem.poster ? `<img src="${esc(continueItem.poster)}" alt="${esc(continueItem.title)} poster">` : '<span>NEXORA</span>'}<i style="width:${Math.max(2,Math.min(98,Math.round((continueProgress.time||0)/(continueProgress.duration||((continueProgress.time||0)+60))*100)))}%"></i></div><div class="nx-continue-info"><b>${esc(continueItem.title)}</b><small>${esc(continueItem.episode||'Episode')} · ${Math.floor((continueProgress.time||0)/60)}:${String((continueProgress.time||0)%60).padStart(2,'0')}</small><button data-play="${esc(continueItem.id)}">▶ CONTINUE</button></div></article></div></section>` : ''}
       ${recentItems.length ? `<section class="nx-shelf"><div class="nx-shelf-heading"><h2>Recently Watched</h2><button data-go="history">SEE ALL ›</button></div><div class="nx-card-row">${recentItems.map(card).join('')}</div></section>` : ''}
       <section class="nx-shelf"><div class="nx-shelf-heading"><h2>Trending Now</h2><button data-go="feed">SEE ALL ›</button></div><div class="nx-card-row">${trendingDramas.length ? trendingDramas.map(card).join('') : emptyLibrary}</div></section>
-      <section class="nx-shelf"><div class="nx-shelf-heading"><h2>New Episodes</h2><button data-go="feed">SEE ALL ›</button></div><div class="nx-card-row">${latestEpisodes.length ? latestEpisodes.map(card).join('') : '<p class="muted">New episodes will appear here as soon as they are published.</p>'}</div></section>
+      <section class="nx-shelf"><div class="nx-shelf-heading"><h2>New Episodes</h2><button data-go="feed">SEE ALL ›</button></div><div class="nx-card-row">${newEpisodeCards.length ? newEpisodeCards.map(card).join('') : '<p class="muted">More episodes will appear here as they are published.</p>'}</div></section>
       ${genreShelves}
       <section class="nx-shelf nx-originals-shelf"><div class="nx-shelf-heading"><h2>NEXORA Originals</h2><button data-go="originals">EXPLORE ALL ›</button></div><div class="nx-original-row">${originalSeries.slice(0,6).map((series,index)=>`<button class="nx-original-tile" data-series="${esc(series.id)}"><span>0${index+1} · NEXORA ORIGINAL</span><b>${esc(series.title)}</b><small>${esc(series.genre)}</small></button>`).join('')}</div></section>
       <section class="nx-story-promo"><div><span class="nx-eyebrow">BEYOND THE SCREEN</span><h2>Read. Imagine. Create.</h2><p>Explore text stories or write a story of your own.</p></div><button class="nx-secondary" id="dbRead">OPEN STORY MODE →</button></section>
@@ -912,7 +913,7 @@ function card(x) {
     <div class="home-video-copy">
       <b class="home-video-title">${title}</b>
       <div class="home-video-meta"><span>${esc(x.category || 'Drama')}</span><i aria-hidden="true">·</i><span>${esc(x.episode || 'Episode 1')}</span></div>
-      <p class="home-video-credit"><span>CREATOR / RIGHT HOLDER</span><strong>${esc(x.creator || 'Creator not listed')}</strong></p>
+      <p class="home-video-credit"><strong>By ${esc(x.creator || 'Creator not listed')}</strong></p>
       <button class="gold-outline home-watch-button" data-play="${esc(x.id)}">WATCH DRAMA <span aria-hidden="true">↗</span></button>
     </div>
   </article>`;
