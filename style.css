@@ -671,3 +671,97 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
 .tabs button:focus-visible,.drawer-link:focus-visible,.nx-primary:focus-visible,.nx-secondary:focus-visible,.nx-shelf-heading button:focus-visible,.nx-quick-links button:focus-visible{outline:2px solid #f5dfa0;outline-offset:3px}
 .tabs button[aria-current="page"]{color:var(--gold-bright,#f5dfa0);border-bottom:2px solid var(--gold,#d8b45e);text-shadow:0 0 14px #d8b45e44}
 @media(max-width:380px){.tabs{gap:2px;padding-inline:4px}.tabs button{min-width:0;flex:1;padding:9px 5px;font-size:8px;letter-spacing:1.1px}}
+
+
+/* Premium drama title, episode metadata, ownership credit and watch action */
+.home-video-copy{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:0;
+  padding:15px 15px 16px;
+}
+.home-video-copy>.home-video-title{
+  display:-webkit-box;
+  overflow:hidden;
+  color:#fff5df;
+  font-family:Georgia,'Times New Roman',serif;
+  font-size:clamp(18px,2.2vw,22px);
+  font-weight:700;
+  line-height:1.12;
+  letter-spacing:-.035em;
+  text-wrap:balance;
+  text-shadow:0 2px 16px #0009;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+}
+.home-video-meta{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:7px;
+  width:max-content;
+  max-width:100%;
+  margin-top:10px;
+  padding:5px 9px;
+  border:1px solid #d8b45e38;
+  border-radius:5px;
+  background:#d8b45e12;
+  color:#e8cf91;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+}
+.home-video-meta i{color:#9f8958;font-style:normal}
+.home-video-copy>.home-video-credit{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  margin:13px 0 0;
+  padding-top:10px;
+  border-top:1px solid #ffffff17;
+}
+.home-video-credit>span{
+  color:#a99bb5;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.14em;
+}
+.home-video-credit>strong{
+  overflow-wrap:anywhere;
+  color:#f0d58f;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.035em;
+}
+.home-video-copy>.home-watch-button{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  min-height:42px;
+  margin-top:14px;
+  border:1px solid #e8c978;
+  border-radius:7px;
+  background:linear-gradient(110deg,#f1d99b,#c99e4d);
+  color:#1a1308;
+  font-size:10px;
+  font-weight:950;
+  letter-spacing:.13em;
+  box-shadow:0 5px 18px #0005,inset 0 1px #fff9;
+}
+.home-watch-button span{font-size:15px;line-height:1}
+.home-video-copy>.home-watch-button:focus-visible{
+  outline:3px solid #fff;
+  outline-offset:3px;
+}
+@media(max-width:540px){
+  .home-video-copy{padding:11px 10px 12px}
+  .home-video-copy>.home-video-title{font-size:16px;line-height:1.15}
+  .home-video-meta{gap:5px;margin-top:8px;padding:4px 7px;font-size:8px}
+  .home-video-copy>.home-video-credit{margin-top:10px;padding-top:8px}
+  .home-video-credit>span{font-size:7px}
+  .home-video-credit>strong{font-size:10px}
+  .home-video-copy>.home-watch-button{min-height:38px;margin-top:11px;font-size:9px}
+}
