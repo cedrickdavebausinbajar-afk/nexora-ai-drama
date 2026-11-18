@@ -43,12 +43,20 @@
 </div>
 <div id="app"></div>
 <script>
-  window.setTimeout(function(){
-    var splash=document.getElementById('nexora-splash');
-    if(!splash)return;
-    splash.classList.add('is-leaving');
-    window.setTimeout(function(){splash.remove();},600);
-  },2800);
+  (function(){
+    var dismissed=false;
+    function hideSplash(){
+      if(dismissed)return;
+      var splash=document.getElementById('nexora-splash');
+      if(!splash){dismissed=true;return;}
+      dismissed=true;
+      splash.classList.add('is-leaving');
+      window.setTimeout(function(){splash.remove();},650);
+    }
+    window.addEventListener('nexora:app-ready',hideSplash,{once:true});
+    // Safety fallback: never leave the splash covering the app if startup JS fails.
+    window.setTimeout(hideSplash,1800);
+  })();
 </script>
 <script type="module" src="/src.js"></script>
 </body>
