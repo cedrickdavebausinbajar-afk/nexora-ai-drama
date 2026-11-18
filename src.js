@@ -1360,6 +1360,7 @@ async function performCloudDramasLoad() {
 }
 let cloudLoadPromise = null;
 let cloudRefreshQueued = false;
+let lastCloudLoadAt = 0;
 async function loadCloudDramas() {
   if (!supabase) return;
   lastCloudLoadAt = Date.now();
@@ -1384,7 +1385,6 @@ initializePhoneNotifications();
 loadCloudDramas();
 // Coalesce realtime bursts (for example, watch-count updates) into one catalogue request.
 let cloudRefreshTimer = null;
-let lastCloudLoadAt = 0;
 function scheduleCloudDramasRefresh(delay = 700) {
   if (cloudRefreshTimer) window.clearTimeout(cloudRefreshTimer);
   cloudRefreshTimer = window.setTimeout(() => {
