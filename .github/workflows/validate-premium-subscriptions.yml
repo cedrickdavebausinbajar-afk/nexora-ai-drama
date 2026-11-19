@@ -15,6 +15,7 @@ on:
     branches: [feat/premium-subscription-foundation]
     paths:
       - "src.js"
+      - "premium-subscriptions.js"
       - "style.css"
       - "package.json"
       - ".env.example"
