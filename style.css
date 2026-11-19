@@ -918,3 +918,32 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
  .nx-details-sheet .nx-details-episode-play{width:34px;height:34px;flex-basis:34px}
 }
 @keyframes nxDetailsSheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+
+/* NEXORA Premium account and recurring checkout */
+.premium-page{max-width:760px;margin:0 auto;padding:28px 18px 64px;color:var(--text,#fff)}
+.premium-hero{padding:30px 24px;border:1px solid rgba(215,177,96,.28);border-radius:22px;background:linear-gradient(145deg,rgba(65,35,92,.72),rgba(12,8,22,.96));margin-bottom:20px}
+.premium-hero h1{font-size:clamp(30px,7vw,48px);margin:10px 0}
+.premium-hero p{color:var(--muted,#b7afc4);max-width:520px}
+.premium-auth-card,.premium-checkout-card,.premium-status-card{background:rgba(22,17,31,.96);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:22px;margin:16px 0}
+.premium-plan-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:22px}
+.premium-plan-grid article{padding:16px;border-radius:14px;background:rgba(206,166,90,.09);border:1px solid rgba(206,166,90,.28);display:flex;flex-direction:column;gap:5px}
+.premium-plan-grid article span{font-size:11px;letter-spacing:1.5px;color:#d7b160;font-weight:800}
+.premium-plan-grid article strong{font-size:32px;color:#fff}
+.premium-plan-grid article small,.premium-security-note{color:var(--muted,#b7afc4);font-size:12px}
+.premium-form{display:grid;gap:14px}
+.premium-form label{display:grid;gap:7px;color:#e9e3ef;font-size:13px;font-weight:700}
+.premium-form input,.premium-form select{width:100%;min-width:0;padding:13px 12px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:#100c18;color:#fff;font:inherit;box-sizing:border-box}
+.premium-form input:focus,.premium-form select:focus{outline:2px solid #cda65e;outline-offset:1px}
+.premium-field-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.premium-field-row:has(label:nth-child(3)){grid-template-columns:repeat(3,minmax(0,1fr))}
+.premium-divider{height:1px;background:rgba(255,255,255,.12);margin:8px 0}
+.premium-security-note{line-height:1.5}
+.premium-notice{font-size:13px;line-height:1.5;min-height:18px;margin:0}
+.premium-notice.error{color:#ff9d9d}.premium-notice.success{color:#91e0ae}.premium-notice.info{color:#c9bbdf}
+.premium-text-button{border:0;background:transparent;color:#d7b160;padding:12px 0;font-weight:700;cursor:pointer}
+.premium-account-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 2px;color:var(--muted,#b7afc4);font-size:13px}
+.premium-status-pill{display:inline-block;padding:6px 10px;border-radius:99px;background:rgba(84,190,124,.15);color:#8ce1ac;font-size:11px;font-weight:800;letter-spacing:1px}
+.premium-status-pill.pending{background:rgba(215,177,96,.15);color:#e3c27f}
+.premium-status-card h2{margin:14px 0 8px}.premium-status-card p,.premium-status-card small{color:var(--muted,#b7afc4)}
+@media(max-width:420px){.premium-page{padding:18px 12px 48px}.premium-auth-card,.premium-checkout-card,.premium-status-card{padding:16px}.premium-field-row,.premium-field-row:has(label:nth-child(3)){grid-template-columns:1fr}.premium-plan-grid article strong{font-size:28px}}
