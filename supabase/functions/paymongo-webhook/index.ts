@@ -230,11 +230,23 @@ Deno.serve(async (req: Request) => {
 
     const { data: plan, error: planError } = await admin
       .from("nexora_subscription_plans")
-      .select("id,amount_php,currency")
+      .select("id,amount_php,currency,interval_unit,interval_count")
       .eq("id", planId)
       .eq("active", true)
       .maybeSingle();
     if (planError || !plan) throw new Error("nexora_plan_unavailable");
+
+    // Keep webhook reconciliation aligned with the fixed NEXORA billing
+    // contract; a modified database row must never validate a wrong charge.
+    const expectedPlan = planId === "nexora_weekly_66"
+      ? { amount: 66, interval: "week", intervalCount: 1 }
+      : { amount: 99, interval: "month", intervalCount: 1 };
+    if (plan.amount_php !== expectedPlan.amount ||
+        plan.currency !== "PHP" ||
+        plan.interval_unit !== expectedPlan.interval ||
+        plan.interval_count !== expectedPlan.intervalCount) {
+      throw new Error("nexora_plan_configuration_mismatch");
+    }
 
     const { data: localSubscription, error: localError } = await admin
       .from("nexora_subscriptions")
