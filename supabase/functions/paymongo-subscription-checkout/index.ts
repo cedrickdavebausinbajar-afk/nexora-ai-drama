@@ -139,12 +139,30 @@ Deno.serve(async (req: Request) => {
     return reply(503, { error: "provider_plan_unavailable" });
   }
 
+  // First look up this exact attempt. A retry must recover its existing
+  // provider subscription instead of creating a second one.
+  const { data: sameAttempt, error: attemptLookupError } = await admin.from("nexora_subscriptions")
+    .select("id,plan_id,status,provider_subscription_id,checkout_attempt_id")
+    .eq("user_id", user.id)
+    .eq("provider", "paymongo")
+    .eq("provider_mode", mode)
+    .eq("checkout_attempt_id", checkoutAttemptId)
+    .maybeSingle();
+  if (attemptLookupError) return reply(503, { error: "checkout_state_unavailable" });
+  if (sameAttempt && sameAttempt.plan_id !== planId) {
+    return reply(409, { error: "checkout_attempt_plan_mismatch" });
+  }
+  if (sameAttempt && sameAttempt.status !== "pending") {
+    return reply(409, { error: "checkout_attempt_not_reusable", status: sameAttempt.status });
+  }
+
   const { data: existing } = await admin.from("nexora_subscriptions")
     .select("id,status")
     .eq("user_id", user.id)
     .eq("provider", "paymongo")
     .eq("provider_mode", mode)
     .in("status", ["pending", "active", "past_due"])
+    .neq("checkout_attempt_id", checkoutAttemptId)
     .limit(1)
     .maybeSingle();
   if (existing) return reply(409, { error: "subscription_already_exists", status: existing.status });
@@ -183,9 +201,41 @@ Deno.serve(async (req: Request) => {
       if (customerSaveError) throw new Error("customer_mapping_save_failed");
     }
 
-    const subscription = await paymongo("subscriptions", paymongoSecret, "POST", {
-      data: { attributes: { plan_id: providerPlanId, customer_id: customerId } },
-    }, `nexora-subscription-${mode}-${checkoutAttemptId}`);
+    // Persist the attempt before contacting PayMongo. If the network times
+    // out, the same attempt can safely repeat the POST with the same provider
+    // idempotency key. A concurrent request sees this reservation.
+    let attemptRowId = sameAttempt?.id as string | undefined;
+    if (!attemptRowId) {
+      const { data: reserved, error: reserveError } = await admin.from("nexora_subscriptions")
+        .insert({
+          user_id: user.id,
+          plan_id: plan.id,
+          provider: "paymongo",
+          provider_mode: mode,
+          provider_customer_id: customerId,
+          checkout_attempt_id: checkoutAttemptId,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+      if (reserveError || !reserved?.id) {
+        return reply(409, { error: "checkout_attempt_in_progress_or_conflict" });
+      }
+      attemptRowId = reserved.id;
+    }
+
+    let subscription: any;
+    if (sameAttempt?.provider_subscription_id) {
+      subscription = await paymongo(
+        `subscriptions/${sameAttempt.provider_subscription_id}`,
+        paymongoSecret,
+        "GET",
+      );
+    } else {
+      subscription = await paymongo("subscriptions", paymongoSecret, "POST", {
+        data: { attributes: { plan_id: providerPlanId, customer_id: customerId } },
+      }, `nexora-subscription-${mode}-${user.id}-${checkoutAttemptId}`);
+    }
     const subscriptionId = subscription?.id;
     const invoice = subscription?.attributes?.latest_invoice;
     let paymentIntent = invoice?.payment_intent;
@@ -211,15 +261,13 @@ Deno.serve(async (req: Request) => {
     const clientKey = paymentIntent?.attributes?.client_key ?? paymentIntent?.client_key;
     if (typeof clientKey !== "string") throw new Error("payment_intent_client_key_unavailable");
 
-    const { error: saveError } = await admin.from("nexora_subscriptions").insert({
-      user_id: user.id,
-      plan_id: plan.id,
-      provider: "paymongo",
-      provider_mode: mode,
-      provider_customer_id: customerId,
-      provider_subscription_id: subscriptionId,
-      status: "pending",
-    });
+    const { error: saveError } = await admin.from("nexora_subscriptions")
+      .update({
+        provider_customer_id: customerId,
+        provider_subscription_id: subscriptionId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", attemptRowId);
     if (saveError) throw new Error("subscription_record_save_failed");
 
     return reply(200, {
