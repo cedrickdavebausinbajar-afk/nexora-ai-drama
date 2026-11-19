@@ -156,16 +156,20 @@ Deno.serve(async (req: Request) => {
     return reply(409, { error: "checkout_attempt_not_reusable", status: sameAttempt.status });
   }
 
-  const { data: existing } = await admin.from("nexora_subscriptions")
+  const { data: existingRows, error: existingLookupError } = await admin.from("nexora_subscriptions")
     .select("id,status")
     .eq("user_id", user.id)
     .eq("provider", "paymongo")
     .eq("provider_mode", mode)
     .in("status", ["pending", "active", "past_due"])
-    .neq("checkout_attempt_id", checkoutAttemptId)
-    .limit(1)
-    .maybeSingle();
-  if (existing) return reply(409, { error: "subscription_already_exists", status: existing.status });
+    .limit(20);
+  if (existingLookupError) return reply(503, { error: "subscription_state_unavailable" });
+  const conflictingSubscription = (existingRows ?? []).find(
+    (row: { id: string }) => row.id !== sameAttempt?.id,
+  );
+  if (conflictingSubscription) {
+    return reply(409, { error: "subscription_already_exists", status: conflictingSubscription.status });
+  }
 
   let customerId: string | null = null;
   const { data: customerRow } = await admin.from("nexora_provider_customers")
