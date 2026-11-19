@@ -92,3 +92,25 @@ Configure these Supabase Edge Function secrets only after PayMongo enables Subsc
 Create the four provider plans separately in PayMongo with the exact NEXORA values: PHP 66 / `week` / interval_count 1 and PHP 99 / `month` / interval_count 1. Keep test plan IDs paired with a test secret key and live plan IDs paired with a live secret key. Never put the PayMongo secret key in the APK. The frontend still needs a PayMongo public key and a secure client-side Payment Method + Payment Intent attach flow; do not collect or transmit raw card data to the NEXORA backend.
 
 The endpoint has not been deployed or exercised against a PayMongo merchant account. PayMongo Subscriptions is account-gated, so treat this as integration code only. The webhook reconciler, full client payment flow, cancellation/status UI, automated tests, migration application, APK build, and production deployment remain outstanding.
+
+
+## Current implementation update
+
+The branch now contains a customer-facing Premium screen in `premium-subscriptions.js`, linked from the app menu. It supports Supabase email/password sign-up and sign-in, displays the two confirmed plans, reads the signed-in user's subscription status, and provides a card-first checkout flow. Card details are sent directly from the client to PayMongo using the public key; the NEXORA backend does not receive card numbers or CVC values. The checkout screen uses PayMongo's Payment Method + Payment Intent attach flow and handles the 3DS/redirect next action.
+
+The webhook handler now reconciles supported subscription and invoice events against PayMongo's API:
+- validates signature timestamp and ensures the webhook live/test mode matches the configured API secret key;
+- stores events idempotently and retries events previously marked failed/received;
+- retrieves provider subscription and invoice records rather than trusting only the webhook snapshot;
+- validates provider plan ID, customer mapping, local subscription, exact invoice amount, PHP currency, and mode;
+- activates/renews access only when the retrieved invoice is paid and the provider subscription is active;
+- maps past-due, unpaid, and cancelled states without granting access from a subscription-active event alone.
+
+The webhook must receive `subscription.invoice.paid`, `subscription.invoice.payment_failed`, `subscription.past_due`, `subscription.unpaid`, and `subscription.updated`. Configure `PAYMONGO_SECRET_KEY` and `PAYMONGO_WEBHOOK_SECRET` for the same environment (test or live), together with the provider plan IDs and Supabase service-role credentials.
+
+Client build configuration:
+- `VITE_PAYMONGO_PUBLIC_KEY` is a public key and may be embedded in the client build.
+- `VITE_NEXORA_PAYMENT_RETURN_URL` must be an HTTPS URL. It is required for Android builds; the web build may use its current HTTPS page URL.
+- Add both values as GitHub Actions repository secrets for automated APK builds. Never add a PayMongo secret API key to a Vite variable or APK.
+
+**Not production-ready:** the code has not yet passed the newly added build/type-check workflow, no PayMongo merchant test has been run, no Supabase migrations or functions have been deployed, and no APK has been built. The app currently offers card checkout only; Maya recurring checkout, cancellation UI, refund/chargeback handling, grace-period policy, automatic status refresh after returning from 3DS, and secure premium-drama catalogue integration remain outstanding. For native Android, the payment return opens the configured HTTPS return destination; users may need to return to the app and refresh status after completing bank authentication.
