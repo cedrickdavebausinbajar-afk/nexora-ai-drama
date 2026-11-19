@@ -1,0 +1,56 @@
+name: Validate NEXORA AI DRAMA premium integration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src.js"
+      - "premium-subscriptions.js"
+      - "premium-subscriptions.js"
+      - "style.css"
+      - "package.json"
+      - ".env.example"
+      - "supabase/**"
+      - ".github/workflows/validate-premium-subscriptions.yml"
+  push:
+    branches: [feat/premium-subscription-foundation]
+    paths:
+      - "src.js"
+      - "style.css"
+      - "package.json"
+      - ".env.example"
+      - "supabase/**"
+      - ".github/workflows/validate-premium-subscriptions.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  web-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Build web app
+        run: npm run build
+
+  edge-function-types:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check subscription Edge Functions
+        run: |
+          deno check supabase/functions/paymongo-subscription-checkout/index.ts
+          deno check supabase/functions/paymongo-webhook/index.ts
+          deno check supabase/functions/premium-video-url/index.ts
