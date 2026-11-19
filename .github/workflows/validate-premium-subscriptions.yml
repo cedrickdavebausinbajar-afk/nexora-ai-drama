@@ -6,9 +6,9 @@ on:
     paths:
       - "src.js"
       - "premium-subscriptions.js"
-      - "premium-subscriptions.js"
       - "style.css"
       - "package.json"
+      - "docs/**"
       - ".env.example"
       - "supabase/**"
       - ".github/workflows/validate-premium-subscriptions.yml"
@@ -16,8 +16,10 @@ on:
     branches: [feat/premium-subscription-foundation]
     paths:
       - "src.js"
+      - "premium-subscriptions.js"
       - "style.css"
       - "package.json"
+      - "docs/**"
       - ".env.example"
       - "supabase/**"
       - ".github/workflows/validate-premium-subscriptions.yml"
@@ -45,6 +47,12 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install npm dependencies for Deno's npm resolver
+        run: npm install --ignore-scripts
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
