@@ -64,3 +64,10 @@ PayMongo references:
 - Subscriptions API: https://docs.paymongo.com/docs/payment-acceptance-subscriptions
 - Webhook setup and signature verification: https://docs.paymongo.com/docs/creating-a-webhook-endpoint
 - Webhook events and retries: https://docs.paymongo.com/reference/webhook-resource
+
+
+### Webhook replay protection and provider events
+
+The webhook receiver also rejects signatures whose timestamp is more than five minutes from server time. This is an additional replay-risk control; the event ID unique constraint remains the duplicate-delivery control. Confirm the configured PayMongo webhook is subscribed to the relevant subscription and invoice events (for example `subscription.updated`, `subscription.past_due`, `subscription.unpaid`, `subscription.invoice.paid`, and `subscription.invoice.payment_failed`). The receiver currently stores verified events without granting access; do not interpret HTTP 200 as a successful subscription activation.
+
+PayMongo documents that subscription activation is account-gated and requires manual enablement. Its documented automatic recurring methods are cards and Maya; payment-method activation alone does not enable subscription billing. Request subscription capability from PayMongo before proceeding to live checkout.
