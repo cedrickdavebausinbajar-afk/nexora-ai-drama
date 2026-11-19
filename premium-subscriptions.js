@@ -163,6 +163,7 @@ export async function renderPremiumView(screen, supabase) {
 
     screen.querySelector('#premiumSignOut').onclick = async () => {
       await supabase.auth.signOut();
+      authMode = 'signin';
       notice = '';
       await render();
     };
@@ -223,6 +224,8 @@ export async function renderPremiumView(screen, supabase) {
           } }
         });
         if (!paymentMethod?.id) throw new Error('PayMongo did not return a payment method.');
+        form.elements.card_number.value = '';
+        form.elements.cvc.value = '';
         const returnUrl = paymentReturnUrl(checkout.subscription_id);
         const attached = await paymongoRequest(`payment_intents/${checkout.payment_intent_id}/attach`, PUBLIC_KEY, {
           data: { attributes: {
