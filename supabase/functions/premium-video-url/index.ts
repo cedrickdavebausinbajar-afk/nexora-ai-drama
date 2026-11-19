@@ -24,9 +24,13 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceRoleKey) {
+  const paymongoSecret = Deno.env.get("PAYMONGO_SECRET_KEY");
+  if (!supabaseUrl || !serviceRoleKey || !paymongoSecret) {
     return reply(503, { error: "server_not_configured" });
   }
+  const providerMode = paymongoSecret.startsWith("sk_live_") ? "live" :
+    paymongoSecret.startsWith("sk_test_") ? "test" : null;
+  if (!providerMode) return reply(503, { error: "invalid_payment_provider_configuration" });
 
   const authorization = req.headers.get("Authorization");
   if (!authorization?.startsWith("Bearer ")) {
@@ -77,6 +81,8 @@ Deno.serve(async (req: Request) => {
     .from("nexora_subscriptions")
     .select("id,status,current_period_end")
     .eq("user_id", userData.user.id)
+    .eq("provider", "paymongo")
+    .eq("provider_mode", providerMode)
     .eq("status", "active")
     .gt("current_period_end", now)
     .limit(1);
