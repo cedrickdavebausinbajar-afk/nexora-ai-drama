@@ -32,7 +32,7 @@ The provider must be configured with a calendar-month recurring interval for the
 
 ## Required next implementation steps
 
-1. Confirm the production Supabase project and review/apply both migrations there.
+1. Confirm the production Supabase project and review/apply all three subscription migrations there.
 2. Confirm the merchant's approved payment provider and enabled recurring methods. PayMongo is only a candidate until the merchant account is approved and recurring billing is enabled.
 3. Implement a server-side checkout/session function that accepts only an authenticated user and one of the two allowlisted plan IDs. The server must obtain the price from the database, never from a client-supplied amount.
 4. Implement a webhook function that verifies the provider signature against the raw request body, records each event idempotently, validates amount/currency/plan, and updates subscription state only for verified provider events.
@@ -94,17 +94,23 @@ Create the four provider plans separately in PayMongo with the exact NEXORA valu
 The endpoint has not been deployed or exercised against a PayMongo merchant account. PayMongo Subscriptions is account-gated, so treat this as integration code only. The webhook reconciler, full client payment flow, cancellation/status UI, automated tests, migration application, APK build, and production deployment remain outstanding.
 
 
-## Verified subscription webhook reconciliation (implementation added; untested)
+## Current implementation update
 
-The webhook handler now reconciles supported subscription and invoice events against PayMongo's API instead of trusting the event snapshot alone:
-- verifies the signature timestamp and test/live mode against the configured API key;
-- stores events idempotently and retries rows previously marked failed/received;
-- retrieves the provider subscription and invoice using the server-side secret key;
-- checks provider plan ID, local user/customer mapping, invoice subscription, exact PHP amount, currency, and live/test mode;
-- activates or renews access only for a retrieved invoice with `status=paid` and a provider subscription with `status=active`;
-- maps past-due, unpaid, and cancelled provider states to local subscription states; an unpaid subscription is treated as expired;
-- does not grant access based only on a `subscription.activated` or `subscription.updated` event.
+The branch now contains a customer-facing Premium screen in `premium-subscriptions.js`, linked from the app menu. It supports Supabase email/password sign-up and sign-in, displays the two confirmed plans, reads the signed-in user's subscription status, and provides a card-first checkout flow. Card details are sent directly from the client to PayMongo using the public key; the NEXORA backend does not receive card numbers or CVC values. The checkout screen uses PayMongo's Payment Method + Payment Intent attach flow and handles the 3DS/redirect next action.
 
-The webhook must be subscribed to `subscription.invoice.paid`, `subscription.invoice.payment_failed`, `subscription.past_due`, `subscription.unpaid`, and `subscription.updated`. The handler expects the PayMongo API secret key for the same mode as the webhook signing secret. Test and live endpoints should be configured separately.
+The webhook handler now reconciles supported subscription and invoice events against PayMongo's API:
+- validates signature timestamp and ensures the webhook live/test mode matches the configured API secret key;
+- stores events idempotently and retries events previously marked failed/received;
+- retrieves provider subscription and invoice records rather than trusting only the webhook snapshot;
+- validates provider plan ID, customer mapping, local subscription, exact invoice amount, PHP currency, and mode;
+- activates/renews access only when the retrieved invoice is paid and the provider subscription is active;
+- maps past-due, unpaid, and cancelled states without granting access from a subscription-active event alone.
 
-**Important limitations:** this reconciliation code has not been run against PayMongo test events or a configured merchant account. It currently records a single period start at processing time and uses the provider's next billing date as the period end. Refunds, chargebacks, grace-period policy, cancellation-at-period-end, and historical invoice reconciliation are not yet implemented. Do not treat the integration as production-ready until those cases and the complete client-side payment flow are tested.
+The webhook must receive `subscription.invoice.paid`, `subscription.invoice.payment_failed`, `subscription.past_due`, `subscription.unpaid`, and `subscription.updated`. Configure `PAYMONGO_SECRET_KEY` and `PAYMONGO_WEBHOOK_SECRET` for the same environment (test or live), together with the provider plan IDs and Supabase service-role credentials.
+
+Client build configuration:
+- `VITE_PAYMONGO_PUBLIC_KEY` is a public key and may be embedded in the client build.
+- `VITE_NEXORA_PAYMENT_RETURN_URL` must be an HTTPS URL. It is required for Android builds; the web build may use its current HTTPS page URL.
+- Add both values as GitHub Actions repository secrets for automated APK builds. Never add a PayMongo secret API key to a Vite variable or APK.
+
+**Not production-ready:** the code has not yet passed the build/type-check workflow, no PayMongo merchant test has been run, no Supabase migrations or functions have been deployed, and no APK has been built. The app currently offers card checkout only; Maya recurring checkout, cancellation UI, refund/chargeback handling, grace-period policy, automatic status refresh after returning from 3DS, and secure premium-drama catalogue integration remain outstanding. For native Android, the payment return opens the configured HTTPS return destination; users may need to return to the app and refresh status after completing bank authentication.

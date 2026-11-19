@@ -299,7 +299,7 @@ let items = readItems();
 let liked = new Set();
 try { liked = new Set(JSON.parse(localStorage.getItem('nexora-liked') || '[]')); } catch {}
 let active = 0;
-let view = 'home';
+let view = new URLSearchParams(location.search).get('nexora_payment_return') === '1' ? 'premium' : 'home';
 let ownerFlowActive = false;
 const WATCH_PROGRESS_KEY = 'nexora-watch-progress-v1';
 const WATCH_HISTORY_KEY = 'nexora-watch-history-v1';
