@@ -108,6 +108,25 @@ Deno.serve(async (req: Request) => {
   const providerPlanId = Deno.env.get(planSecretName);
   if (!providerPlanId) return reply(503, { error: "provider_plan_not_configured" });
 
+  // Verify the actual PayMongo plan, not only its local secret mapping.
+  // PayMongo expresses cadence as "weekly" or "monthly" and amount in centavos.
+  try {
+    const providerPlan = await paymongo(`subscriptions/plans/${providerPlanId}`, paymongoSecret, "GET");
+    const attributes = providerPlan?.attributes ?? {};
+    const expectedProviderInterval = expectedPlan.interval === "week" ? "weekly" : "monthly";
+    if (providerPlan?.id !== providerPlanId ||
+        attributes.amount !== expectedPlan.amount * 100 ||
+        attributes.currency !== "PHP" ||
+        attributes.interval !== expectedProviderInterval ||
+        attributes.interval_count !== 1 ||
+        attributes.livemode !== (mode === "live") ||
+        (attributes.type && attributes.type !== "scheduled")) {
+      return reply(503, { error: "provider_plan_configuration_mismatch" });
+    }
+  } catch {
+    return reply(503, { error: "provider_plan_unavailable" });
+  }
+
   const { data: existing } = await admin.from("nexora_subscriptions")
     .select("id,status")
     .eq("user_id", user.id)
