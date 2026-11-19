@@ -19,13 +19,14 @@ function paymentReturnUrl(subscriptionId) {
   return url.toString();
 }
 
-async function paymongoRequest(path, publicKey, body) {
+async function paymongoRequest(path, publicKey, body, idempotencyKey) {
   const response = await fetch(`https://api.paymongo.com/v1/${path}`, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${btoa(publicKey + ':')}`,
       'Content-Type': 'application/json',
-      Accept: 'application/json'
+      Accept: 'application/json',
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {})
     },
     body: JSON.stringify(body)
   });
@@ -46,6 +47,7 @@ export async function renderPremiumView(screen, supabase) {
   let authMode = 'signin';
   let notice = '';
   let noticeKind = 'info';
+  let resumePendingCheckoutId = null;
 
   const render = async () => {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -125,7 +127,7 @@ export async function renderPremiumView(screen, supabase) {
     let subscriptionLoadError = '';
     const { data: rows, error: rowsError } = await supabase
       .from('nexora_subscriptions')
-      .select('plan_id,status,current_period_end,created_at')
+      .select('plan_id,status,current_period_end,created_at,checkout_attempt_id')
       .order('created_at', { ascending: false })
       .limit(5);
     if (rowsError) subscriptionLoadError = 'Subscription database setup is not active yet. Checkout is unavailable until the NEXORA subscription migrations are applied.';
@@ -140,14 +142,14 @@ export async function renderPremiumView(screen, supabase) {
       <div class="premium-hero"><span class="nx-eyebrow">NEXORA AI DRAMA</span><h1>NEXORA Premium</h1><p>Ad-free viewing and exclusive premium dramas.</p></div>
       <div class="premium-account-row"><span>Signed in as <strong>${esc(user.email)}</strong></span><button class="premium-text-button" id="premiumSignOut" type="button">SIGN OUT</button></div>
       ${current ? `<article class="premium-status-card"><span class="premium-status-pill">ACTIVE</span><h2>Your Premium access is active</h2><p>Plan: ${current.plan_id === 'nexora_weekly_66' ? '₱66 Weekly' : '₱99 Monthly'}</p><small>Next renewal: ${esc(new Date(current.current_period_end).toLocaleDateString())}</small></article>` : ''}
-      ${pending ? `<article class="premium-status-card"><span class="premium-status-pill pending">PAYMENT STATUS</span><h2>Subscription ${esc(pending.status)}</h2><p>Complete or verify your first payment. Premium access is granted only after PayMongo confirms payment.</p><button id="premiumRefresh" class="gold-outline" type="button">REFRESH STATUS</button></article>` : ''}
+      ${pending ? `<article class="premium-status-card"><span class="premium-status-pill pending">PAYMENT STATUS</span><h2>Subscription ${esc(pending.status)}</h2><p>Complete or verify your first payment. Premium access is granted only after PayMongo confirms payment.</p>${pending.checkout_attempt_id ? '<button id="premiumResumeCheckout" class="gold" type="button">CONTINUE FIRST PAYMENT</button>' : ''}<button id="premiumRefresh" class="gold-outline" type="button">REFRESH STATUS</button></article>` : ''}
       ${subscriptionLoadError ? `<p class="premium-notice error">${esc(subscriptionLoadError)}</p>` : ''}
-      ${!current && !pending && !subscriptionLoadError ? `<div class="premium-checkout-card">
+      ${!current && (!pending || resumePendingCheckoutId) && !subscriptionLoadError ? `<div class="premium-checkout-card">
         <div class="premium-plan-grid"><article><span>WEEKLY</span><strong>₱66</strong><small>Every 7 days</small></article><article><span>MONTHLY</span><strong>₱99</strong><small>Every calendar month</small></article></div>
         <h2>Choose your plan</h2>
         <p class="muted">Secure recurring card billing. Your first payment must be completed before Premium is activated.</p>
         <form id="premiumCheckoutForm" class="premium-form">
-          <label>Plan<select name="plan_id"><option value="nexora_weekly_66">₱66 — Weekly (every 7 days)</option><option value="nexora_monthly_99">₱99 — Monthly</option></select></label>
+          <label>Plan<select name="plan_id" ${resumePendingCheckoutId ? 'disabled' : ''}><option value="nexora_weekly_66" ${pending?.plan_id === 'nexora_weekly_66' ? 'selected' : ''}>₱66 — Weekly (every 7 days)</option><option value="nexora_monthly_99" ${pending?.plan_id === 'nexora_monthly_99' ? 'selected' : ''}>₱99 — Monthly</option></select>${resumePendingCheckoutId ? `<input type="hidden" name="plan_id" value="${esc(pending?.plan_id)}">` : ''}</label>
           <div class="premium-field-row"><label>First name<input name="first_name" autocomplete="given-name" maxlength="80" required></label><label>Last name<input name="last_name" autocomplete="family-name" maxlength="80" required></label></div>
           <label>Mobile number<input name="phone" type="tel" autocomplete="tel" placeholder="+639XXXXXXXXX" required></label>
           <div class="premium-divider"></div>
@@ -168,8 +170,14 @@ export async function renderPremiumView(screen, supabase) {
       await render();
     };
     screen.querySelector('#premiumRefresh')?.addEventListener('click', () => render());
+    screen.querySelector('#premiumResumeCheckout')?.addEventListener('click', () => {
+      resumePendingCheckoutId = pending?.checkout_attempt_id || null;
+      render();
+    });
     const checkoutForm = screen.querySelector('#premiumCheckoutForm');
     if (!checkoutForm) return;
+    let checkoutAttemptId = resumePendingCheckoutId;
+    let checkoutAttemptPlan = resumePendingCheckoutId ? pending?.plan_id : null;
     checkoutForm.onsubmit = async event => {
       event.preventDefault();
       const form = event.currentTarget;
@@ -195,6 +203,12 @@ export async function renderPremiumView(screen, supabase) {
         status.className = 'premium-notice error';
         return;
       }
+      const selectedPlan = String(values.get('plan_id'));
+      const paymentAttemptId = crypto.randomUUID();
+      if (!checkoutAttemptId || checkoutAttemptPlan !== selectedPlan) {
+        checkoutAttemptId = crypto.randomUUID();
+        checkoutAttemptPlan = selectedPlan;
+      }
       button.disabled = true;
       button.textContent = 'CREATING SECURE PAYMENT…';
       status.textContent = 'Connecting securely to NEXORA and PayMongo…';
@@ -202,7 +216,8 @@ export async function renderPremiumView(screen, supabase) {
       try {
         const { data: checkout, error: checkoutError } = await supabase.functions.invoke('paymongo-subscription-checkout', {
           body: {
-            plan_id: String(values.get('plan_id')),
+            plan_id: selectedPlan,
+            checkout_attempt_id: checkoutAttemptId,
             first_name: firstName,
             last_name: lastName,
             phone
@@ -222,7 +237,7 @@ export async function renderPremiumView(screen, supabase) {
             details: { card_number: cardNumber, exp_month: expMonth, exp_year: expYear, cvc },
             billing: { name: `${firstName} ${lastName}`, email: user.email, phone }
           } }
-        });
+        }, `nexora-payment-method-${paymentAttemptId}`);
         if (!paymentMethod?.id) throw new Error('PayMongo did not return a payment method.');
         form.elements.card_number.value = '';
         form.elements.cvc.value = '';
@@ -233,7 +248,7 @@ export async function renderPremiumView(screen, supabase) {
             client_key: checkout.payment_intent_client_key,
             return_url: returnUrl
           } }
-        });
+        }, `nexora-payment-attach-${paymentAttemptId}`);
         const attributes = attached?.attributes || {};
         if (attributes.status === 'awaiting_next_action' && attributes.next_action?.redirect?.url) {
           status.textContent = 'Continue the bank verification to finish your first payment.';

@@ -18,8 +18,13 @@ The NEXORA database stores normalized intervals as `week` and `month`. When crea
 - `supabase/migrations/202611190001_nexora_subscription_foundation.sql`: plans, subscriptions, and webhook ledger.
 - `supabase/migrations/202611190002_nexora_premium_private_storage.sql`: private premium-video bucket and owner upload policies.
 - `supabase/migrations/202611190003_paymongo_checkout_support.sql`: provider mode and customer mapping.
+- `supabase/migrations/202611200001_nexora_checkout_attempt_recovery.sql`: durable checkout-attempt UUID and uniqueness protection.
 - `supabase/migrations/202611190004_nexora_premium_drama_catalogue.sql`: premium catalogue fields and a database constraint requiring premium episodes to use private storage.
 - `src.js`: owner publishing of private premium video files and client playback through the entitlement function.
+
+## Checkout retry and duplicate protection
+
+The client generates one UUID for a checkout attempt and keeps it while retrying that same attempt. The Edge Function requires that UUID and passes a stable, mode-scoped PayMongo idempotency key to subscription creation. Customer creation also uses a stable per-user/per-mode idempotency key. Each card retry receives a new key for PaymentMethod creation and PaymentIntent attachment, so a declined card can be replaced without replaying the prior card attempt. The server reserves the checkout attempt in `nexora_subscriptions` before creating the provider subscription, and records the resulting provider subscription ID. A retry with the same UUID retrieves that same provider subscription and its first-invoice PaymentIntent; a different attempt is blocked while another pending/active/past-due subscription exists. The database unique indexes prevent duplicate reservations for the same user/provider environment/attempt and enforce at most one pending/active/past-due subscription per user/provider environment, including concurrent requests with different attempt IDs. The migration intentionally stops if pre-existing duplicate open subscriptions need manual reconciliation. PayMongo retains idempotency results for a limited window (currently documented as 24 hours); this is duplicate-request protection, not a substitute for local database reconciliation or payment verification. A reservation whose provider call timed out is retried using the same provider idempotency key.
 
 ## Premium-content protection
 
@@ -32,7 +37,7 @@ The app currently has no ad-serving SDK or ad-placement implementation in this r
 ## Deployment sequence — not performed by a GitHub merge
 
 1. Confirm the exact Supabase project used by the production APK.
-2. Review and apply migrations `202611190001` through `202611190004` in order.
+2. Review and apply migrations `202611190001` through `202611190004`, then `202611200001_nexora_checkout_attempt_recovery.sql` in order.
 3. Deploy these Edge Functions: `paymongo-subscription-checkout`, `paymongo-webhook`, and `premium-video-url`.
 4. In Supabase Edge Function secrets, configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, and the matching weekly/monthly PayMongo plan IDs for the same environment.
 5. In GitHub Actions repository secrets, configure `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_PAYMONGO_PUBLIC_KEY`, and `VITE_NEXORA_PAYMENT_RETURN_URL`. The return URL must be HTTPS. Only the PayMongo public key belongs in the client build; never place a secret key in a Vite variable or APK.

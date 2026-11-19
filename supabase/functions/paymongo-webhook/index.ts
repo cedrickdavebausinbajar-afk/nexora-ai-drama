@@ -228,13 +228,44 @@ Deno.serve(async (req: Request) => {
       sub.plan.id === monthlyProviderPlan ? "nexora_monthly_99" : null;
     if (!planId) throw new Error("provider_plan_not_allowlisted");
 
+    // Re-read the provider plan during webhook reconciliation so a plan edited
+    // or replaced in PayMongo cannot silently change the recurring cadence.
+    const providerPlan = await getPayMongoResource(
+      `subscriptions/plans/${sub.plan.id}`,
+      paymongoSecret,
+    );
+    const providerPlanAttributes = providerPlan.attributes;
+    const expectedProviderInterval = planId === "nexora_weekly_66" ? "weekly" : "monthly";
+    const expectedProviderAmount = planId === "nexora_weekly_66" ? 6600 : 9900;
+    if (providerPlan.id !== sub.plan.id ||
+        providerPlanAttributes.amount !== expectedProviderAmount ||
+        providerPlanAttributes.currency !== "PHP" ||
+        providerPlanAttributes.interval !== expectedProviderInterval ||
+        providerPlanAttributes.interval_count !== 1 ||
+        providerPlanAttributes.livemode !== isLive ||
+        (providerPlanAttributes.type && providerPlanAttributes.type !== "scheduled")) {
+      throw new Error("provider_plan_configuration_mismatch");
+    }
+
     const { data: plan, error: planError } = await admin
       .from("nexora_subscription_plans")
-      .select("id,amount_php,currency")
+      .select("id,amount_php,currency,interval_unit,interval_count")
       .eq("id", planId)
       .eq("active", true)
       .maybeSingle();
     if (planError || !plan) throw new Error("nexora_plan_unavailable");
+
+    // Keep webhook reconciliation aligned with the fixed NEXORA billing
+    // contract; a modified database row must never validate a wrong charge.
+    const expectedPlan = planId === "nexora_weekly_66"
+      ? { amount: 66, interval: "week", intervalCount: 1 }
+      : { amount: 99, interval: "month", intervalCount: 1 };
+    if (plan.amount_php !== expectedPlan.amount ||
+        plan.currency !== "PHP" ||
+        plan.interval_unit !== expectedPlan.interval ||
+        plan.interval_count !== expectedPlan.intervalCount) {
+      throw new Error("nexora_plan_configuration_mismatch");
+    }
 
     const { data: localSubscription, error: localError } = await admin
       .from("nexora_subscriptions")
