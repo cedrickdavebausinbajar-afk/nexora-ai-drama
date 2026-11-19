@@ -307,8 +307,9 @@ Deno.serve(async (req: Request) => {
           throw new Error("next_billing_date_invalid");
         }
       } else {
-        if (inv.status === "paid") {
-          // A late/reordered failure event must never downgrade a paid invoice.
+        if (inv.status === "paid" || sub.status === "active") {
+          // The provider's current resource is authoritative. A delayed failure
+          // event must never downgrade a subscription that has since recovered.
           await finish("ignored");
           return reply(200, { received: true, processed: true, ignored: true });
         }
@@ -330,14 +331,17 @@ Deno.serve(async (req: Request) => {
         }
       }
     } else {
-      if (eventType === "subscription.past_due" || sub.status === "past_due") {
+      // Webhook delivery can be delayed or reordered. Map lifecycle events from
+      // the freshly fetched PayMongo resource, never from the stale event name.
+      if (sub.status === "past_due") {
         nextStatus = "past_due";
-      } else if (eventType === "subscription.unpaid" || sub.status === "unpaid") {
+      } else if (sub.status === "unpaid") {
         nextStatus = "expired";
       } else if (sub.status === "cancelled" || sub.status === "incomplete_cancelled") {
         nextStatus = "cancelled";
       } else {
-        // An "active" subscription snapshot alone is not payment proof.
+        // Active/incomplete snapshots do not independently grant access, and
+        // stale lifecycle events must not downgrade a newer provider state.
         await finish("ignored");
         return reply(200, { received: true, processed: true, ignored: true });
       }
