@@ -426,7 +426,24 @@ function renderScreen() {
   const screen = document.querySelector('#screen');
   if (!screen) return;
   if (view === 'home') {
-    const uploadedVideos = items.filter(x => !builtInIds.has(x.id) && x.url);
+    // Show one catalogue card per drama series on Home. Keep every episode in
+    // the library so Watch Episodes and the player can still access the full series.
+    const uploadedVideoRows = items.filter(x => !builtInIds.has(x.id) && x.url);
+    const latestByDrama = new Map();
+    for (const entry of uploadedVideoRows) {
+      const key = String(entry.title || entry.parentDramaId || entry.seriesId || entry.dramaId || entry.id)
+        .trim().toLowerCase();
+      const current = latestByDrama.get(key);
+      const episodeNumber = Number(entry.episodeNumber || String(entry.episode || '').match(/\\d+/)?.[0] || 1);
+      const currentEpisodeNumber = current
+        ? Number(current.episodeNumber || String(current.episode || '').match(/\\d+/)?.[0] || 1)
+        : -1;
+      if (!current || episodeNumber > currentEpisodeNumber ||
+          (episodeNumber === currentEpisodeNumber && Number(entry.watchCount || 0) > Number(current.watchCount || 0))) {
+        latestByDrama.set(key, entry);
+      }
+    }
+    const uploadedVideos = [...latestByDrama.values()];
     const trendingDramas = [...uploadedVideos].sort((a,b)=>Number(b.watchCount||0)-Number(a.watchCount||0)).slice(0,8);
     const latestEpisodes = uploadedVideos.slice(0,8);
     let continueProgress = null; let watchHistory = [];
