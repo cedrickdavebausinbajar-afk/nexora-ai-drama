@@ -32,7 +32,7 @@ The provider must be configured with a calendar-month recurring interval for the
 
 ## Required next implementation steps
 
-1. Confirm the production Supabase project and review/apply both migrations there.
+1. Confirm the production Supabase project and review/apply all three subscription migrations there.
 2. Confirm the merchant's approved payment provider and enabled recurring methods. PayMongo is only a candidate until the merchant account is approved and recurring billing is enabled.
 3. Implement a server-side checkout/session function that accepts only an authenticated user and one of the two allowlisted plan IDs. The server must obtain the price from the database, never from a client-supplied amount.
 4. Implement a webhook function that verifies the provider signature against the raw request body, records each event idempotently, validates amount/currency/plan, and updates subscription state only for verified provider events.
