@@ -71,3 +71,24 @@ PayMongo references:
 The webhook receiver also rejects signatures whose timestamp is more than five minutes from server time. This is an additional replay-risk control; the event ID unique constraint remains the duplicate-delivery control. Confirm the configured PayMongo webhook is subscribed to the relevant subscription and invoice events (for example `subscription.updated`, `subscription.past_due`, `subscription.unpaid`, `subscription.invoice.paid`, and `subscription.invoice.payment_failed`). The receiver currently stores verified events without granting access; do not interpret HTTP 200 as a successful subscription activation.
 
 PayMongo documents that subscription activation is account-gated and requires manual enablement. Its documented automatic recurring methods are cards and Maya; payment-method activation alone does not enable subscription billing. Request subscription capability from PayMongo before proceeding to live checkout.
+
+
+## Server-side checkout initializer (not yet live)
+
+The branch now includes `supabase/functions/paymongo-subscription-checkout/index.ts`. It:
+- requires a valid Supabase user Bearer token and uses the authenticated user's email;
+- accepts only the two fixed plan IDs and reads the amount/interval from the database;
+- requires first name, last name, and phone at checkout;
+- uses a server-side PayMongo secret key and environment-specific provider plan IDs;
+- creates/reuses a private PayMongo customer mapping, creates the recurring subscription, and checks the returned provider plan, invoice amount, and PHP currency against the selected NEXORA plan;
+- returns the first invoice Payment Intent ID and client key for the client-side payment-method flow. It never grants premium access.
+
+Configure these Supabase Edge Function secrets only after PayMongo enables Subscriptions for the merchant:
+- `PAYMONGO_SECRET_KEY` (test or live secret key; the function detects its mode from the key prefix)
+- `PAYMONGO_WEEKLY_PLAN_ID_TEST` and `PAYMONGO_MONTHLY_PLAN_ID_TEST`
+- `PAYMONGO_WEEKLY_PLAN_ID_LIVE` and `PAYMONGO_MONTHLY_PLAN_ID_LIVE`
+- existing `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+
+Create the four provider plans separately in PayMongo with the exact NEXORA values: PHP 66 / `week` / interval_count 1 and PHP 99 / `month` / interval_count 1. Keep test plan IDs paired with a test secret key and live plan IDs paired with a live secret key. Never put the PayMongo secret key in the APK. The frontend still needs a PayMongo public key and a secure client-side Payment Method + Payment Intent attach flow; do not collect or transmit raw card data to the NEXORA backend.
+
+The endpoint has not been deployed or exercised against a PayMongo merchant account. PayMongo Subscriptions is account-gated, so treat this as integration code only. The webhook reconciler, full client payment flow, cancellation/status UI, automated tests, migration application, APK build, and production deployment remain outstanding.
