@@ -33,23 +33,19 @@ Deno.serve(async (req: Request) => {
     return reply(401, { error: "authentication_required" });
   }
 
-  let body: { objectPath?: unknown };
+  let body: { dramaId?: unknown };
   try {
     body = await req.json();
   } catch {
     return reply(400, { error: "invalid_json" });
   }
 
-  const objectPath = body?.objectPath;
+  const dramaId = body?.dramaId;
   if (
-    typeof objectPath !== "string" ||
-    objectPath.length < 3 ||
-    objectPath.length > 500 ||
-    objectPath.startsWith("/") ||
-    objectPath.includes("..") ||
-    objectPath.includes("\\")
+    typeof dramaId !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(dramaId)
   ) {
-    return reply(400, { error: "invalid_object_path" });
+    return reply(400, { error: "invalid_drama_id" });
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
@@ -59,6 +55,22 @@ Deno.serve(async (req: Request) => {
   const token = authorization.slice("Bearer ".length);
   const { data: userData, error: userError } = await admin.auth.getUser(token);
   if (userError || !userData.user) return reply(401, { error: "invalid_session" });
+
+  // Resolve the private object path from the trusted catalogue. Never accept
+  // arbitrary storage paths from the client, even from an active subscriber.
+  const { data: drama, error: dramaError } = await admin
+    .from("dramas")
+    .select("id,is_premium,premium_video_storage_path,published")
+    .eq("id", dramaId)
+    .eq("published", true)
+    .eq("is_premium", true)
+    .maybeSingle();
+
+  if (dramaError) return reply(503, { error: "premium_catalogue_check_failed" });
+  if (!drama || typeof drama.premium_video_storage_path !== "string" ||
+      !drama.premium_video_storage_path.trim()) {
+    return reply(404, { error: "premium_video_unavailable" });
+  }
 
   const now = new Date().toISOString();
   const { data: subscriptions, error: subscriptionError } = await admin
@@ -78,7 +90,7 @@ Deno.serve(async (req: Request) => {
   // by the reviewed migration before this function is deployed.
   const { data: signed, error: signedError } = await admin.storage
     .from("nexora-premium-videos")
-    .createSignedUrl(objectPath, 60);
+    .createSignedUrl(drama.premium_video_storage_path, 60);
 
   if (signedError || !signed?.signedUrl) {
     return reply(404, { error: "premium_video_unavailable" });

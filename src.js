@@ -431,7 +431,7 @@ function renderScreen() {
   if (view === 'home') {
     // Show one catalogue card per drama series on Home. Keep every episode in
     // the library so Watch Episodes and the player can still access the full series.
-    const uploadedVideoRows = items.filter(x => !builtInIds.has(x.id) && x.url);
+    const uploadedVideoRows = items.filter(x => !builtInIds.has(x.id) && (x.url || x.isPremium));
     const latestByDrama = new Map();
     for (const entry of uploadedVideoRows) {
       const key = String(entry.title || entry.parentDramaId || entry.seriesId || entry.dramaId || entry.id)
@@ -598,9 +598,9 @@ function renderScreen() {
   const x = items[active];
   const seriesRootId=x.parentDramaId||x.id;
   const seriesEpisodes=items.filter(entry=>entry.id===seriesRootId||entry.parentDramaId===seriesRootId).sort((a,b)=>(a.episodeNumber||1)-(b.episodeNumber||1));
-  const playbackUrl = x.url || (x.videoStoragePath && supabase
+  let playbackUrl = x.isPremium ? '' : (x.url || (x.videoStoragePath && supabase
     ? supabase.storage.from('nexora-drama-videos').getPublicUrl(x.videoStoragePath).data.publicUrl
-    : '');
+    : ''));
   const peerTubeId = String(playbackUrl || '').match(/(?:webseed|download\/videos)\/([0-9a-f-]{36})/i)?.[1];
   const peerTubeEmbed = peerTubeId
     ? `https://video.blender.org/videos/embed/${peerTubeId}?p2p=0&warningTitle=0`
@@ -896,9 +896,21 @@ function renderScreen() {
       if (errorMessage) errorMessage.textContent = messages[code] || 'Video could not load. Check the video link and your internet connection, then retry.';
       if (errorBox) errorBox.hidden = false;
     });
-    document.querySelector('#retryVideo').onclick = () => {
+    document.querySelector('#retryVideo').onclick = async () => {
       if (errorBox) errorBox.hidden = true;
-      const source = playbackUrl || video.currentSrc || video.src;
+      let source = playbackUrl || video.currentSrc || video.src;
+      if (x.isPremium) {
+        try {
+          const {data,error} = await supabase.functions.invoke('premium-video-url', {body:{dramaId:x.id}});
+          if (error || !data?.signedUrl) throw new Error(data?.error || error?.message || 'Premium access could not be verified.');
+          playbackUrl = data.signedUrl;
+          source = playbackUrl;
+        } catch (error) {
+          if (errorMessage) errorMessage.textContent = error?.message || 'Sign in with an active NEXORA Premium account to watch this exclusive episode.';
+          if (errorBox) errorBox.hidden = false;
+          return;
+        }
+      }
       if (!source) {
         if (errorMessage) errorMessage.textContent = 'This episode has no playable video URL. Ask the owner to republish the video.';
         if (errorBox) errorBox.hidden = false;
@@ -911,7 +923,24 @@ function renderScreen() {
       video.load();
     };
     // Start the request only after every playback/error listener is attached.
-    if (playbackUrl) { video.src = playbackUrl; video.load(); }
+    if (x.isPremium) {
+      if (premiumPlayButton) premiumPlayButton.disabled = true;
+      if (!supabase) {
+        if (errorMessage) errorMessage.textContent = 'Sign in with an active NEXORA Premium account to watch this exclusive episode.';
+        if (errorBox) errorBox.hidden = false;
+        if (premiumPlayButton) premiumPlayButton.disabled = false;
+      } else {
+        supabase.functions.invoke('premium-video-url', {body:{dramaId:x.id}}).then(({data,error})=>{
+          if (error || !data?.signedUrl) throw new Error(data?.error || error?.message || 'Premium access could not be verified.');
+          playbackUrl = data.signedUrl;
+          video.src = playbackUrl;
+          video.load();
+        }).catch(error=>{
+          if (errorMessage) errorMessage.textContent = error?.message || 'Sign in with an active NEXORA Premium account to watch this exclusive episode.';
+          if (errorBox) errorBox.hidden = false;
+        }).finally(()=>{if(premiumPlayButton)premiumPlayButton.disabled=false;});
+      }
+    } else if (playbackUrl) { video.src = playbackUrl; video.load(); }
     else {
       if (errorMessage) errorMessage.textContent = 'This episode has no playable video URL. Ask the owner to republish the video.';
       if (errorBox) errorBox.hidden = false;
@@ -1187,7 +1216,7 @@ async function uploadDramaAsset(path,blob,contentType){
   if(error)throw new Error('Could not upload '+contentType+' asset to '+bucket+': '+error.message);
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
-async function uploadDramaVideoWithProgress(path,file,contentType,onProgress){
+async function uploadDramaVideoWithProgress(path,file,contentType,onProgress,bucketName='nexora-drama-videos'){
   const {data,error}=await supabase.auth.getSession();
   if(error)throw error;
   const token=data?.session?.access_token;
@@ -1205,7 +1234,7 @@ async function uploadDramaVideoWithProgress(path,file,contentType,onProgress){
         'x-upsert':'false'
       },
       metadata:{
-        bucketName:'nexora-drama-videos',
+        bucketName,
         objectName:path,
         contentType,
         cacheControl:'3600'
@@ -1244,12 +1273,12 @@ async function renderAdmin() {
   '<main class="admin"><section class="panel"><div class="eyebrow">CONTENT MANAGEMENT</div><h1>Owner dashboard</h1><p class="muted">Published dramas are stored in a shared database. Only authorized owner accounts can publish or remove content.</p>' +
   '<form id="addForm"><label>Drama title<input name="title" required maxlength="120" placeholder="e.g. The Secret Heiress"></label><div class="two"><label>Episode label<input name="episode" maxlength="80" placeholder="Episode 1"></label><label>Category<select name="category"><option>Romance</option><option>Revenge</option><option>Family</option><option>Comedy</option><option>Action</option><option>Thriller</option><option>Fantasy</option><option>Other</option></select></label></div>' +
   '<div class="two"><label>Drama series<select name="parentDramaId"><option value="">Create a new drama series</option>'+ownerVideos.filter(v=>!v.parent_drama_id).map(v=>'<option value="'+esc(v.id)+'" data-title="'+esc(v.title)+'">'+esc(v.title)+' · '+esc(v.episode||'Episode 1')+'</option>').join('')+'</select></label><label>Episode number<input name="episodeNumber" type="number" min="1" max="999" value="1" required></label></div><p class="muted">Choose an existing series to add Episode 2, Episode 3, and more. Episodes appear together in Watch Episodes.</p>' +
-  '<label>Upload video file (MP4, WebM, or MOV · max 500 MB)<input name="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"></label><p class="muted">Choose a video from your phone, or use a direct HTTPS video URL below. Do not paste a TikTok page link; it is not a playable video file.</p><label>Or direct video URL (optional)<input name="url" type="url" placeholder="https://your-authorized-host/video.mp4"></label><label>Poster image URL (optional; otherwise captured from your video)<input name="poster" type="url" placeholder="https://..."></label><label>Subtitles (optional .VTT or .SRT)<input name="subtitleFile" type="file" accept=".vtt,.srt,text/vtt,application/x-subrip"></label><small class="muted">Subtitles stay off unless a valid subtitle file is uploaded.</small>' +
+  '<label>Upload video file (MP4, WebM, or MOV · max 500 MB)<input name="videoFile" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"></label><p class="muted">Choose a video from your phone, or use a direct HTTPS video URL below. Do not paste a TikTok page link; it is not a playable video file.</p><label>Or direct video URL (optional)<input name="url" type="url" placeholder="https://your-authorized-host/video.mp4"></label><label class="check"><input name="isPremium" type="checkbox"> Premium-exclusive episode (uploaded file required; stored privately and available only to active subscribers)</label><label>Poster image URL (optional; otherwise captured from your video)<input name="poster" type="url" placeholder="https://..."></label><label>Subtitles (optional .VTT or .SRT)<input name="subtitleFile" type="file" accept=".vtt,.srt,text/vtt,application/x-subrip"></label><small class="muted">Subtitles stay off unless a valid subtitle file is uploaded.</small>' +
   '<div class="two"><label>Creator name<input name="creator" required maxlength="120" placeholder="Original creator"></label><label>Original source URL<input name="source" type="url" required placeholder="https://original-post..."></label></div>' +
   '<label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label>' +
   '<div id="videoUploadProgress" class="upload-progress" hidden aria-live="polite"><div class="upload-progress-heading"><b id="videoUploadStage">Preparing video…</b><strong id="videoUploadPercent">0%</strong></div><progress id="videoUploadBar" max="100" value="0">0%</progress><small id="videoUploadDetail">Your upload progress will appear here.</small></div>' +
   '<button class="gold" type="submit">PUBLISH DRAMA</button></form></section>' +
-  '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><button id="repairThumbnails" class="gold-outline" type="button">REBUILD ALL VIDEO THUMBNAILS</button><p class="muted">Replaces missing or incorrect covers with real frames captured from each uploaded video stored in NEXORA storage.</p><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
+  '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><button id="repairThumbnails" class="gold-outline" type="button">REBUILD ALL VIDEO THUMBNAILS</button><p class="muted">Replaces missing or incorrect covers with real frames captured from each uploaded video stored in NEXORA storage.</p><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+(x.is_premium?' · PREMIUM EXCLUSIVE':'')+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
   document.querySelector('#signOut').onclick=async()=>{await supabase.auth.signOut();ownerFlowActive=false;view='feed';render();};
   const seriesSelect=document.querySelector('#addForm [name="parentDramaId"]');
   seriesSelect.onchange=()=>{const selected=ownerVideos.find(v=>v.id===seriesSelect.value);if(selected){document.querySelector('#addForm [name="title"]').value=selected.title;const next=ownerVideos.filter(v=>v.parent_drama_id===selected.id).length+2;document.querySelector('#addForm [name="episodeNumber"]').value=String(next);document.querySelector('#addForm [name="episode"]').value='Episode '+next;}else{document.querySelector('#addForm [name="episodeNumber"]').value='1';document.querySelector('#addForm [name="episode"]').value='Episode 1';}};
@@ -1285,11 +1314,11 @@ async function renderAdmin() {
     if(progressStage)progressStage.textContent='Preparing upload…';
     if(progressDetail)progressDetail.textContent='Checking video, cover and publishing permission.';
     submit.disabled=true;submit.textContent='PUBLISHING…';
-    const f=new FormData(form),file=form.elements.videoFile.files?.[0]||null,subtitleFile=form.elements.subtitleFile.files?.[0]||null,parentDramaId=String(f.get('parentDramaId')||'').trim()||null,episodeNumber=Math.max(1,Number(f.get('episodeNumber')||1)),directUrl=String(f.get('url')||'').trim(),source=String(f.get('source')||'').trim(),poster=String(f.get('poster')||'').trim();
+    const f=new FormData(form),file=form.elements.videoFile.files?.[0]||null,subtitleFile=form.elements.subtitleFile.files?.[0]||null,parentDramaId=String(f.get('parentDramaId')||'').trim()||null,episodeNumber=Math.max(1,Number(f.get('episodeNumber')||1)),directUrl=String(f.get('url')||'').trim(),source=String(f.get('source')||'').trim(),poster=String(f.get('poster')||'').trim(),isPremium=f.get('isPremium')==='on';
     const allowedExt=/\.(mp4|webm|mov)$/i;
     const inferredFileType=file?(file.name.toLowerCase().endsWith('.webm')?'video/webm':file.name.toLowerCase().endsWith('.mov')?'video/quicktime':'video/mp4'):'';
-    if((!file&&!isSupportedVideoUrl(directUrl))||(file&&!allowedExt.test(file.name))||(file&&file.size>524288000)||!/^https:\/\//i.test(source)||(poster&&!/^https:\/\//i.test(poster))||f.get('permission')!=='on'){
-      alert('Choose an MP4, WebM, or MOV file up to 500 MB, or enter a direct HTTPS video-file URL ending in .mp4, .webm, or .mov. TikTok and other watch-page links are not playable files. Add the original HTTPS source and confirm publishing rights.');
+    if((!file&&!isSupportedVideoUrl(directUrl))||(isPremium&&!file)||(file&&!allowedExt.test(file.name))||(file&&file.size>524288000)||!/^https:\/\//i.test(source)||(poster&&!/^https:\/\//i.test(poster))||f.get('permission')!=='on'){
+      alert(isPremium?'Premium-exclusive episodes must be uploaded as a video file so NEXORA can store them privately. Add the original HTTPS source and confirm publishing rights.':'Choose an MP4, WebM, or MOV file up to 500 MB, or enter a direct HTTPS video-file URL ending in .mp4, .webm, or .mov. TikTok and other watch-page links are not playable files. Add the original HTTPS source and confirm publishing rights.');
       submit.disabled=false;submit.textContent='PUBLISH DRAMA';return;
     }
     let videoUrl=directUrl,storagePath=null,published=false,posterUrl=poster,subtitleUrl=null,posterPath=null,subtitlePath=null,frameBlob=null;
@@ -1308,8 +1337,8 @@ async function renderAdmin() {
           if(progressBar)progressBar.value=percent;
           if(progressPercent)progressPercent.textContent=percent+'%';
           if(progressDetail)progressDetail.textContent=(loaded/1048576).toFixed(1)+' MB of '+(total/1048576).toFixed(1)+' MB uploaded';
-        });
-        videoUrl=supabase.storage.from('nexora-drama-videos').getPublicUrl(storagePath).data.publicUrl;
+        },isPremium?'nexora-premium-videos':'nexora-drama-videos');
+        videoUrl=isPremium?'':supabase.storage.from('nexora-drama-videos').getPublicUrl(storagePath).data.publicUrl;
       }
       if(progressStage)progressStage.textContent='Saving video cover…';
       submit.textContent='SAVING VIDEO COVER…';
@@ -1334,7 +1363,7 @@ async function renderAdmin() {
       const {error:insertError}=await supabase.from('dramas').insert({
         created_by:publishUserData.user.id,
         title:String(f.get('title')||'').trim(),episode:'Episode '+episodeNumber,episode_number:episodeNumber,parent_drama_id:parentDramaId,
-        category:String(f.get('category')||'Other'),video_url:videoUrl,video_storage_path:storagePath,poster_url:posterUrl||null,poster_storage_path:posterPath,subtitle_url:subtitleUrl,subtitle_storage_path:subtitlePath,
+        category:String(f.get('category')||'Other'),video_url:videoUrl||null,video_storage_path:isPremium?null:storagePath,is_premium:isPremium,premium_video_storage_path:isPremium?storagePath:null,poster_url:posterUrl||null,poster_storage_path:posterPath,subtitle_url:subtitleUrl,subtitle_storage_path:subtitlePath,
         creator:String(f.get('creator')||'').trim(),source_url:source,permission_confirmed:true,published:true
       });
       if(insertError) throw insertError;
@@ -1346,7 +1375,7 @@ async function renderAdmin() {
       await loadCloudDramas();await renderAdmin();
     } catch(error) {
       if(!published){
-        if(storagePath)await supabase.storage.from('nexora-drama-videos').remove([storagePath]).catch(()=>{});
+        if(storagePath)await supabase.storage.from(isPremium?'nexora-premium-videos':'nexora-drama-videos').remove([storagePath]).catch(()=>{});
         const assetCleanup=[posterPath,subtitlePath].filter(Boolean);
         if(assetCleanup.length)await supabase.storage.from('nexora-drama-assets').remove(assetCleanup).catch(()=>{});
       }
@@ -1361,8 +1390,10 @@ async function renderAdmin() {
     const {error: deleteError}=await supabase.from('dramas').delete().eq('id',b.dataset.delete);
     if(deleteError){alert('Could not remove drama: '+deleteError.message);b.disabled=false;return;}
     const videoPaths=[selected?.video_storage_path].filter(Boolean);
+    const premiumVideoPaths=[selected?.premium_video_storage_path].filter(Boolean);
     const assetPaths=[selected?.poster_storage_path,selected?.subtitle_storage_path].filter(Boolean);
-    if(videoPaths.length){const {error:storageError}=await supabase.storage.from('nexora-drama-videos').remove(videoPaths);if(storageError)console.warn('Drama video cleanup failed:',storageError.message);}
+    if(videoPaths.length){const {error:storageError}=await supabase.storage.from('nexora-drama-videos').remove(videoPaths);if(storageError)console.warn('Public drama video cleanup failed:',storageError.message);}
+    if(premiumVideoPaths.length){const {error:premiumStorageError}=await supabase.storage.from('nexora-premium-videos').remove(premiumVideoPaths);if(premiumStorageError)console.warn('Private premium video cleanup failed:',premiumStorageError.message);}
     if(assetPaths.length){const {error:assetError}=await supabase.storage.from('nexora-drama-assets').remove(assetPaths);if(assetError)console.warn('Drama poster/subtitle cleanup failed:',assetError.message);}
     items=items.filter(x=>x.id!==b.dataset.delete);await renderAdmin();
   });
@@ -1372,10 +1403,14 @@ async function performCloudDramasLoad() {
   // Fetch in bounded pages so large creator catalogues are not silently truncated
   // by the Supabase/PostgREST maximum-row setting.
   const pageSize = 250;
-  let columns = 'id,title,episode,episode_number,parent_drama_id,category,video_url,video_storage_path,poster_url,subtitle_url,creator,source_url,watch_count';
+  let columns = 'id,title,episode,episode_number,parent_drama_id,category,video_url,video_storage_path,is_premium,premium_video_storage_path,poster_url,subtitle_url,creator,source_url,watch_count';
   const allRows = [];
   for (let offset = 0; ; offset += pageSize) {
     let result = await supabase.from('dramas').select(columns).eq('published',true).order('created_at',{ascending:false}).range(offset, offset + pageSize - 1);
+    if (result.error && /is_premium|premium_video_storage_path|column/i.test(result.error.message) && columns.includes('is_premium')) {
+      columns = 'id,title,episode,episode_number,parent_drama_id,category,video_url,video_storage_path,poster_url,subtitle_url,creator,source_url,watch_count';
+      result = await supabase.from('dramas').select(columns).eq('published',true).order('created_at',{ascending:false}).range(offset, offset + pageSize - 1);
+    }
     if (result.error && /subtitle_url|column/i.test(result.error.message) && columns.includes('subtitle_url')) {
       columns = 'id,title,episode,category,video_url,video_storage_path,poster_url,creator,source_url,watch_count';
       result = await supabase.from('dramas').select(columns).eq('published',true).order('created_at',{ascending:false}).range(offset, offset + pageSize - 1);
@@ -1389,7 +1424,7 @@ async function performCloudDramasLoad() {
     allRows.push(...page);
     if (page.length < pageSize) break;
   }
-  const cloud=allRows.map(row=>({id:row.id,title:row.title,episode:row.episode,episodeNumber:Number(row.episode_number||String(row.episode||'').match(/\d+/)?.[0]||1),parentDramaId:row.parent_drama_id||null,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',url:row.video_url||(row.video_storage_path?supabase.storage.from('nexora-drama-videos').getPublicUrl(row.video_storage_path).data.publicUrl:''),videoStoragePath:row.video_storage_path||'',poster:row.poster_url||'',subtitle:row.subtitle_url||'',watchCount:Number(row.watch_count||0)}));
+  const cloud=allRows.map(row=>({id:row.id,title:row.title,episode:row.episode,episodeNumber:Number(row.episode_number||String(row.episode||'').match(/\d+/)?.[0]||1),parentDramaId:row.parent_drama_id||null,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',isPremium:row.is_premium===true,url:row.is_premium?'':(row.video_url||(row.video_storage_path?supabase.storage.from('nexora-drama-videos').getPublicUrl(row.video_storage_path).data.publicUrl:'')),videoStoragePath:row.video_storage_path||'',premiumVideoStoragePath:row.premium_video_storage_path||'',poster:row.poster_url||'',subtitle:row.subtitle_url||'',watchCount:Number(row.watch_count||0)}));
 
   const demoIds=new Set(seed.map(x=>x.id)),cloudIds=new Set(cloud.map(x=>x.id));
   const previousCatalog=items.filter(x=>!demoIds.has(x.id)).map(x=>[x.id,x.watchCount||0,x.url||'',x.poster||''].join('|')).join('~');
