@@ -37,7 +37,7 @@ The app currently has no ad-serving SDK or ad-placement implementation in this r
 ## Deployment sequence — not performed by a GitHub merge
 
 1. Confirm the exact Supabase project used by the production APK.
-2. Review and apply migrations `202611190001` through `202611190004` in order.
+2. Review and apply migrations `202611190001` through `202611190004`, then `202611200001_nexora_checkout_attempt_recovery.sql` in order.
 3. Deploy these Edge Functions: `paymongo-subscription-checkout`, `paymongo-webhook`, and `premium-video-url`.
 4. In Supabase Edge Function secrets, configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, and the matching weekly/monthly PayMongo plan IDs for the same environment.
 5. In GitHub Actions repository secrets, configure `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_PAYMONGO_PUBLIC_KEY`, and `VITE_NEXORA_PAYMENT_RETURN_URL`. The return URL must be HTTPS. Only the PayMongo public key belongs in the client build; never place a secret key in a Vite variable or APK.
