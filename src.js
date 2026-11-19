@@ -896,9 +896,21 @@ function renderScreen() {
       if (errorMessage) errorMessage.textContent = messages[code] || 'Video could not load. Check the video link and your internet connection, then retry.';
       if (errorBox) errorBox.hidden = false;
     });
-    document.querySelector('#retryVideo').onclick = () => {
+    document.querySelector('#retryVideo').onclick = async () => {
       if (errorBox) errorBox.hidden = true;
-      const source = playbackUrl || video.currentSrc || video.src;
+      let source = playbackUrl || video.currentSrc || video.src;
+      if (x.isPremium) {
+        try {
+          const {data,error} = await supabase.functions.invoke('premium-video-url', {body:{dramaId:x.id}});
+          if (error || !data?.signedUrl) throw new Error(data?.error || error?.message || 'Premium access could not be verified.');
+          playbackUrl = data.signedUrl;
+          source = playbackUrl;
+        } catch (error) {
+          if (errorMessage) errorMessage.textContent = error?.message || 'Sign in with an active NEXORA Premium account to watch this exclusive episode.';
+          if (errorBox) errorBox.hidden = false;
+          return;
+        }
+      }
       if (!source) {
         if (errorMessage) errorMessage.textContent = 'This episode has no playable video URL. Ask the owner to republish the video.';
         if (errorBox) errorBox.hidden = false;
