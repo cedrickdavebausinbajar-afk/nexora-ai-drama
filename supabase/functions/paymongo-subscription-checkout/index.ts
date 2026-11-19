@@ -241,10 +241,27 @@ Deno.serve(async (req: Request) => {
       }, `nexora-subscription-${mode}-${user.id}-${checkoutAttemptId}`);
     }
     const subscriptionId = subscription?.id;
+    if (typeof subscriptionId !== "string" || !subscriptionId.startsWith("subs_")) {
+      throw new Error("invalid_subscription_response");
+    }
+
+    // Save the provider subscription ID immediately. PayMongo may emit
+    // subscription lifecycle events while the checkout response is still
+    // being assembled; the webhook must be able to correlate that event to
+    // this reserved local row. It also lets a retry recover this subscription
+    // if invoice or PaymentIntent retrieval fails after provider creation.
+    const { error: providerLinkError } = await admin.from("nexora_subscriptions")
+      .update({
+        provider_customer_id: customerId,
+        provider_subscription_id: subscriptionId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", attemptRowId);
+    if (providerLinkError) throw new Error("subscription_record_save_failed");
+
     const invoice = subscription?.attributes?.latest_invoice;
     let paymentIntent = invoice?.payment_intent;
-    if (typeof subscriptionId !== "string" || !subscriptionId.startsWith("subs_") ||
-        typeof paymentIntent?.id !== "string") {
+    if (typeof paymentIntent?.id !== "string") {
       throw new Error("incomplete_subscription_response");
     }
     if (invoice?.amount !== plan.amount_php * 100 || invoice?.currency !== "PHP" ||
@@ -264,15 +281,6 @@ Deno.serve(async (req: Request) => {
     }
     const clientKey = paymentIntent?.attributes?.client_key ?? paymentIntent?.client_key;
     if (typeof clientKey !== "string") throw new Error("payment_intent_client_key_unavailable");
-
-    const { error: saveError } = await admin.from("nexora_subscriptions")
-      .update({
-        provider_customer_id: customerId,
-        provider_subscription_id: subscriptionId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", attemptRowId);
-    if (saveError) throw new Error("subscription_record_save_failed");
 
     return reply(200, {
       subscription_id: subscriptionId,
