@@ -14,7 +14,7 @@ create index if not exists nexora_subscriptions_provider_subscription_lookup
 -- A read-before-insert check in an Edge Function cannot by itself prevent two
 -- different checkout attempts racing for the same user. Enforce one unresolved
 -- subscription per user/provider environment at the database boundary.
-do $
+do $$
 begin
   if exists (
     select 1
@@ -27,7 +27,7 @@ begin
       'Cannot add NEXORA active-subscription guard: duplicate pending/active/past_due rows exist. Reconcile them before retrying this migration.';
   end if;
 end
-$;
+$$;
 
 create unique index if not exists nexora_one_open_subscription_per_user_provider
   on public.nexora_subscriptions (user_id, provider, provider_mode)
