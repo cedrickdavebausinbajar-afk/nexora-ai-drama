@@ -451,11 +451,15 @@ function renderScreen() {
     try { watchHistory = JSON.parse(localStorage.getItem(WATCH_HISTORY_KEY) || '[]'); if (!Array.isArray(watchHistory)) watchHistory=[]; } catch {}
     const continueItem = continueProgress && !continueProgress.completed ? items.find(entry=>entry.id===continueProgress.id) : null;
     const recentItems = watchHistory.map(entry=>items.find(item=>item.id===entry.id)).filter(Boolean).filter(entry=>entry.id!==continueItem?.id).slice(0,8);
-    const genreShelves = [...new Set(uploadedVideos.map(x=>String(x.category||'').trim()).filter(Boolean))]
-      .slice(0,6).map(genre=>{
-        const matches=uploadedVideos.filter(x=>String(x.category||'').toLowerCase()===genre.toLowerCase()).slice(0,8);
-        return matches.length ? `<h2>${esc(genre)} Dramas</h2><div class="home-published genre-shelf">${matches.map(card).join('')}</div>` : '';
-      }).join('');
+    // Keep every drama in one shared shelf for its category. Do not split a
+    // category across Trending/New Episodes shelves or truncate its catalogue.
+    const categoryNames = [...new Map(uploadedVideos
+      .map(x=>[String(x.category||'Drama').trim().toLowerCase(), String(x.category||'Drama').trim()]))
+      .entries()];
+    const genreShelves = categoryNames.map(([categoryKey, genre])=>{
+      const matches=uploadedVideos.filter(x=>String(x.category||'Drama').trim().toLowerCase()===categoryKey);
+      return matches.length ? `<section class="nx-shelf"><div class="nx-shelf-heading"><h2>${esc(genre)} Dramas</h2><span>${matches.length} titles</span></div><div class="home-published genre-shelf">${matches.map(card).join('')}</div></section>` : '';
+    }).join('');
     const emptyLibrary = '<p class="muted">Your streaming library is ready. Publish licensed videos from the Owner Dashboard and they will appear here automatically.</p>';
     const featuredDrama = trendingDramas[0] || latestEpisodes[0] || null;
     const newEpisodeCards = latestEpisodes.filter(entry => entry.id !== featuredDrama?.id);
@@ -475,9 +479,7 @@ function renderScreen() {
       </div></section>
       ${continueItem ? `<section class="nx-shelf"><div class="nx-shelf-heading"><h2>Continue Watching</h2><span>Pick up where you left off</span></div><div class="nx-card-row"><article class="nx-continue-card"><div class="nx-continue-thumb">${continueItem.poster ? `<img src="${esc(continueItem.poster)}" alt="${esc(continueItem.title)} poster">` : '<span>NEXORA</span>'}<i style="width:${Math.max(2,Math.min(98,Math.round((continueProgress.time||0)/(continueProgress.duration||((continueProgress.time||0)+60))*100)))}%"></i></div><div class="nx-continue-info"><b>${esc(continueItem.title)}</b><small>${esc(continueItem.episode||'Episode')} · ${Math.floor((continueProgress.time||0)/60)}:${String((continueProgress.time||0)%60).padStart(2,'0')}</small><button data-play="${esc(continueItem.id)}">▶ CONTINUE</button></div></article></div></section>` : ''}
       ${recentItems.length ? `<section class="nx-shelf"><div class="nx-shelf-heading"><h2>Recently Watched</h2><button data-go="history">SEE ALL ›</button></div><div class="nx-card-row">${recentItems.map(card).join('')}</div></section>` : ''}
-      <section class="nx-shelf"><div class="nx-shelf-heading"><h2>Trending Now</h2><button data-go="feed">SEE ALL ›</button></div><div class="nx-card-row">${trendingDramas.length ? trendingDramas.map(card).join('') : emptyLibrary}</div></section>
-      <section class="nx-shelf"><div class="nx-shelf-heading"><h2>New Episodes</h2><button data-go="feed">SEE ALL ›</button></div><div class="nx-card-row">${newEpisodeCards.length ? newEpisodeCards.map(card).join('') : '<p class="muted">More episodes will appear here as they are published.</p>'}</div></section>
-      ${genreShelves}
+      ${uploadedVideos.length ? genreShelves : emptyLibrary}
       <section class="nx-shelf nx-originals-shelf"><div class="nx-shelf-heading"><h2>NEXORA Originals</h2><button data-go="originals">EXPLORE ALL ›</button></div><div class="nx-original-row">${originalSeries.slice(0,6).map((series,index)=>`<button class="nx-original-tile" data-series="${esc(series.id)}"><span>0${index+1} · NEXORA ORIGINAL</span><b>${esc(series.title)}</b><small>${esc(series.genre)}</small></button>`).join('')}</div></section>
       <section class="nx-story-promo"><div><span class="nx-eyebrow">BEYOND THE SCREEN</span><h2>Read. Imagine. Create.</h2><p>Explore text stories or write a story of your own.</p></div><button class="nx-secondary" id="dbRead">OPEN STORY MODE →</button></section>
       <div class="nx-quick-links"><button data-go="shorts">DRAMA SHORTS</button><button data-go="saved">MY LIST</button><button data-go="search">SEARCH</button></div>
