@@ -172,12 +172,13 @@ Deno.serve(async (req: Request) => {
   }
 
   let customerId: string | null = null;
-  const { data: customerRow } = await admin.from("nexora_provider_customers")
+  const { data: customerRow, error: customerLookupError } = await admin.from("nexora_provider_customers")
     .select("provider_customer_id")
     .eq("user_id", user.id)
     .eq("provider", "paymongo")
     .eq("provider_mode", mode)
     .maybeSingle();
+  if (customerLookupError) return reply(503, { error: "customer_mapping_unavailable" });
   customerId = customerRow?.provider_customer_id ?? null;
 
   try {
@@ -241,8 +242,12 @@ Deno.serve(async (req: Request) => {
       }, `nexora-subscription-${mode}-${user.id}-${checkoutAttemptId}`);
     }
     const subscriptionId = subscription?.id;
-    if (typeof subscriptionId !== "string" || !subscriptionId.startsWith("subs_")) {
-      throw new Error("invalid_subscription_response");
+    const subscriptionAttributes = subscription?.attributes ?? {};
+    if (typeof subscriptionId !== "string" || !subscriptionId.startsWith("subs_") ||
+        subscriptionAttributes.livemode !== (mode === "live") ||
+        subscriptionAttributes.customer_id !== customerId ||
+        subscriptionAttributes.plan?.id !== providerPlanId) {
+      throw new Error("subscription_response_mode_customer_or_plan_mismatch");
     }
 
     // Save the provider subscription ID immediately. PayMongo may emit
