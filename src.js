@@ -1266,22 +1266,20 @@ async function renderAdmin() {
   '<label class="check"><input name="permission" type="checkbox" required> I confirm I have permission or a license for this video to be played in this app.</label>' +
   '<div id="videoUploadProgress" class="upload-progress" hidden aria-live="polite"><div class="upload-progress-heading"><b id="videoUploadStage">Preparing video…</b><strong id="videoUploadPercent">0%</strong></div><progress id="videoUploadBar" max="100" value="0">0%</progress><small id="videoUploadDetail">Your upload progress will appear here.</small></div>' +
   '<button class="gold" type="submit">PUBLISH DRAMA</button></form></section>' +
-  '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><button id="repairThumbnails" class="gold-outline" type="button">REBUILD ALL VIDEO THUMBNAILS</button><p class="muted">Replaces missing or incorrect covers with real frames captured from each uploaded video stored in NEXORA storage.</p><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
+  '<section class="panel"><h2>Published videos ('+ownerVideos.length+')</h2><button id="repairThumbnails" class="gold-outline" type="button">REBUILD ALL VIDEO THUMBNAILS</button><p class="muted">Replaces missing or incorrect covers with real frames captured from each uploaded video stored in NEXORA storage.</p><div id="adminList">'+(ownerVideos.map(x=>'<div class="adminrow"><div><b>'+esc(x.title)+'</b><small>'+esc(x.episode)+' · '+esc(x.category)+(x.is_premium?' · PREMIUM EXCLUSIVE':'')+' · '+esc(x.creator)+'</small></div><button data-delete="'+esc(x.id)+'" class="delete">REMOVE</button></div>').join('')||'<p class="muted">No owner videos published yet.</p>')+'</div></section></main>';
   document.querySelector('#signOut').onclick=async()=>{await supabase.auth.signOut();ownerFlowActive=false;view='feed';render();};
   const seriesSelect=document.querySelector('#addForm [name="parentDramaId"]');
   seriesSelect.onchange=()=>{const selected=ownerVideos.find(v=>v.id===seriesSelect.value);if(selected){document.querySelector('#addForm [name="title"]').value=selected.title;const next=ownerVideos.filter(v=>v.parent_drama_id===selected.id).length+2;document.querySelector('#addForm [name="episodeNumber"]').value=String(next);document.querySelector('#addForm [name="episode"]').value='Episode '+next;}else{document.querySelector('#addForm [name="episodeNumber"]').value='1';document.querySelector('#addForm [name="episode"]').value='Episode 1';}};
   document.querySelector('#repairThumbnails').onclick=async()=>{
     const button=document.querySelector('#repairThumbnails');
-    const repairable=ownerVideos.filter(v=>v.video_storage_path||v.premium_video_storage_path);
+    const repairable=ownerVideos.filter(v=>v.video_storage_path);
     if(!repairable.length){alert('No NEXORA-stored videos are available to rebuild. Direct external video URLs need a manually supplied poster image.');return;}
     if(!confirm('Rebuild the thumbnail images for all '+repairable.length+' NEXORA-stored videos using real frames from their video files?'))return;
     button.disabled=true;let fixed=0,failed=0;
     for(const entry of repairable){
       button.textContent='REBUILDING '+(fixed+failed+1)+' / '+repairable.length+'…';
       try{
-        const sourceBucket=entry.is_premium?'nexora-premium-videos':'nexora-drama-videos';
-        const sourcePath=entry.is_premium?entry.premium_video_storage_path:entry.video_storage_path;
-        const {data:blob,error:downloadError}=await supabase.storage.from(sourceBucket).download(sourcePath);
+        const {data:blob,error:downloadError}=await supabase.storage.from('nexora-drama-videos').download(entry.video_storage_path);
         if(downloadError)throw downloadError;
         const frame=await captureDramaThumbnail(blob);if(!frame)throw new Error('Could not capture a video frame');
         const posterPath=entry.video_storage_path+'.jpg';
