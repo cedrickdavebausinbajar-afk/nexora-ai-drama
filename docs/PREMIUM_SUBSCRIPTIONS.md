@@ -21,6 +21,10 @@ The NEXORA database stores normalized intervals as `week` and `month`. When crea
 - `supabase/migrations/202611190004_nexora_premium_drama_catalogue.sql`: premium catalogue fields and a database constraint requiring premium episodes to use private storage.
 - `src.js`: owner publishing of private premium video files and client playback through the entitlement function.
 
+## Checkout retry and duplicate protection
+
+The client generates one UUID for a checkout attempt and keeps it while retrying that same attempt. The Edge Function requires that UUID and passes a stable, mode-scoped PayMongo idempotency key to subscription creation. Customer creation also uses a stable per-user/per-mode idempotency key. Each card retry receives a new key for PaymentMethod creation and PaymentIntent attachment, so a declined card can be replaced without replaying the prior card attempt. PayMongo retains idempotency results for a limited window (currently documented as 24 hours); this is duplicate-request protection, not a substitute for local database reconciliation or payment verification.
+
 ## Premium-content protection
 
 Premium-exclusive episodes must be uploaded as files through the owner dashboard and marked **Premium-exclusive**. The file is stored in `nexora-premium-videos`, and its path is recorded in `dramas.premium_video_storage_path`. The public `video_url` and `video_storage_path` fields remain empty for those rows. Direct external video URLs cannot be marked premium because NEXORA cannot enforce private access to a third-party public URL.
