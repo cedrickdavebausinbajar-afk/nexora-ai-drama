@@ -74,8 +74,15 @@ Deno.serve(async (req: Request) => {
   // Read the untouched body before JSON parsing; PayMongo signs these exact bytes.
   const rawBody = await req.text();
   const signature = parseSignature(signatureHeader);
-  if (!signature.t || (!signature.te && !signature.li)) {
+  if (!signature.t || !/^\\d+$/.test(signature.t) || (!signature.te && !signature.li)) {
     return reply(401, { error: "invalid_signature_header" });
+  }
+
+  // Reject stale/future signed requests to reduce replay risk.
+  const signatureTime = Number(signature.t);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (!Number.isSafeInteger(signatureTime) || Math.abs(nowSeconds - signatureTime) > 300) {
+    return reply(401, { error: "stale_signature" });
   }
 
   let event: Record<string, any>;
