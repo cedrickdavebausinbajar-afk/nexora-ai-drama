@@ -374,7 +374,7 @@ function shell() {
   <div class="drawer-divider"></div>
   <a class="drawer-link" href="https://cedrickdavebausinbajar-afk.github.io/nexora-official-website/" target="_blank" rel="noopener">◎ &nbsp; Official website ↗</a>
   <a class="drawer-link" href="https://t.me/nexorastudioteam" target="_blank" rel="noopener">✈ &nbsp; Telegram ↗</a>
-  <a class="drawer-link" href="https://www.facebook.com/share/1DNqscf6ww/" target="_blank" rel="noopener">f &nbsp; Facebook ↗</a>
+  <a class="drawer-link" href="https://www.facebook.com/profile.php?id=61596591209056" target="_blank" rel="noopener">f &nbsp; Facebook ↗</a>
   <button class="drawer-link owner-link" id="adminOpen">♛ &nbsp; Owner Dashboard</button>
   <p class="drawer-foot">© 2026 NEXORA AI DRAMA</p>
 </aside>
