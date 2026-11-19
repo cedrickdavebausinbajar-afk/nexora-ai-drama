@@ -19,13 +19,14 @@ function paymentReturnUrl(subscriptionId) {
   return url.toString();
 }
 
-async function paymongoRequest(path, publicKey, body) {
+async function paymongoRequest(path, publicKey, body, idempotencyKey) {
   const response = await fetch(`https://api.paymongo.com/v1/${path}`, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${btoa(publicKey + ':')}`,
       'Content-Type': 'application/json',
-      Accept: 'application/json'
+      Accept: 'application/json',
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {})
     },
     body: JSON.stringify(body)
   });
@@ -170,6 +171,8 @@ export async function renderPremiumView(screen, supabase) {
     screen.querySelector('#premiumRefresh')?.addEventListener('click', () => render());
     const checkoutForm = screen.querySelector('#premiumCheckoutForm');
     if (!checkoutForm) return;
+    let checkoutAttemptId = null;
+    let checkoutAttemptPlan = null;
     checkoutForm.onsubmit = async event => {
       event.preventDefault();
       const form = event.currentTarget;
@@ -195,6 +198,11 @@ export async function renderPremiumView(screen, supabase) {
         status.className = 'premium-notice error';
         return;
       }
+      const selectedPlan = String(values.get('plan_id'));
+      if (!checkoutAttemptId || checkoutAttemptPlan !== selectedPlan) {
+        checkoutAttemptId = crypto.randomUUID();
+        checkoutAttemptPlan = selectedPlan;
+      }
       button.disabled = true;
       button.textContent = 'CREATING SECURE PAYMENT…';
       status.textContent = 'Connecting securely to NEXORA and PayMongo…';
@@ -202,7 +210,8 @@ export async function renderPremiumView(screen, supabase) {
       try {
         const { data: checkout, error: checkoutError } = await supabase.functions.invoke('paymongo-subscription-checkout', {
           body: {
-            plan_id: String(values.get('plan_id')),
+            plan_id: selectedPlan,
+            checkout_attempt_id: checkoutAttemptId,
             first_name: firstName,
             last_name: lastName,
             phone
@@ -222,7 +231,7 @@ export async function renderPremiumView(screen, supabase) {
             details: { card_number: cardNumber, exp_month: expMonth, exp_year: expYear, cvc },
             billing: { name: `${firstName} ${lastName}`, email: user.email, phone }
           } }
-        });
+        }, `nexora-payment-method-${checkoutAttemptId}`);
         if (!paymentMethod?.id) throw new Error('PayMongo did not return a payment method.');
         form.elements.card_number.value = '';
         form.elements.cvc.value = '';
@@ -233,7 +242,7 @@ export async function renderPremiumView(screen, supabase) {
             client_key: checkout.payment_intent_client_key,
             return_url: returnUrl
           } }
-        });
+        }, `nexora-payment-attach-${checkoutAttemptId}`);
         const attributes = attached?.attributes || {};
         if (attributes.status === 'awaiting_next_action' && attributes.next_action?.redirect?.url) {
           status.textContent = 'Continue the bank verification to finish your first payment.';
