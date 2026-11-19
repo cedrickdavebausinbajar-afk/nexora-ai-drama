@@ -1390,8 +1390,10 @@ async function renderAdmin() {
     const {error: deleteError}=await supabase.from('dramas').delete().eq('id',b.dataset.delete);
     if(deleteError){alert('Could not remove drama: '+deleteError.message);b.disabled=false;return;}
     const videoPaths=[selected?.video_storage_path].filter(Boolean);
+    const premiumVideoPaths=[selected?.premium_video_storage_path].filter(Boolean);
     const assetPaths=[selected?.poster_storage_path,selected?.subtitle_storage_path].filter(Boolean);
-    if(videoPaths.length){const {error:storageError}=await supabase.storage.from('nexora-drama-videos').remove(videoPaths);if(storageError)console.warn('Drama video cleanup failed:',storageError.message);}
+    if(videoPaths.length){const {error:storageError}=await supabase.storage.from('nexora-drama-videos').remove(videoPaths);if(storageError)console.warn('Public drama video cleanup failed:',storageError.message);}
+    if(premiumVideoPaths.length){const {error:premiumStorageError}=await supabase.storage.from('nexora-premium-videos').remove(premiumVideoPaths);if(premiumStorageError)console.warn('Private premium video cleanup failed:',premiumStorageError.message);}
     if(assetPaths.length){const {error:assetError}=await supabase.storage.from('nexora-drama-assets').remove(assetPaths);if(assetError)console.warn('Drama poster/subtitle cleanup failed:',assetError.message);}
     items=items.filter(x=>x.id!==b.dataset.delete);await renderAdmin();
   });
