@@ -17,13 +17,20 @@ function reply(status: number, body: Record<string, unknown>) {
   });
 }
 
-async function paymongo(path: string, secret: string, method: string, body?: unknown) {
+async function paymongo(
+  path: string,
+  secret: string,
+  method: string,
+  body?: unknown,
+  idempotencyKey?: string,
+) {
   const response = await fetch(`https://api.paymongo.com/v1/${path}`, {
     method,
     headers: {
       "Authorization": `Basic ${btoa(secret + ":")}`,
       "Content-Type": "application/json",
       "Accept": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
@@ -62,6 +69,11 @@ Deno.serve(async (req: Request) => {
   }
 
   const planId = input.plan_id;
+  const checkoutAttemptId = input.checkout_attempt_id;
+  if (typeof checkoutAttemptId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(checkoutAttemptId)) {
+    return reply(400, { error: "valid_checkout_attempt_id_required" });
+  }
   if (planId !== "nexora_weekly_66" && planId !== "nexora_monthly_99") {
     return reply(400, { error: "unsupported_plan" });
   }
@@ -155,7 +167,7 @@ Deno.serve(async (req: Request) => {
           email: user.email,
           phone,
         } },
-      });
+      }, `nexora-customer-${mode}-${user.id}`);
       customerId = customer?.id;
       if (typeof customerId !== "string" || !customerId.startsWith("cus_")) {
         throw new Error("invalid_customer_response");
@@ -173,7 +185,7 @@ Deno.serve(async (req: Request) => {
 
     const subscription = await paymongo("subscriptions", paymongoSecret, "POST", {
       data: { attributes: { plan_id: providerPlanId, customer_id: customerId } },
-    });
+    }, `nexora-subscription-${mode}-${checkoutAttemptId}`);
     const subscriptionId = subscription?.id;
     const invoice = subscription?.attributes?.latest_invoice;
     let paymentIntent = invoice?.payment_intent;
