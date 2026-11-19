@@ -8,6 +8,7 @@ on:
       - "premium-subscriptions.js"
       - "style.css"
       - "package.json"
+      - "docs/**"
       - ".env.example"
       - "supabase/**"
       - ".github/workflows/validate-premium-subscriptions.yml"
