@@ -19,6 +19,21 @@ function paymentReturnUrl(subscriptionId) {
   return url.toString();
 }
 
+function passesLuhn(value) {
+  let sum = 0;
+  let doubleDigit = false;
+  for (let index = value.length - 1; index >= 0; index--) {
+    let digit = Number(value[index]);
+    if (doubleDigit) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+    doubleDigit = !doubleDigit;
+  }
+  return sum % 10 === 0;
+}
+
 async function paymongoRequest(path, publicKey, body, idempotencyKey) {
   const response = await fetch(`https://api.paymongo.com/v1/${path}`, {
     method: 'POST',
@@ -195,8 +210,13 @@ export async function renderPremiumView(screen, supabase) {
       let expYear = Number(values.get('exp_year'));
       const cvc = String(values.get('cvc') || '').trim();
       if (expYear < 100) expYear += 2000;
-      if (!/^\d{12,19}$/.test(cardNumber) || !Number.isInteger(expMonth) || expMonth < 1 || expMonth > 12 ||
-          !Number.isInteger(expYear) || expYear < new Date().getFullYear() || !/^\d{3,4}$/.test(cvc)) {
+      const now = new Date();
+      const cardExpired = expYear < now.getFullYear() ||
+        (expYear === now.getFullYear() && expMonth < now.getMonth() + 1);
+      if (!/^\d{12,19}$/.test(cardNumber) || !passesLuhn(cardNumber) ||
+          !Number.isInteger(expMonth) || expMonth < 1 || expMonth > 12 ||
+          !Number.isInteger(expYear) || expYear > now.getFullYear() + 20 || cardExpired ||
+          !/^\d{3,4}$/.test(cvc)) {
         status.textContent = 'Check the card number, expiry date, and security code.';
         status.className = 'premium-notice error';
         return;
@@ -231,8 +251,10 @@ export async function renderPremiumView(screen, supabase) {
           throw new Error(checkout?.error || 'Checkout response is incomplete.');
         }
         const publicMode = PUBLIC_KEY.startsWith('pk_live_') ? 'live' : 'test';
-        if (checkout.provider_mode && checkout.provider_mode !== publicMode) {
-          throw new Error('Payment key mode does not match the server checkout mode.');
+        const expectedAmount = selectedPlan === 'nexora_weekly_66' ? 66 : 99;
+        if (checkout.provider_mode !== publicMode || checkout.currency !== 'PHP' ||
+            checkout.amount_php !== expectedAmount) {
+          throw new Error('Payment key mode or subscription amount does not match the selected plan.');
         }
         const paymentMethod = await paymongoRequest('payment_methods', PUBLIC_KEY, {
           data: { attributes: {
