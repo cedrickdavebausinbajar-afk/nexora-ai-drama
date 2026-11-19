@@ -44,3 +44,23 @@ The provider must be configured with a calendar-month recurring interval for the
 ## Important current limitations
 
 The existing app source initializes Supabase from Vite environment variables, but this change does not establish whether the production Supabase project has the required auth settings, whether Edge Functions are deployed, or which video objects are actually premium. The existing public bucket remains public. Verify the production project and classify media before exposing premium content. Do not deploy a payment integration or accept real money until the provider and production configuration are verified.
+
+
+## PayMongo integration status and webhook contract
+
+PayMongo's current Subscriptions API supports reusable plans with `week` and `month` intervals, but PayMongo must enable Subscriptions for the merchant account before live use. Automated recurring methods currently documented are Maya and cards; do not promise GCash recurring without written provider confirmation.
+
+The initial webhook receiver is at `supabase/functions/paymongo-webhook/index.ts`. It:
+- accepts POST only and reads the raw request body before parsing;
+- verifies `Paymongo-Signature` using HMAC-SHA256 over `timestamp.rawBody`, selecting `te` for test events and `li` for live events;
+- persists the provider event ID with a unique-key idempotency guard and a SHA-256 payload fingerprint;
+- returns success for already-recorded duplicate deliveries.
+
+**Important:** this receiver is an event-intake foundation, not a complete payment integration. It does not create PayMongo customers/plans/subscriptions, reconcile invoices, validate the expected ₱66/₱99 amount against a provider invoice, map a verified event to a NEXORA user, or activate/cancel premium entitlements. It intentionally leaves events in `received` state and does not grant access. A separate trusted reconciler and checkout function must be implemented and tested before payments can be accepted.
+
+Configure `PAYMONGO_WEBHOOK_SECRET` as a Supabase Edge Function secret. It is the endpoint signing secret from PayMongo's Webhooks dashboard, not the API secret key. Also configure the Supabase service-role secret only in the Edge Function environment. Never commit or paste either secret into the repository or chat. Register separate test and live webhook endpoints/secrets as appropriate.
+
+PayMongo references:
+- Subscriptions API: https://docs.paymongo.com/docs/payment-acceptance-subscriptions
+- Webhook setup and signature verification: https://docs.paymongo.com/docs/creating-a-webhook-endpoint
+- Webhook events and retries: https://docs.paymongo.com/reference/webhook-resource
