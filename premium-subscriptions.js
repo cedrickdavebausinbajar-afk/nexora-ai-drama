@@ -199,6 +199,7 @@ export async function renderPremiumView(screen, supabase) {
         return;
       }
       const selectedPlan = String(values.get('plan_id'));
+      const paymentAttemptId = crypto.randomUUID();
       if (!checkoutAttemptId || checkoutAttemptPlan !== selectedPlan) {
         checkoutAttemptId = crypto.randomUUID();
         checkoutAttemptPlan = selectedPlan;
@@ -231,7 +232,7 @@ export async function renderPremiumView(screen, supabase) {
             details: { card_number: cardNumber, exp_month: expMonth, exp_year: expYear, cvc },
             billing: { name: `${firstName} ${lastName}`, email: user.email, phone }
           } }
-        }, `nexora-payment-method-${checkoutAttemptId}`);
+        }, `nexora-payment-method-${paymentAttemptId}`);
         if (!paymentMethod?.id) throw new Error('PayMongo did not return a payment method.');
         form.elements.card_number.value = '';
         form.elements.cvc.value = '';
@@ -242,7 +243,7 @@ export async function renderPremiumView(screen, supabase) {
             client_key: checkout.payment_intent_client_key,
             return_url: returnUrl
           } }
-        }, `nexora-payment-attach-${checkoutAttemptId}`);
+        }, `nexora-payment-attach-${paymentAttemptId}`);
         const attributes = attached?.attributes || {};
         if (attributes.status === 'awaiting_next_action' && attributes.next_action?.redirect?.url) {
           status.textContent = 'Continue the bank verification to finish your first payment.';
