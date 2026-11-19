@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "src.js"
+      - "premium-subscriptions.js"
       - "style.css"
       - "package.json"
       - ".env.example"
