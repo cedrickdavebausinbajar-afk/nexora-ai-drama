@@ -185,6 +185,7 @@ Deno.serve(async (req: Request) => {
       payment_intent_status: paymentIntent?.attributes?.status ?? paymentIntent?.status ?? "awaiting_payment_method",
       amount_php: plan.amount_php,
       currency: plan.currency,
+      provider_mode: mode,
       message: "Complete the first invoice payment. Premium access starts only after verified payment confirmation.",
     });
   } catch (error) {
