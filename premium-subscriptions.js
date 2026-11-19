@@ -134,7 +134,7 @@ export async function renderPremiumView(screen, supabase) {
     const current = subscriptions.find(row =>
       row.status === 'active' && row.current_period_end && new Date(row.current_period_end).getTime() > Date.now()
     );
-    const pending = subscriptions.find(row => row.status === 'pending' || row.status === 'past_due');
+    const pending = current ? null : subscriptions.find(row => row.status === 'pending' || row.status === 'past_due');
 
     screen.innerHTML = `<section class="premium-page">
       <div class="premium-hero"><span class="nx-eyebrow">NEXORA AI DRAMA</span><h1>NEXORA Premium</h1><p>Ad-free viewing and exclusive premium dramas.</p></div>
