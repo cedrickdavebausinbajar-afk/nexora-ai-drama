@@ -89,6 +89,19 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
   if (planError || !plan) return reply(503, { error: "plan_unavailable" });
 
+  // Fail closed if the database plan configuration ever drifts from the
+  // customer-facing NEXORA contract. Never silently charge a changed amount
+  // or billing interval because of an accidental dashboard edit.
+  const expectedPlan = planId === "nexora_weekly_66"
+    ? { amount: 66, interval: "week", intervalCount: 1 }
+    : { amount: 99, interval: "month", intervalCount: 1 };
+  if (plan.amount_php !== expectedPlan.amount ||
+      plan.currency !== "PHP" ||
+      plan.interval_unit !== expectedPlan.interval ||
+      plan.interval_count !== expectedPlan.intervalCount) {
+    return reply(503, { error: "plan_configuration_mismatch" });
+  }
+
   const planSecretName = planId === "nexora_weekly_66"
     ? `PAYMONGO_WEEKLY_PLAN_ID_${mode.toUpperCase()}`
     : `PAYMONGO_MONTHLY_PLAN_ID_${mode.toUpperCase()}`;
