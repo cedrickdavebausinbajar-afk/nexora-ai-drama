@@ -149,7 +149,7 @@ export async function renderPremiumView(screen, supabase) {
         <h2>Choose your plan</h2>
         <p class="muted">Secure recurring card billing. Your first payment must be completed before Premium is activated.</p>
         <form id="premiumCheckoutForm" class="premium-form">
-          <label>Plan<select name="plan_id"><option value="nexora_weekly_66" ${pending?.plan_id === 'nexora_weekly_66' ? 'selected' : ''}>₱66 — Weekly (every 7 days)</option><option value="nexora_monthly_99" ${pending?.plan_id === 'nexora_monthly_99' ? 'selected' : ''}>₱99 — Monthly</option></select></label>
+          <label>Plan<select name="plan_id" ${resumePendingCheckoutId ? 'disabled' : ''}><option value="nexora_weekly_66" ${pending?.plan_id === 'nexora_weekly_66' ? 'selected' : ''}>₱66 — Weekly (every 7 days)</option><option value="nexora_monthly_99" ${pending?.plan_id === 'nexora_monthly_99' ? 'selected' : ''}>₱99 — Monthly</option></select>${resumePendingCheckoutId ? `<input type="hidden" name="plan_id" value="${esc(pending?.plan_id)}">` : ''}</label>
           <div class="premium-field-row"><label>First name<input name="first_name" autocomplete="given-name" maxlength="80" required></label><label>Last name<input name="last_name" autocomplete="family-name" maxlength="80" required></label></div>
           <label>Mobile number<input name="phone" type="tel" autocomplete="tel" placeholder="+639XXXXXXXXX" required></label>
           <div class="premium-divider"></div>
