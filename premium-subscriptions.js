@@ -47,6 +47,7 @@ export async function renderPremiumView(screen, supabase) {
   let authMode = 'signin';
   let notice = '';
   let noticeKind = 'info';
+  let resumePendingCheckoutId = null;
 
   const render = async () => {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -126,7 +127,7 @@ export async function renderPremiumView(screen, supabase) {
     let subscriptionLoadError = '';
     const { data: rows, error: rowsError } = await supabase
       .from('nexora_subscriptions')
-      .select('plan_id,status,current_period_end,created_at')
+      .select('plan_id,status,current_period_end,created_at,checkout_attempt_id')
       .order('created_at', { ascending: false })
       .limit(5);
     if (rowsError) subscriptionLoadError = 'Subscription database setup is not active yet. Checkout is unavailable until the NEXORA subscription migrations are applied.';
@@ -141,14 +142,14 @@ export async function renderPremiumView(screen, supabase) {
       <div class="premium-hero"><span class="nx-eyebrow">NEXORA AI DRAMA</span><h1>NEXORA Premium</h1><p>Ad-free viewing and exclusive premium dramas.</p></div>
       <div class="premium-account-row"><span>Signed in as <strong>${esc(user.email)}</strong></span><button class="premium-text-button" id="premiumSignOut" type="button">SIGN OUT</button></div>
       ${current ? `<article class="premium-status-card"><span class="premium-status-pill">ACTIVE</span><h2>Your Premium access is active</h2><p>Plan: ${current.plan_id === 'nexora_weekly_66' ? '₱66 Weekly' : '₱99 Monthly'}</p><small>Next renewal: ${esc(new Date(current.current_period_end).toLocaleDateString())}</small></article>` : ''}
-      ${pending ? `<article class="premium-status-card"><span class="premium-status-pill pending">PAYMENT STATUS</span><h2>Subscription ${esc(pending.status)}</h2><p>Complete or verify your first payment. Premium access is granted only after PayMongo confirms payment.</p><button id="premiumRefresh" class="gold-outline" type="button">REFRESH STATUS</button></article>` : ''}
+      ${pending ? `<article class="premium-status-card"><span class="premium-status-pill pending">PAYMENT STATUS</span><h2>Subscription ${esc(pending.status)}</h2><p>Complete or verify your first payment. Premium access is granted only after PayMongo confirms payment.</p>${pending.checkout_attempt_id ? '<button id="premiumResumeCheckout" class="gold" type="button">CONTINUE FIRST PAYMENT</button>' : ''}<button id="premiumRefresh" class="gold-outline" type="button">REFRESH STATUS</button></article>` : ''}
       ${subscriptionLoadError ? `<p class="premium-notice error">${esc(subscriptionLoadError)}</p>` : ''}
-      ${!current && !pending && !subscriptionLoadError ? `<div class="premium-checkout-card">
+      ${!current && (!pending || resumePendingCheckoutId) && !subscriptionLoadError ? `<div class="premium-checkout-card">
         <div class="premium-plan-grid"><article><span>WEEKLY</span><strong>₱66</strong><small>Every 7 days</small></article><article><span>MONTHLY</span><strong>₱99</strong><small>Every calendar month</small></article></div>
         <h2>Choose your plan</h2>
         <p class="muted">Secure recurring card billing. Your first payment must be completed before Premium is activated.</p>
         <form id="premiumCheckoutForm" class="premium-form">
-          <label>Plan<select name="plan_id"><option value="nexora_weekly_66">₱66 — Weekly (every 7 days)</option><option value="nexora_monthly_99">₱99 — Monthly</option></select></label>
+          <label>Plan<select name="plan_id"><option value="nexora_weekly_66" ${pending?.plan_id === 'nexora_weekly_66' ? 'selected' : ''}>₱66 — Weekly (every 7 days)</option><option value="nexora_monthly_99" ${pending?.plan_id === 'nexora_monthly_99' ? 'selected' : ''}>₱99 — Monthly</option></select></label>
           <div class="premium-field-row"><label>First name<input name="first_name" autocomplete="given-name" maxlength="80" required></label><label>Last name<input name="last_name" autocomplete="family-name" maxlength="80" required></label></div>
           <label>Mobile number<input name="phone" type="tel" autocomplete="tel" placeholder="+639XXXXXXXXX" required></label>
           <div class="premium-divider"></div>
@@ -169,10 +170,14 @@ export async function renderPremiumView(screen, supabase) {
       await render();
     };
     screen.querySelector('#premiumRefresh')?.addEventListener('click', () => render());
+    screen.querySelector('#premiumResumeCheckout')?.addEventListener('click', () => {
+      resumePendingCheckoutId = pending?.checkout_attempt_id || null;
+      render();
+    });
     const checkoutForm = screen.querySelector('#premiumCheckoutForm');
     if (!checkoutForm) return;
-    let checkoutAttemptId = null;
-    let checkoutAttemptPlan = null;
+    let checkoutAttemptId = resumePendingCheckoutId;
+    let checkoutAttemptPlan = resumePendingCheckoutId ? pending?.plan_id : null;
     checkoutForm.onsubmit = async event => {
       event.preventDefault();
       const form = event.currentTarget;
