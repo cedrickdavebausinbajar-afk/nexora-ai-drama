@@ -144,12 +144,28 @@ Deno.serve(async (req: Request) => {
     });
     const subscriptionId = subscription?.id;
     const invoice = subscription?.attributes?.latest_invoice;
-    const paymentIntent = invoice?.payment_intent;
-    const clientKey = paymentIntent?.client_key;
+    let paymentIntent = invoice?.payment_intent;
     if (typeof subscriptionId !== "string" || !subscriptionId.startsWith("subs_") ||
-        typeof paymentIntent?.id !== "string" || typeof clientKey !== "string") {
+        typeof paymentIntent?.id !== "string") {
       throw new Error("incomplete_subscription_response");
     }
+    if (invoice?.amount !== plan.amount_php * 100 || invoice?.currency !== "PHP" ||
+        subscription?.attributes?.plan?.id !== providerPlanId) {
+      throw new Error("provider_plan_amount_mismatch");
+    }
+    // The subscription response may omit client_key; retrieve the Payment Intent
+    // with the secret key so the client can attach a tokenized payment method.
+    if (typeof paymentIntent.client_key !== "string") {
+      const retrievedIntent = await paymongo(
+        `payment_intents/${paymentIntent.id}`,
+        paymongoSecret,
+        "GET",
+      );
+      paymentIntent = retrievedIntent?.attributes ? retrievedIntent : paymentIntent;
+      if (paymentIntent?.data?.attributes) paymentIntent = paymentIntent.data;
+    }
+    const clientKey = paymentIntent?.attributes?.client_key ?? paymentIntent?.client_key;
+    if (typeof clientKey !== "string") throw new Error("payment_intent_client_key_unavailable");
 
     const { error: saveError } = await admin.from("nexora_subscriptions").insert({
       user_id: user.id,
@@ -166,7 +182,7 @@ Deno.serve(async (req: Request) => {
       subscription_id: subscriptionId,
       payment_intent_id: paymentIntent.id,
       payment_intent_client_key: clientKey,
-      payment_intent_status: paymentIntent.status ?? "awaiting_payment_method",
+      payment_intent_status: paymentIntent?.attributes?.status ?? paymentIntent?.status ?? "awaiting_payment_method",
       amount_php: plan.amount_php,
       currency: plan.currency,
       message: "Complete the first invoice payment. Premium access starts only after verified payment confirmation.",
