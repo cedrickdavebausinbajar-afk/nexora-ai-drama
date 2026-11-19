@@ -228,6 +228,25 @@ Deno.serve(async (req: Request) => {
       sub.plan.id === monthlyProviderPlan ? "nexora_monthly_99" : null;
     if (!planId) throw new Error("provider_plan_not_allowlisted");
 
+    // Re-read the provider plan during webhook reconciliation so a plan edited
+    // or replaced in PayMongo cannot silently change the recurring cadence.
+    const providerPlan = await getPayMongoResource(
+      `subscriptions/plans/${sub.plan.id}`,
+      paymongoSecret,
+    );
+    const providerPlanAttributes = providerPlan.attributes;
+    const expectedProviderInterval = planId === "nexora_weekly_66" ? "weekly" : "monthly";
+    const expectedProviderAmount = planId === "nexora_weekly_66" ? 6600 : 9900;
+    if (providerPlan.id !== sub.plan.id ||
+        providerPlanAttributes.amount !== expectedProviderAmount ||
+        providerPlanAttributes.currency !== "PHP" ||
+        providerPlanAttributes.interval !== expectedProviderInterval ||
+        providerPlanAttributes.interval_count !== 1 ||
+        providerPlanAttributes.livemode !== isLive ||
+        (providerPlanAttributes.type && providerPlanAttributes.type !== "scheduled")) {
+      throw new Error("provider_plan_configuration_mismatch");
+    }
+
     const { data: plan, error: planError } = await admin
       .from("nexora_subscription_plans")
       .select("id,amount_php,currency,interval_unit,interval_count")
