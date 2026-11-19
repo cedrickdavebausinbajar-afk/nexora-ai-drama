@@ -434,9 +434,9 @@ function renderScreen() {
       const key = String(entry.title || entry.parentDramaId || entry.seriesId || entry.dramaId || entry.id)
         .trim().toLowerCase();
       const current = latestByDrama.get(key);
-      const episodeNumber = Number(entry.episodeNumber || String(entry.episode || '').match(/\\d+/)?.[0] || 1);
+      const episodeNumber = Number(entry.episodeNumber || String(entry.episode || '').replace(/\\D/g, '') || 1);
       const currentEpisodeNumber = current
-        ? Number(current.episodeNumber || String(current.episode || '').match(/\\d+/)?.[0] || 1)
+        ? Number(current.episodeNumber || String(current.episode || '').replace(/\\D/g, '') || 1)
         : -1;
       if (!current || episodeNumber > currentEpisodeNumber ||
           (episodeNumber === currentEpisodeNumber && Number(entry.watchCount || 0) > Number(current.watchCount || 0))) {
