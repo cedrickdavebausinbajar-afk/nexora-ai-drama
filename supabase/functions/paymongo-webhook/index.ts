@@ -312,7 +312,22 @@ Deno.serve(async (req: Request) => {
           await finish("ignored");
           return reply(200, { received: true, processed: true, ignored: true });
         }
-        nextStatus = sub.status === "unpaid" ? "expired" : "past_due";
+        // The first invoice can fail while PayMongo still considers the
+        // subscription incomplete. Keep that checkout pending so the user can
+        // retry the same first-payment attempt within PayMongo's 24-hour window.
+        // Only later-cycle failures are past_due; PayMongo handles scheduled
+        // retries for those subscriptions.
+        if (sub.status === "incomplete") {
+          nextStatus = "pending";
+        } else if (sub.status === "incomplete_cancelled" || sub.status === "cancelled") {
+          nextStatus = "cancelled";
+        } else if (sub.status === "unpaid") {
+          nextStatus = "expired";
+        } else if (sub.status === "past_due") {
+          nextStatus = "past_due";
+        } else {
+          throw new Error("unexpected_subscription_status_after_invoice_failure");
+        }
       }
     } else {
       if (eventType === "subscription.past_due" || sub.status === "past_due") {
