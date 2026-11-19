@@ -136,13 +136,15 @@ export async function renderPremiumView(screen, supabase) {
     const current = subscriptions.find(row =>
       row.status === 'active' && row.current_period_end && new Date(row.current_period_end).getTime() > Date.now()
     );
-    const pending = current ? null : subscriptions.find(row => row.status === 'pending' || row.status === 'past_due');
+    const pending = current ? null : subscriptions.find(row => row.status === 'pending');
+    const pastDue = current ? null : subscriptions.find(row => row.status === 'past_due');
 
     screen.innerHTML = `<section class="premium-page">
       <div class="premium-hero"><span class="nx-eyebrow">NEXORA AI DRAMA</span><h1>NEXORA Premium</h1><p>Ad-free viewing and exclusive premium dramas.</p></div>
       <div class="premium-account-row"><span>Signed in as <strong>${esc(user.email)}</strong></span><button class="premium-text-button" id="premiumSignOut" type="button">SIGN OUT</button></div>
       ${current ? `<article class="premium-status-card"><span class="premium-status-pill">ACTIVE</span><h2>Your Premium access is active</h2><p>Plan: ${current.plan_id === 'nexora_weekly_66' ? '₱66 Weekly' : '₱99 Monthly'}</p><small>Next renewal: ${esc(new Date(current.current_period_end).toLocaleDateString())}</small></article>` : ''}
-      ${pending ? `<article class="premium-status-card"><span class="premium-status-pill pending">PAYMENT STATUS</span><h2>Subscription ${esc(pending.status)}</h2><p>Complete or verify your first payment. Premium access is granted only after PayMongo confirms payment.</p>${pending.checkout_attempt_id ? '<button id="premiumResumeCheckout" class="gold" type="button">CONTINUE FIRST PAYMENT</button>' : ''}<button id="premiumRefresh" class="gold-outline" type="button">REFRESH STATUS</button></article>` : ''}
+      ${pending ? `<article class="premium-status-card"><span class="premium-status-pill pending">PAYMENT STATUS</span><h2>Subscription pending</h2><p>Complete or verify your first payment. Premium access is granted only after PayMongo confirms payment.</p>${pending.checkout_attempt_id ? '<button id="premiumResumeCheckout" class="gold" type="button">CONTINUE FIRST PAYMENT</button>' : '<p class="premium-notice error">This older pending checkout cannot be resumed automatically. Please contact NEXORA support so it can be safely reconciled.</p>'}<button id="premiumRefresh" class="gold-outline" type="button">REFRESH STATUS</button></article>` : ''}
+      ${pastDue ? `<article class="premium-status-card"><span class="premium-status-pill pending">PAYMENT NEEDS ATTENTION</span><h2>Subscription payment is past due</h2><p>Premium access is paused until PayMongo confirms a successful payment. The first-payment resume option is not available for this subscription state. Please contact NEXORA support for payment recovery.</p><button id="premiumRefresh" class="gold-outline" type="button">REFRESH STATUS</button></article>` : ''}
       ${subscriptionLoadError ? `<p class="premium-notice error">${esc(subscriptionLoadError)}</p>` : ''}
       ${!current && (!pending || resumePendingCheckoutId) && !subscriptionLoadError ? `<div class="premium-checkout-card">
         <div class="premium-plan-grid"><article><span>WEEKLY</span><strong>₱66</strong><small>Every 7 days</small></article><article><span>MONTHLY</span><strong>₱99</strong><small>Every calendar month</small></article></div>
