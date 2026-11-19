@@ -32,8 +32,8 @@ create policy "Active subscription plans are public"
   for select
   to anon, authenticated
   using (active = true);
+revoke all on public.nexora_subscription_plans from public, anon, authenticated;
 grant select on public.nexora_subscription_plans to anon, authenticated;
-revoke insert, update, delete, truncate, references, trigger on public.nexora_subscription_plans from anon, authenticated;
 
 create table if not exists public.nexora_subscriptions (
   id uuid primary key default gen_random_uuid(),
@@ -65,8 +65,8 @@ create policy "Users can read their own subscriptions"
   for select
   to authenticated
   using (user_id = (select auth.uid()));
+revoke all on public.nexora_subscriptions from public, anon, authenticated;
 grant select on public.nexora_subscriptions to authenticated;
-revoke insert, update, delete, truncate, references, trigger on public.nexora_subscriptions from anon, authenticated;
 
 -- Minimal event ledger for idempotent webhook processing. Do not store raw webhook
 -- bodies, card data, access tokens, or provider secrets in this table.
@@ -96,8 +96,7 @@ create index if not exists nexora_subscription_events_subscription_idx
 alter table public.nexora_subscription_events enable row level security;
 -- Intentionally no client-facing policies or grants: webhook processing must use
 -- a trusted server-side Supabase Edge Function with service-role credentials.
-revoke all on public.nexora_subscription_events from anon, authenticated;
-revoke all on public.nexora_subscription_events from public;
+revoke all on public.nexora_subscription_events from public, anon, authenticated;
 
 -- Client apps may read their own subscription status and active plan definitions.
 -- Only trusted server-side code may create/update subscriptions or process events.
