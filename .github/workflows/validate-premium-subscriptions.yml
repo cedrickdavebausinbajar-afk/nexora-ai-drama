@@ -62,3 +62,5 @@ jobs:
           deno check supabase/functions/paymongo-subscription-checkout/index.ts
           deno check supabase/functions/paymongo-webhook/index.ts
           deno check supabase/functions/premium-video-url/index.ts
+          deno check supabase/functions/create-rewarded-unlock/index.ts
+          deno check supabase/functions/admob-rewarded-ssv/index.ts

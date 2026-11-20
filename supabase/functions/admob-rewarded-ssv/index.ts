@@ -13,7 +13,7 @@ function derRaw(der:Uint8Array):Uint8Array{
 async function getKeys():Promise<Map<string,CryptoKey>>{
  if(cache&&cache.expiresAt>Date.now())return cache.keys;
  const response=await fetch(KEY_URL);if(!response.ok)throw new Error("keys_unavailable");const json=await response.json();const keys=new Map<string,CryptoKey>();
- for(const item of json.keys||[]){if(!item.keyId||!(item.pem||item.base64))continue;const pem=String(item.pem||item.base64).replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s/g,"");const key=await crypto.subtle.importKey("spki",b64(pem),{name:"ECDSA",namedCurve:"P-256"},false,["verify"]);keys.set(String(item.keyId),key);}
+ for(const item of json.keys||[]){if(!item.keyId||!item.pem)continue;const pem=String(item.pem).replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s/g,"");const key=await crypto.subtle.importKey("spki",b64(pem),{name:"ECDSA",namedCurve:"P-256"},false,["verify"]);keys.set(String(item.keyId),key);}
  cache={keys,expiresAt:Date.now()+12*60*60*1000};return keys;
 }
 Deno.serve(async(req:Request)=>{
