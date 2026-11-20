@@ -78,22 +78,16 @@ jobs:
           xml = manifest.read_text(encoding="utf-8")
           app_id = "ca-app-pub-4497851143738030~8285890872"
           metadata = f'<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="{app_id}" />'
-              r'\s*<meta-data\b(?=[^>]*android:name=["\']com\.google\.android\.gms\.ads\.APPLICATION_ID["\'])[^>]*/>',
-              r'\\s*<meta-data\\b(?=[^>]*android:name=["\\']com\\.google\\.android\\.gms\\.ads\\.APPLICATION_ID["\\'])[^>]*/>',
-              '',
-              xml
+          xml = re.sub(r'<meta-data[^>]*android:name="com.google.android.gms.ads.APPLICATION_ID"[^>]*/>', '', xml)
           match = re.search(r'<application\b[^>]*>', xml)
-          match = re.search(r'<application\\b[^>]*>', xml)
           if not match:
+              raise SystemExit("AndroidManifest.xml has no application element; refusing to build without the AdMob App ID.")
           xml = xml[:match.end()] + "\n        " + metadata + xml[match.end():]
-          xml = xml[:match.end()] + "\\n        " + metadata + xml[match.end():]
           if xml.count("com.google.android.gms.ads.APPLICATION_ID") != 1:
               raise SystemExit("AdMob App ID metadata is missing or duplicated.")
           manifest.write_text(xml, encoding="utf-8")
           print("Configured Google AdMob App ID in AndroidManifest.xml")
           PY
-
-
       - name: Configure Android 16 target for Google Play
         run: |
           python - <<'PY'
