@@ -18,6 +18,7 @@ async function hasActivePremium() {
   const { data, error } = await supabaseClient
     .from('nexora_subscriptions')
     .select('status,current_period_end')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(5);
   if (error) throw error;
@@ -111,10 +112,25 @@ export function setNexoraAdView(view) {
 }
 
 export async function showNexoraPrivacyOptions() {
-  if (!Capacitor.isNativePlatform() || !consentReady) return;
+  if (!Capacitor.isNativePlatform()) return;
   try {
-    await AdMob.showPrivacyOptionsForm();
+    // Always refresh UMP consent info here. Premium users intentionally skip ad
+    // initialization, but must still be able to open the privacy settings entry point.
+    let consent = await AdMob.requestConsentInfo();
+    if (consent.isConsentFormAvailable && consent.status === AdmobConsentStatus.REQUIRED) {
+      consent = await AdMob.showConsentForm();
+    }
+    if (consent.privacyOptionsRequirementStatus === 'REQUIRED') {
+      await AdMob.showPrivacyOptionsForm();
+      return;
+    }
+    if (consent.canRequestAds && !consentReady) {
+      await AdMob.initialize();
+      consentReady = true;
+    }
+    window.alert('Google does not currently require a separate privacy-options form for this device or region.');
   } catch (error) {
     console.warn('NEXORA privacy options are unavailable:', error);
+    window.alert('Privacy choices could not be loaded. Please check your connection and try again.');
   }
 }
