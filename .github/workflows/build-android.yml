@@ -163,6 +163,10 @@ jobs:
           data = gradle.read_text()
           if "androidx.work:work-runtime" not in data:
               data = data.replace("dependencies {", 'dependencies {\n    implementation "androidx.work:work-runtime:2.10.0"', 1)
+          if "com.google.guava:guava" not in data and "com.google.guava:listenablefuture" not in data:
+              data = data.replace("dependencies {", 'dependencies {\n    implementation "com.google.guava:guava:33.4.8-android"', 1)
+          if "androidx.work:work-runtime" not in data or "com.google.guava:guava" not in data:
+              raise SystemExit("WorkManager and Guava dependencies must both be present.")
           gradle.write_text(data)
 
           base = Path("android/app/src/main")
