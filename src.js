@@ -9,6 +9,7 @@ import { registerPlugin } from '@capacitor/core';
 const ApkInstaller = registerPlugin('ApkInstaller');
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { initializeNexoraAds, setNexoraAdView } from './ad-monetization.js';
 const NEXORA_GA_ID = 'G-VYQZ6HT0RD';
 const NEXORA_PLATFORM = Capacitor.isNativePlatform() ? 'android' : 'web';
 if (typeof window !== 'undefined') {
@@ -300,6 +301,7 @@ let liked = new Set();
 try { liked = new Set(JSON.parse(localStorage.getItem('nexora-liked') || '[]')); } catch {}
 let active = 0;
 let view = new URLSearchParams(location.search).get('nexora_payment_return') === '1' ? 'premium' : 'home';
+initializeNexoraAds(supabase);
 let ownerFlowActive = false;
 const WATCH_PROGRESS_KEY = 'nexora-watch-progress-v1';
 const WATCH_HISTORY_KEY = 'nexora-watch-history-v1';
@@ -420,7 +422,7 @@ ${view==='feed'?`<section class="welcome-strip"><img class="drama-cover-banner" 
   renderScreen();
   checkForUpdates();
 }
-function render() { shell(); }
+function render() { setNexoraAdView(view); shell(); }
 function renderScreen() {
   activePlayerController?.abort();
   activePlayerController = null;
