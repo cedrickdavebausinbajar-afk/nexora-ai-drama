@@ -109,3 +109,12 @@ export function setNexoraAdView(view) {
   requestedView = String(view || 'home');
   void applyBannerState();
 }
+
+export async function showNexoraPrivacyOptions() {
+  if (!Capacitor.isNativePlatform() || !consentReady) return;
+  try {
+    await AdMob.showPrivacyOptionsForm();
+  } catch (error) {
+    console.warn('NEXORA privacy options are unavailable:', error);
+  }
+}
