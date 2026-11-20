@@ -379,7 +379,6 @@ function shell() {
   <div class="drawer-divider"></div>
   <a class="drawer-link" href="https://cedrickdavebausinbajar-afk.github.io/nexora-official-website/" target="_blank" rel="noopener">◎ &nbsp; Official website ↗</a>
   <a class="drawer-link" href="https://t.me/nexorastudioteam" target="_blank" rel="noopener">✈ &nbsp; Telegram ↗</a>
-  <a class="drawer-link" href="https://www.facebook.com/profile.php?id=61596591209056" target="_blank" rel="noopener">f &nbsp; Facebook ↗</a>
   <a class="drawer-link" href="https://www.facebook.com/profile.php?id=61596591209056" target="_blank" rel="noopener">f &nbsp; NEXORA FACEBOOK PAGE ↗</a>
   <button class="drawer-link owner-link" id="adminOpen">♛ &nbsp; Owner Dashboard</button>
   <p class="drawer-foot">© 2026 NEXORA AI DRAMA</p>
@@ -409,7 +408,21 @@ ${view==='feed'?`<section class="welcome-strip"><img class="drama-cover-banner" 
   backdrop.onclick = closeMenu;
   app.querySelectorAll('.drawer-link[data-view], .tabs [data-view]').forEach(b => b.onclick = () => { closeMenu(); view = b.dataset.view; render(); });
   document.querySelector('#adminOpen').onclick = () => { closeMenu(); ownerFlowActive = true; adminGate(); };
-  document.querySelector('#adPrivacyOptions')?.addEventListener('click', () => { closeMenu(); showNexoraPrivacyOptions(); });
+  document.querySelector('#adPrivacyOptions')?.addEventListener('click', () => { closeMenu(); void showNexoraPrivacyOptions(); });
+  // Open social and official links through Capacitor Browser on Android so
+  // target=_blank does not get trapped in an unsupported WebView window.
+  drawer.querySelectorAll('a.drawer-link[target="_blank"]').forEach(link => {
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      const url = link.href;
+      if (!/^https:\/\//i.test(url)) return;
+      if (Capacitor.isNativePlatform()) {
+        void Browser.open({ url }).catch(error => console.warn('NEXORA external link could not open:', error));
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    });
+  });
   document.onkeydown = e => {
     if (drawer.hidden) return;
     if (e.key === 'Escape') { e.preventDefault(); closeMenu(true); return; }
