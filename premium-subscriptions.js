@@ -143,6 +143,7 @@ export async function renderPremiumView(screen, supabase) {
     const { data: rows, error: rowsError } = await supabase
       .from('nexora_subscriptions')
       .select('plan_id,status,current_period_end,created_at,checkout_attempt_id')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(5);
     if (rowsError) subscriptionLoadError = 'Subscription database setup is not active yet. Checkout is unavailable until the NEXORA subscription migrations are applied.';
