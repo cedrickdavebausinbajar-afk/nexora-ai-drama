@@ -9,7 +9,7 @@ import { registerPlugin } from '@capacitor/core';
 const ApkInstaller = registerPlugin('ApkInstaller');
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { initializeNexoraAds, setNexoraAdView, showNexoraPrivacyOptions } from './ad-monetization.js';
+import { initializeNexoraAds, setNexoraAdView, showNexoraPrivacyOptions, showNexoraRewardedEpisodeAd } from './ad-monetization.js';
 const NEXORA_GA_ID = 'G-VYQZ6HT0RD';
 const NEXORA_PLATFORM = Capacitor.isNativePlatform() ? 'android' : 'web';
 if (typeof window !== 'undefined') {
@@ -637,7 +637,7 @@ function renderScreen() {
       <span class="nexora-play-label">PLAY EPISODE</span>
     </button>
     <div id="videoLoading" class="video-loading" hidden><span class="video-loading-spinner"></span><span>PREPARING VIDEO…</span></div>
-    <div id="videoError" class="video-error" hidden><span id="videoErrorMessage">Video could not load. Check your internet connection, then tap RETRY.</span><button id="retryVideo" type="button">RETRY</button></div>`}
+    <div id="videoError" class="video-error" hidden><span id="videoErrorMessage">Video could not load. Check your internet connection, then tap RETRY.</span>${x.isPremium?'<button id="unlockEpisodeWithAd" type="button">WATCH AD · UNLOCK 1 EPISODE</button>':''}<button id="retryVideo" type="button">RETRY</button></div>`}
   <div class="shade"></div>
   <div class="meta"><span class="tag">${esc(x.category||'DRAMA')}</span><h2>${esc(x.title)}</h2>
   <p>${esc(x.episode||'EPISODE 1')} · ${esc(x.creator||'Creator not listed')}</p>
@@ -779,6 +779,11 @@ function renderScreen() {
       if (label) label.textContent = state === 'replay' ? 'REPLAY EPISODE' : state === 'pause' ? 'PAUSE VIDEO' : 'PLAY EPISODE';
     };
     if (premiumPlayButton) premiumPlayButton.addEventListener('click', async () => {
+      if (x.isPremium && !playbackUrl) {
+        if (errorMessage) errorMessage.textContent = 'Unlock this premium episode by watching one rewarded ad, or subscribe to NEXORA Premium.';
+        if (errorBox) errorBox.hidden = false;
+        return;
+      }
       if (!video.paused && !video.ended) {
         video.pause();
         syncPremiumPlayButton();
@@ -913,6 +918,36 @@ function renderScreen() {
       if (errorMessage) errorMessage.textContent = messages[code] || 'Video could not load. Check the video link and your internet connection, then retry.';
       if (errorBox) errorBox.hidden = false;
     });
+    const rewardedUnlockButton = document.querySelector('#unlockEpisodeWithAd');
+    if (rewardedUnlockButton) rewardedUnlockButton.onclick = async () => {
+      if (!supabase) { if (errorMessage) errorMessage.textContent = 'Please sign in before unlocking an episode.'; return; }
+      rewardedUnlockButton.disabled = true;
+      rewardedUnlockButton.textContent = 'PREPARING REWARDED AD…';
+      try {
+        const {data:userResult,error:userError} = await supabase.auth.getUser();
+        if (userError || !userResult?.user) throw new Error('Sign in to your NEXORA account first.');
+        const {data:attempt,error:attemptError} = await supabase.functions.invoke('create-rewarded-unlock', {body:{dramaId:x.id}});
+        if (attemptError || !attempt?.nonce) throw new Error(attempt?.error || attemptError?.message || 'Could not prepare a secure episode unlock.');
+        rewardedUnlockButton.textContent = 'WATCHING REWARDED AD…';
+        await showNexoraRewardedEpisodeAd(userResult.user.id, attempt.nonce);
+        rewardedUnlockButton.textContent = 'VERIFYING REWARD…';
+        let unlocked = false;
+        for (let attemptNumber=0; attemptNumber<20; attemptNumber++) {
+          const {data:videoAccess,error:accessError} = await supabase.functions.invoke('premium-video-url', {body:{dramaId:x.id}});
+          if (!accessError && videoAccess?.signedUrl) { playbackUrl = videoAccess.signedUrl; video.src = playbackUrl; video.load(); unlocked = true; break; }
+          await new Promise(resolve=>setTimeout(resolve,2000));
+        }
+        if (!unlocked) throw new Error('Ad reward was received, but server verification is still pending. Please wait and tap RETRY.');
+        if (errorBox) errorBox.hidden = true;
+        await video.play();
+      } catch (error) {
+        if (errorMessage) errorMessage.textContent = error?.message || 'Rewarded ad could not unlock this episode. Please try again.';
+        if (errorBox) errorBox.hidden = false;
+      } finally {
+        rewardedUnlockButton.disabled = false;
+        rewardedUnlockButton.textContent = 'WATCH AD · UNLOCK 1 EPISODE';
+      }
+    };
     document.querySelector('#retryVideo').onclick = async () => {
       if (errorBox) errorBox.hidden = true;
       let source = playbackUrl || video.currentSrc || video.src;

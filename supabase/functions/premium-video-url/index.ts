@@ -88,8 +88,16 @@ Deno.serve(async (req: Request) => {
     .limit(1);
 
   if (subscriptionError) return reply(503, { error: "entitlement_check_failed" });
-  if (!subscriptions || subscriptions.length === 0) {
-    return reply(403, { error: "premium_subscription_required" });
+  const hasSubscription = Boolean(subscriptions && subscriptions.length > 0);
+  if (!hasSubscription) {
+    const { data: episodeEntitlement, error: episodeEntitlementError } = await admin
+      .from("nexora_episode_entitlements")
+      .select("id")
+      .eq("user_id", userData.user.id)
+      .eq("drama_id", dramaId)
+      .maybeSingle();
+    if (episodeEntitlementError) return reply(503, { error: "entitlement_check_failed" });
+    if (!episodeEntitlement) return reply(403, { error: "premium_subscription_or_reward_required" });
   }
 
   // Signed URL lifetime is deliberately short. The private bucket must be created

@@ -134,3 +134,20 @@ export async function showNexoraPrivacyOptions() {
     window.alert('Privacy choices could not be loaded. Please check your connection and try again.');
   }
 }
+
+const REWARDED_EPISODE_AD_ID = 'ca-app-pub-4497851143738030/5422109728';
+
+export async function showNexoraRewardedEpisodeAd(userId, attemptNonce) {
+  if (!Capacitor.isNativePlatform()) throw new Error('Rewarded episode unlock is available in the NEXORA Android app only.');
+  if (!userId || !attemptNonce) throw new Error('A signed-in account and secure reward attempt are required.');
+  if (!await initializeWithConsent()) throw new Error('Ad consent is required or rewarded ads are unavailable on this device.');
+  await AdMob.prepareRewardVideoAd({ adId: REWARDED_EPISODE_AD_ID, ssv: { userId, customData: attemptNonce }, immersiveMode: true });
+  try {
+    const reward = await AdMob.showRewardVideoAd();
+    if (!reward) throw new Error('The rewarded ad did not confirm a reward.');
+    return reward;
+  } catch (error) {
+    if (error?.code === 'REWARDED_AD_CANCELLED' || error?.message?.includes('REWARDED_AD_CANCELLED')) throw new Error('The ad was closed before the reward was earned. No episode was unlocked.');
+    throw error;
+  }
+}
