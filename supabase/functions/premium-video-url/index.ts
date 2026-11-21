@@ -24,13 +24,17 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const paymongoSecret = Deno.env.get("PAYMONGO_SECRET_KEY");
-  if (!supabaseUrl || !serviceRoleKey || !paymongoSecret) {
+  const paymongoSecret = Deno.env.get("PAYMONGO_SECRET_KEY") || "";
+  if (!supabaseUrl || !serviceRoleKey) {
     return reply(503, { error: "server_not_configured" });
   }
+  // Rewarded episode entitlements must work independently of PayMongo.
+  // When billing is configured, also recognize active paid subscriptions.
   const providerMode = paymongoSecret.startsWith("sk_live_") ? "live" :
     paymongoSecret.startsWith("sk_test_") ? "test" : null;
-  if (!providerMode) return reply(503, { error: "invalid_payment_provider_configuration" });
+  if (paymongoSecret && !providerMode) {
+    return reply(503, { error: "invalid_payment_provider_configuration" });
+  }
 
   const authorization = req.headers.get("Authorization");
   if (!authorization?.startsWith("Bearer ")) {
@@ -76,19 +80,22 @@ Deno.serve(async (req: Request) => {
     return reply(404, { error: "premium_video_unavailable" });
   }
 
-  const now = new Date().toISOString();
-  const { data: subscriptions, error: subscriptionError } = await admin
-    .from("nexora_subscriptions")
-    .select("id,status,current_period_end")
-    .eq("user_id", userData.user.id)
-    .eq("provider", "paymongo")
-    .eq("provider_mode", providerMode)
-    .eq("status", "active")
-    .gt("current_period_end", now)
-    .limit(1);
+  let hasSubscription = false;
+  if (providerMode) {
+    const now = new Date().toISOString();
+    const { data: subscriptions, error: subscriptionError } = await admin
+      .from("nexora_subscriptions")
+      .select("id,status,current_period_end")
+      .eq("user_id", userData.user.id)
+      .eq("provider", "paymongo")
+      .eq("provider_mode", providerMode)
+      .eq("status", "active")
+      .gt("current_period_end", now)
+      .limit(1);
 
-  if (subscriptionError) return reply(503, { error: "entitlement_check_failed" });
-  const hasSubscription = Boolean(subscriptions && subscriptions.length > 0);
+    if (subscriptionError) return reply(503, { error: "entitlement_check_failed" });
+    hasSubscription = Boolean(subscriptions && subscriptions.length > 0);
+  }
   if (!hasSubscription) {
     const { data: episodeEntitlement, error: episodeEntitlementError } = await admin
       .from("nexora_episode_entitlements")
