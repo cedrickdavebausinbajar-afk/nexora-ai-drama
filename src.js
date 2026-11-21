@@ -365,6 +365,11 @@ const WATCH_NOTIFICATION_ID = 7301;
 let pendingResumeId = '';
 let activePlayerController = null;
 let activeShortsObserver = null;
+// A warmed public episode can be promoted into the next player render. Premium
+// episodes never enter this cache.
+let prefetchedVideoForEpisode = null;
+let prefetchedVideoEpisodeId = '';
+let preservePrefetchedVideoForHandoff = false;
 async function cancelContinueNotification() {
   if (!Capacitor.isNativePlatform()) return;
   try { await LocalNotifications.cancel({notifications:[{id:WATCH_NOTIFICATION_ID}]}); } catch {}
@@ -517,8 +522,23 @@ let storyModeModulePromise = null;
 let premiumViewModulePromise = null;
 
 function renderScreen() {
+  const requestedEpisodeId = items[active]?.id || '';
+  const promotedVideoBuffer = preservePrefetchedVideoForHandoff &&
+    prefetchedVideoEpisodeId === requestedEpisodeId ? prefetchedVideoForEpisode : null;
+  if (prefetchedVideoForEpisode && !promotedVideoBuffer) {
+    prefetchedVideoForEpisode.pause();
+    prefetchedVideoForEpisode.removeAttribute('src');
+    prefetchedVideoForEpisode.load();
+    prefetchedVideoForEpisode = null;
+    prefetchedVideoEpisodeId = '';
+  }
   activePlayerController?.abort();
   activePlayerController = null;
+  preservePrefetchedVideoForHandoff = false;
+  if (promotedVideoBuffer) {
+    prefetchedVideoForEpisode = null;
+    prefetchedVideoEpisodeId = '';
+  }
   activeShortsObserver?.disconnect();
   activeShortsObserver = null;
   const screen = document.querySelector('#screen');
@@ -787,13 +807,39 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
 <div class="feed-controls"><button id="prev" ${active===0?'disabled':''}>↑ PREVIOUS</button><span>${active+1} / ${items.length}</span><button id="nextText" ${active===items.length-1?'disabled':''}>NEXT ↓</button></div>
 <p class="credit">Credit: ${esc(x.creator||'Not provided')} · ${esc(x.license||'Authorized content')}. <a href="${esc(sourceUrl||'#')}" target="_blank" rel="noopener">Source and license details ↗</a></p>
 </section>`;
+  let promotedVideoElement = false;
+  if (promotedVideoBuffer && !embeddedPlayer) {
+    const placeholderVideo = screen.querySelector('#dramaVideo');
+    if (placeholderVideo) {
+      promotedVideoBuffer.id = 'dramaVideo';
+      promotedVideoBuffer.controls = true;
+      promotedVideoBuffer.muted = true;
+      promotedVideoBuffer.playsInline = true;
+      promotedVideoBuffer.preload = 'metadata';
+      promotedVideoBuffer.poster = posterUrl;
+      promotedVideoBuffer.removeAttribute('aria-hidden');
+      promotedVideoBuffer.setAttribute('playsinline', '');
+      promotedVideoBuffer.setAttribute('webkit-playsinline', '');
+      placeholderVideo.replaceWith(promotedVideoBuffer);
+      promotedVideoElement = true;
+    }
+  }
   const playerController = new AbortController();
   activePlayerController = playerController;
   const playerSignal = playerController.signal;
-  document.querySelectorAll('[data-episode-play]').forEach(button=>button.onclick=()=>{const nextIndex=items.findIndex(entry=>entry.id===button.dataset.episodePlay);if(nextIndex>=0){active=nextIndex;render();}});
+  document.querySelectorAll('[data-episode-play]').forEach(button=>button.onclick=()=>{
+    const nextIndex=items.findIndex(entry=>entry.id===button.dataset.episodePlay);
+    if(nextIndex>=0){
+      preservePrefetchedVideoForHandoff = prefetchedVideoForEpisode === nextEpisodeBuffer &&
+        prefetchedVideoEpisodeId === button.dataset.episodePlay &&
+        prefetchedVideoForEpisode?.readyState >= 2;
+      active=nextIndex;
+      render();
+    }
+  });
   const playerFrame = document.querySelector('#player');
   const fullscreenButton = document.querySelector('#fullscreenPlayer');
-  const video = document.querySelector('#dramaVideo');
+  const video = screen.querySelector('#dramaVideo');
   const drawerBackdrop = document.querySelector('#episodeDrawerBackdrop');
   // Warm the next public episode in a separate decoder/buffer after the current
   // episode starts. Premium media is deliberately excluded: it must be fetched
@@ -806,6 +852,11 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
     if (!nextEpisodeBuffer) return;
     const buffer = nextEpisodeBuffer;
     nextEpisodeBuffer = null;
+    if (preservePrefetchedVideoForHandoff && prefetchedVideoForEpisode === buffer) return;
+    if (prefetchedVideoForEpisode === buffer) {
+      prefetchedVideoForEpisode = null;
+      prefetchedVideoEpisodeId = '';
+    }
     buffer.pause();
     buffer.removeAttribute('src');
     buffer.load();
@@ -827,6 +878,10 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
     buffer.muted = true;
     buffer.playsInline = true;
     buffer.setAttribute('aria-hidden', 'true');
+    buffer.addEventListener('canplay', () => {
+      prefetchedVideoForEpisode = buffer;
+      prefetchedVideoEpisodeId = nextEpisode.id;
+    }, {once:true,signal:playerSignal});
     buffer.addEventListener('error', releaseNextEpisodeBuffer, {once:true});
     buffer.src = nextPublicUrl;
     buffer.load();
@@ -960,8 +1015,10 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
   }
   if (video) {
     // Register diagnostics before starting media loading; Android WebView can fail quickly.
-    video.removeAttribute('src');
-    video.querySelectorAll('source').forEach(source => source.remove());
+    if (!promotedVideoElement) {
+      video.removeAttribute('src');
+      video.querySelectorAll('source').forEach(source => source.remove());
+    }
     video.preload = 'metadata';
     if(subtitleUrl){const track=document.createElement('track');track.kind='subtitles';track.label='Subtitles';track.srclang='en';track.src=subtitleUrl;video.appendChild(track);}
     const volumeToggle = document.querySelector('#volumeToggle');
@@ -1186,7 +1243,14 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
       const nextEpisode=seriesEpisodes.find(entry=>(Number(entry.episodeNumber)||1)>(Number(x.episodeNumber)||1));
       if(nextEpisode){
         const nextIndex=items.findIndex(entry=>entry.id===nextEpisode.id);
-        if(nextIndex>=0){active=nextIndex;render();requestAnimationFrame(()=>{const nextVideo=document.querySelector('#dramaVideo');if(nextVideo)nextVideo.play().catch(()=>{});});}
+        if(nextIndex>=0){
+          preservePrefetchedVideoForHandoff = prefetchedVideoForEpisode === nextEpisodeBuffer &&
+            prefetchedVideoEpisodeId === nextEpisode.id &&
+            prefetchedVideoForEpisode?.readyState >= 2;
+          active=nextIndex;
+          render();
+          requestAnimationFrame(()=>{const nextVideo=document.querySelector('#dramaVideo');if(nextVideo)nextVideo.play().catch(()=>{});});
+        }
       }
     });
     video.addEventListener('error', () => {
@@ -1282,7 +1346,8 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
           if (errorBox) errorBox.hidden = false;
         }).finally(()=>{if(premiumPlayButton)premiumPlayButton.disabled=false;});
       }
-    } else if (playbackUrl) { video.src = playbackUrl; video.load(); }
+    } else if (playbackUrl && !promotedVideoElement) { video.src = playbackUrl; video.load(); }
+    else if (promotedVideoElement) { /* The warmed public media element already owns the loaded source. */ }
     else {
       if (errorMessage) errorMessage.textContent = 'This episode has no playable video URL. Ask the owner to republish the video.';
       if (errorBox) errorBox.hidden = false;
