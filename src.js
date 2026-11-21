@@ -320,6 +320,14 @@ const WATCH_NOTIFICATION_ID = 7301;
 let pendingResumeId = '';
 let activePlayerController = null;
 let activeShortsObserver = null;
+let activeThumbnailObserver = null;
+const activeThumbnailObjectUrls = new Set();
+function cleanupThumbnailResources() {
+  activeThumbnailObserver?.disconnect();
+  activeThumbnailObserver = null;
+  for (const url of activeThumbnailObjectUrls) URL.revokeObjectURL(url);
+  activeThumbnailObjectUrls.clear();
+}
 async function cancelContinueNotification() {
   if (!Capacitor.isNativePlatform()) return;
   try { await LocalNotifications.cancel({notifications:[{id:WATCH_NOTIFICATION_ID}]}); } catch {}
@@ -373,7 +381,10 @@ const safeHttpsUrl = value => {
     return '';
   }
 };
-const save = () => localStorage.setItem(KEY, JSON.stringify(items));
+const save = () => {
+  try { localStorage.setItem(KEY, JSON.stringify(items)); return true; }
+  catch (error) { console.warn('NEXORA local catalogue could not be saved:', error); return false; }
+};
 const builtInIds = new Set(seed.map(x => x.id));
 const isDemo = x => builtInIds.has(x.id);
 
@@ -469,6 +480,7 @@ let storyModeModulePromise = null;
 let premiumViewModulePromise = null;
 
 function renderScreen() {
+  cleanupThumbnailResources();
   activePlayerController?.abort();
   activePlayerController = null;
   activeShortsObserver?.disconnect();
@@ -1073,7 +1085,8 @@ function renderScreen() {
   }
   document.querySelector('#like').onclick = () => {
     liked.has(x.id) ? liked.delete(x.id) : liked.add(x.id);
-    localStorage.setItem('nexora-liked', JSON.stringify([...liked]));
+    try { localStorage.setItem('nexora-liked', JSON.stringify([...liked])); }
+    catch (error) { console.warn('NEXORA saved-drama state could not be persisted:', error); }
     renderScreen();
   };
   document.querySelector('#share').onclick = async () => {
@@ -1093,9 +1106,10 @@ function renderScreen() {
 }
 function card(x) {
   const title = esc(x.title || 'Untitled drama');
+  const poster = safeHttpsUrl(x.poster);
   return `<article class="rowcard home-video-card">
     <div class="home-video-thumb">
-      <img class="mini-poster" ${x.poster ? 'src="' + esc(x.poster) + '"' : 'style="opacity:0"'} data-video-thumbnail="${esc(x.id)}" alt="Video thumbnail for ${title}" loading="lazy" fetchpriority="low" decoding="async">
+      <img class="mini-poster" ${poster ? 'src="' + esc(poster) + '"' : 'style="opacity:0"'} data-video-thumbnail="${esc(x.id)}" alt="Video thumbnail for ${title}" loading="lazy" fetchpriority="low" decoding="async">
       <div class="home-thumb-fallback" ${x.poster ? 'hidden' : ''}><span>✦ NEXORA AI DRAMA</span><b>${title}</b><small>DRAMA PREVIEW</small></div>
       <span class="home-thumb-play" aria-hidden="true">▶</span>
     </div>
@@ -1120,8 +1134,10 @@ function hydrateMissingDramaThumbnails(root = document) {
         const frame = await captureDramaThumbnail(entry.url);
         if (!frame) throw new Error('Video frame unavailable');
         const previewUrl = URL.createObjectURL(frame);
-        img.addEventListener('load', () => URL.revokeObjectURL(previewUrl), {once:true});
-        img.addEventListener('error', () => URL.revokeObjectURL(previewUrl), {once:true});
+        activeThumbnailObjectUrls.add(previewUrl);
+        const releasePreview = () => { URL.revokeObjectURL(previewUrl); activeThumbnailObjectUrls.delete(previewUrl); };
+        img.addEventListener('load', releasePreview, {once:true});
+        img.addEventListener('error', releasePreview, {once:true});
         img.src = previewUrl;
         img.hidden = false;
         img.style.opacity = '1';
@@ -1150,12 +1166,12 @@ function hydrateMissingDramaThumbnails(root = document) {
     }
   };
   if ('IntersectionObserver' in window) {
-    const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+    activeThumbnailObserver = new IntersectionObserver(entries => entries.forEach(entry => {
       if (!entry.isIntersecting) return;
       observer.unobserve(entry.target);
       hydrate(entry.target);
     }), {rootMargin:'280px 0px',threshold:0.01});
-    images.forEach(img => observer.observe(img));
+    images.forEach(img => activeThumbnailObserver.observe(img));
   } else {
     images.filter(img => {
       const rect = img.getBoundingClientRect();
@@ -1183,19 +1199,19 @@ function openDramaDetails(dramaId) {
       <button class="nx-details-close" type="button" data-details-close aria-label="Close details">×</button>
       <div class="nx-details-sheet-scroll">
         <div class="nx-details-hero">
-          <div class="nx-details-poster">${drama.poster ? `<img src="${esc(drama.poster)}" alt="${esc(drama.title)} poster">` : `<div class="nx-details-poster-fallback">✦<b>NEXORA</b></div>`}</div>
+          <div class="nx-details-poster">${safeHttpsUrl(drama.poster) ? `<img src="${esc(safeHttpsUrl(drama.poster))}" alt="${esc(drama.title)} poster">` : `<div class="nx-details-poster-fallback">✦<b>NEXORA</b></div>`}</div>
           <div class="nx-details-copy">
             <span class="nx-eyebrow">NEXORA · DRAMA DETAILS</span>
             <h1>${esc(drama.title || 'Untitled drama')}</h1>
             <div class="nx-details-tags"><span>${esc(drama.category || 'Drama')}</span><span>${episodeList.length} ${episodeList.length === 1 ? 'EPISODE' : 'EPISODES'}</span></div>
             <p>${esc(synopsis)}</p>
             <div class="nx-details-creator"><small>CREATED BY</small><strong>${esc(drama.creator || 'Creator not listed')}</strong></div>
-            ${drama.source ? `<a class="nx-details-source" href="${esc(drama.source)}" target="_blank" rel="noopener noreferrer">VIEW ORIGINAL SOURCE ↗</a>` : ''}
+            ${safeHttpsUrl(drama.source) ? `<a class="nx-details-source" href="${esc(safeHttpsUrl(drama.source))}" target="_blank" rel="noopener noreferrer">VIEW ORIGINAL SOURCE ↗</a>` : ''}
             ${drama.url ? `<button class="nx-primary" data-play="${esc(drama.id)}">▶ &nbsp; WATCH NOW</button>` : ''}
           </div>
         </div>
         <section class="nx-details-episodes"><div class="nx-shelf-heading"><h2>Episodes</h2><span>${episodeList.length} available</span></div>
-          ${episodeList.length ? episodeList.map((episode,index)=>`<article class="nx-details-episode"><div class="nx-details-episode-art">${episode.poster ? `<img src="${esc(episode.poster)}" alt="">` : '<span>▶</span>'}</div><div class="nx-details-episode-copy"><b>${esc(episode.episode || 'Episode ' + (index+1))}</b><small>${esc(episode.title || drama.title || 'NEXORA Drama')}</small></div><button class="nx-details-episode-play" data-play="${esc(episode.id)}" aria-label="Play ${esc(episode.episode || 'episode ' + (index+1))}">▶</button></article>`).join('') : '<p class="muted">No published episodes are available yet.</p>'}
+          ${episodeList.length ? episodeList.map((episode,index)=>`<article class="nx-details-episode"><div class="nx-details-episode-art">${safeHttpsUrl(episode.poster) ? `<img src="${esc(safeHttpsUrl(episode.poster))}" alt="">` : '<span>▶</span>'}</div><div class="nx-details-episode-copy"><b>${esc(episode.episode || 'Episode ' + (index+1))}</b><small>${esc(episode.title || drama.title || 'NEXORA Drama')}</small></div><button class="nx-details-episode-play" data-play="${esc(episode.id)}" aria-label="Play ${esc(episode.episode || 'episode ' + (index+1))}">▶</button></article>`).join('') : '<p class="muted">No published episodes are available yet.</p>'}
         </section>
       </div>
     </section>`;
