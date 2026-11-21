@@ -140,14 +140,21 @@ export async function renderPremiumView(screen, supabase) {
 
     let subscriptions = [];
     let subscriptionLoadError = '';
-    const { data: rows, error: rowsError } = await supabase
-      .from('nexora_subscriptions')
-      .select('plan_id,status,current_period_end,created_at,checkout_attempt_id')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(5);
-    if (rowsError) subscriptionLoadError = 'Subscription database setup is not active yet. Checkout is unavailable until the NEXORA subscription migrations are applied.';
-    else subscriptions = rows || [];
+    const publicMode = PUBLIC_KEY.startsWith('pk_live_') ? 'live' : PUBLIC_KEY.startsWith('pk_test_') ? 'test' : null;
+    if (!publicMode) {
+      subscriptionLoadError = 'Secure PayMongo configuration is unavailable in this app build. Premium status cannot be confirmed.';
+    } else {
+      const { data: rows, error: rowsError } = await supabase
+        .from('nexora_subscriptions')
+        .select('plan_id,status,current_period_end,created_at,checkout_attempt_id')
+        .eq('user_id', user.id)
+        .eq('provider', 'paymongo')
+        .eq('provider_mode', publicMode)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (rowsError) subscriptionLoadError = 'Subscription database setup is not active yet. Checkout is unavailable until the NEXORA subscription migrations are applied.';
+      else subscriptions = rows || [];
+    }
 
     const current = subscriptions.find(row =>
       row.status === 'active' && row.current_period_end && new Date(row.current_period_end).getTime() > Date.now()
