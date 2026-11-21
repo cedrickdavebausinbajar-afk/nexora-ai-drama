@@ -1,0 +1,125 @@
+name: NEXORA AI DRAMA security and performance gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - "src.js"
+      - "runtime-resilience.js"
+      - "update-manager.js"
+      - "ad-monetization.js"
+      - "premium-subscriptions.js"
+      - "package.json"
+      - "package-lock.json"
+      - "supabase/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexora-security-performance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-and-runtime-security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Run application tests
+        run: npm test
+
+      - name: Build production web assets
+        run: npm run build
+
+      - name: Scan built assets for server-side secrets and enforce size budgets
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import zlib from 'node:zlib';
+
+          const root = 'dist';
+          if (!fs.existsSync(root)) throw new Error('Production dist directory is missing.');
+          const files = [];
+          function walk(dir) {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+              const full = path.join(dir, entry.name);
+              if (entry.isDirectory()) walk(full);
+              else if (entry.isFile()) files.push(full);
+            }
+          }
+          walk(root);
+
+          const forbidden = [
+            /SUPABASE_SERVICE_ROLE_KEY/i,
+            /sk_live_[A-Za-z0-9_]+/,
+            /sk_test_[A-Za-z0-9_]+/,
+            /-----BEGIN (?:RSA |EC )?PRIVATE KEY-----/
+          ];
+          const leaks = [];
+          for (const file of files) {
+            const data = fs.readFileSync(file);
+            if (!/\.(?:js|mjs|css|html|json|map)$/i.test(file)) continue;
+            const source = data.toString('utf8');
+            for (const pattern of forbidden) {
+              if (pattern.test(source)) leaks.push(path.relative(root, file) + ' matched ' + pattern);
+            }
+          }
+          if (leaks.length) {
+            console.error('Potential server secret detected in production assets:', leaks.join('; '));
+            process.exit(1);
+          }
+
+          const js = files.filter(file => /\.(?:js|mjs)$/i.test(file));
+          const css = files.filter(file => /\.css$/i.test(file));
+          const gzipBytes = list => list.reduce((sum, file) =>
+            sum + zlib.gzipSync(fs.readFileSync(file), { level: 9 }).length, 0);
+          const jsGzip = gzipBytes(js);
+          const cssGzip = gzipBytes(css);
+          const jsBudget = 700 * 1024;
+          const cssBudget = 150 * 1024;
+          console.log('Compressed JavaScript:', jsGzip, 'bytes /', jsBudget, 'budget');
+          console.log('Compressed CSS:', cssGzip, 'bytes /', cssBudget, 'budget');
+          if (jsGzip > jsBudget || cssGzip > cssBudget) {
+            console.error('Production asset budget exceeded.');
+            process.exit(1);
+          }
+          console.log('No server-side secret patterns found in built assets; asset budgets passed.');
+          NODE
+
+  edge-function-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type-check privileged Edge Functions
+        run: |
+          deno check supabase/functions/paymongo-subscription-checkout/index.ts
+          deno check supabase/functions/paymongo-webhook/index.ts
+          deno check supabase/functions/premium-video-url/index.ts
+          deno check supabase/functions/create-rewarded-unlock/index.ts
+          deno check supabase/functions/admob-rewarded-ssv/index.ts
