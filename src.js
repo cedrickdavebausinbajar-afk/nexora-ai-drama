@@ -824,6 +824,13 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
       promotedVideoElement = true;
     }
   }
+  // If the new screen cannot host the promoted element, release its detached
+  // media source instead of leaving a warmed decoder alive off-screen.
+  if (promotedVideoBuffer && !promotedVideoElement) {
+    promotedVideoBuffer.pause();
+    promotedVideoBuffer.removeAttribute('src');
+    promotedVideoBuffer.load();
+  }
   const playerController = new AbortController();
   activePlayerController = playerController;
   const playerSignal = playerController.signal;
