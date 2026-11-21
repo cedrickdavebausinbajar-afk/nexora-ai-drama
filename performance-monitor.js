@@ -6,7 +6,6 @@ function emitMetric(name, value, params = {}) {
   try {
     globalThis.window?.gtag?.('event', name, {
       app_name: 'NEXORA AI DRAMA',
-      app_platform: 'android',
       value: rounded,
       ...params
     });
