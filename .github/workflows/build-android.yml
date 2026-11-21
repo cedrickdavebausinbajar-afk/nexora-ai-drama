@@ -602,8 +602,8 @@ jobs:
         run: |
           for required in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY VITE_PAYMONGO_PUBLIC_KEY; do
             if [ -z "${!required}" ]; then
-              echo "::warning::Skipping store AAB: ${required} is missing, so paid subscriber status would not be verifiable."
-              exit 1
+              echo "::warning::Skipping store AAB only: ${required} is missing, so paid subscriber status would not be verifiable. The signed direct-download APK will still be published."
+              exit 0
             fi
           done
           case "$VITE_PAYMONGO_PUBLIC_KEY" in
