@@ -780,10 +780,10 @@ function renderScreen() {
     <div class="episode-list">${seriesEpisodes.map(entry=>{const episodePoster=safeHttpsUrl(entry.poster);const saved=readEpisodeProgress()[entry.id];const progressPercent=Math.max(0,Math.min(100,Number(saved?.percent)||0));return '<button type="button" class="episode-choice '+(entry.id===x.id?'active':'')+'" data-episode-play="'+esc(entry.id)+'" aria-current="'+(entry.id===x.id?'true':'false')+'" aria-label="Play episode '+(entry.episodeNumber||1)+(progressPercent?' — '+progressPercent+'% watched':'')+'">'+(episodePoster?'<img class="episode-choice-art" src="'+esc(episodePoster)+'" alt="" loading="lazy" decoding="async">':'<span class="episode-choice-art episode-choice-art-placeholder" aria-hidden="true">N</span>')+'<span class="episode-choice-shade" aria-hidden="true"></span><b>EP '+(entry.episodeNumber||1)+'</b><span class="episode-choice-title">'+esc(entry.episode||('Episode '+(entry.episodeNumber||1)))+'</span><span class="episode-progress-track" aria-label="'+progressPercent+'% watched"><i class="episode-progress-fill" style="width:'+progressPercent+'%"></i></span></button>'}).join('')}</div></section>
   </section>
 </div>
-<div class="nx-playback-tools" aria-label="Playback controls">
+${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback controls">
   <label class="nx-seek-wrap"><span id="nxCurrentTime">0:00</span><input id="nxSeek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek video"><span id="nxDuration">0:00</span></label>
   <button type="button" id="nxSpeed" aria-label="Playback speed">1× SPEED</button>
-</div>
+</div>`}
 <div class="feed-controls"><button id="prev" ${active===0?'disabled':''}>↑ PREVIOUS</button><span>${active+1} / ${items.length}</span><button id="nextText" ${active===items.length-1?'disabled':''}>NEXT ↓</button></div>
 <p class="credit">Credit: ${esc(x.creator||'Not provided')} · ${esc(x.license||'Authorized content')}. <a href="${esc(sourceUrl||'#')}" target="_blank" rel="noopener">Source and license details ↗</a></p>
 </section>`;
