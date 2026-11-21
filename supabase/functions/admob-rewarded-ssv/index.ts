@@ -11,11 +11,32 @@ function derRaw(der:Uint8Array):Uint8Array{
  if(r.length===33&&r[0]===0)r=r.slice(1);if(s.length===33&&s[0]===0)s=s.slice(1);if(r.length>32||s.length>32)throw new Error("bad_der");
  const raw=new Uint8Array(64);raw.set(r,32-r.length);raw.set(s,64-s.length);return raw;
 }
-async function getKeys():Promise<Map<string,CryptoKey>>{
- if(cache&&cache.expiresAt>Date.now())return cache.keys;
- const response=await fetch(KEY_URL);if(!response.ok)throw new Error("keys_unavailable");const json=await response.json();const keys=new Map<string,CryptoKey>();
- for(const item of json.keys||[]){if(!item.keyId||!(item.pem||item.base64))continue;const pem=String(item.pem||item.base64).replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s/g,"");const key=await crypto.subtle.importKey("spki",asBuffer(b64(pem)),{name:"ECDSA",namedCurve:"P-256"},false,["verify"]);keys.set(String(item.keyId),key);}
- cache={keys,expiresAt:Date.now()+12*60*60*1000};return keys;
+async function getKeys(forceRefresh=false):Promise<Map<string,CryptoKey>>{
+ if(!forceRefresh&&cache&&cache.expiresAt>Date.now())return cache.keys;
+ const controller=new AbortController();
+ const timeout=setTimeout(()=>controller.abort(),5000);
+ try{
+  const response=await fetch(KEY_URL,{signal:controller.signal,cache:"no-store"});
+  if(!response.ok)throw new Error("keys_unavailable");
+  const json=await response.json();
+  if(!json||!Array.isArray(json.keys))throw new Error("invalid_verifier_key_response");
+  const keys=new Map<string,CryptoKey>();
+  for(const item of json.keys){
+   if(!item||item.keyId===undefined||item.keyId===null||!(item.pem||item.base64))continue;
+   try{
+    const pem=String(item.pem||item.base64).replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s/g,"");
+    const key=await crypto.subtle.importKey("spki",asBuffer(b64(pem)),{name:"ECDSA",namedCurve:"P-256"},false,["verify"]);
+    keys.set(String(item.keyId),key);
+   }catch(error){
+    console.warn("AdMob verifier key could not be imported:",String(item.keyId),error);
+   }
+  }
+  if(!keys.size)throw new Error("no_valid_verifier_keys");
+  cache={keys,expiresAt:Date.now()+60*60*1000};
+  return keys;
+ }finally{
+  clearTimeout(timeout);
+ }
 }
 Deno.serve(async(req:Request)=>{
  if(req.method!=="GET")return reply(405,"method_not_allowed");
@@ -23,7 +44,11 @@ Deno.serve(async(req:Request)=>{
  if(sigIndex<1||sigIndex!==parts.length-2||!parts[parts.length-1].startsWith("key_id="))return reply(400,"invalid_callback_parameters");
  const params=new URLSearchParams(raw),signature=params.get("signature"),keyId=params.get("key_id");if(!signature||!keyId)return reply(400,"missing_signature");
  try{
-  const key=(await getKeys()).get(keyId);if(!key)return reply(400,"unknown_verifier_key");
+  let keys=await getKeys();
+  let key=keys.get(keyId);
+  // Google can rotate verifier keys before this isolate's cache expires.
+  if(!key){keys=await getKeys(true);key=keys.get(keyId);}
+  if(!key)return reply(400,"unknown_verifier_key");
   const valid=await crypto.subtle.verify({name:"ECDSA",hash:"SHA-256"},key,asBuffer(derRaw(b64(signature))),asBuffer(new TextEncoder().encode(parts.slice(0,sigIndex).join("&"))));
   if(!valid)return reply(403,"invalid_signature");
   const adUnit=params.get("ad_unit")||"",userId=params.get("user_id")||"",nonce=params.get("custom_data")||"",transactionId=params.get("transaction_id")||"",rewardItem=params.get("reward_item")||"",rewardAmount=Number(params.get("reward_amount")),timestamp=Number(params.get("timestamp"));
