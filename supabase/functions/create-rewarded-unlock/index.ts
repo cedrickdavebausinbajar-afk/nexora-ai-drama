@@ -17,7 +17,13 @@ Deno.serve(async (req:Request) => {
   if(dramaError) return reply(503,{error:"premium_catalogue_check_failed"}); if(!drama) return reply(404,{error:"premium_episode_not_found"});
   const {data:existing,error:existingError}=await admin.from("nexora_episode_entitlements").select("id").eq("user_id",userData.user.id).eq("drama_id",dramaId).maybeSingle();
   if(existingError) return reply(503,{error:"entitlement_check_failed"}); if(existing) return reply(409,{error:"episode_already_unlocked"});
-  const {data:attempt,error:insertError}=await admin.from("nexora_rewarded_unlock_attempts").insert({user_id:userData.user.id,drama_id:dramaId}).select("id,expires_at").single();
-  if(insertError||!attempt) return reply(503,{error:"reward_attempt_create_failed"});
-  return reply(200,{nonce:attempt.id,expiresAt:attempt.expires_at});
+  const {data:attemptRows,error:attemptError}=await admin.rpc("create_nexora_rewarded_unlock_attempt",{
+    p_user_id:userData.user.id,
+    p_drama_id:dramaId
+  });
+  if(attemptError) return reply(503,{error:"reward_attempt_create_failed"});
+  const attempt=Array.isArray(attemptRows)?attemptRows[0]:null;
+  if(attempt?.error_code==="rate_limited") return reply(429,{error:"reward_attempt_rate_limited",retryAfterSeconds:900});
+  if(!attempt?.attempt_id||!attempt?.expires_at) return reply(503,{error:"reward_attempt_create_failed"});
+  return reply(200,{nonce:attempt.attempt_id,expiresAt:attempt.expires_at});
 });
