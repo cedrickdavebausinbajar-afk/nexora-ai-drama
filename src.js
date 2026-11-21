@@ -345,14 +345,6 @@ const WATCH_NOTIFICATION_ID = 7301;
 let pendingResumeId = '';
 let activePlayerController = null;
 let activeShortsObserver = null;
-let activeThumbnailObserver = null;
-const activeThumbnailObjectUrls = new Set();
-function cleanupThumbnailResources() {
-  activeThumbnailObserver?.disconnect();
-  activeThumbnailObserver = null;
-  for (const url of activeThumbnailObjectUrls) URL.revokeObjectURL(url);
-  activeThumbnailObjectUrls.clear();
-}
 async function cancelContinueNotification() {
   if (!Capacitor.isNativePlatform()) return;
   try { await LocalNotifications.cancel({notifications:[{id:WATCH_NOTIFICATION_ID}]}); } catch {}
@@ -505,7 +497,6 @@ let storyModeModulePromise = null;
 let premiumViewModulePromise = null;
 
 function renderScreen() {
-  cleanupThumbnailResources();
   activePlayerController?.abort();
   activePlayerController = null;
   activeShortsObserver?.disconnect();
@@ -549,19 +540,16 @@ function renderScreen() {
     const emptyLibrary = '<p class="muted">Your streaming library is ready. Publish licensed videos from the Owner Dashboard and they will appear here automatically.</p>';
     const featuredDrama = trendingDramas[0] || latestEpisodes[0] || null;
     const newEpisodeCards = latestEpisodes.filter(entry => entry.id !== featuredDrama?.id);
-    const demoVideoUrl = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
-    const featuredVideoUrl = safeHttpsUrl(featuredDrama?.url) || demoVideoUrl;
     const featuredPoster = safeHttpsUrl(featuredDrama?.poster);
     const featuredStyle = featuredPoster ? `style="--nexora-hero-image:url('${esc(featuredPoster)}')"` : '';
     screen.innerHTML = `<section class="nx-stream-home">
       <section class="nx-hero nx-hero-video" ${featuredStyle}>
-        <video class="nx-hero-preview" src="${esc(featuredVideoUrl)}" ${videoMimeType(featuredVideoUrl) ? `type="${videoMimeType(featuredVideoUrl)}"` : ''} ${featuredPoster ? `poster="${esc(featuredPoster)}"` : ''} autoplay muted loop playsinline preload="metadata" aria-label="Featured video preview"></video>
         <div class="nx-hero-art" aria-hidden="true"></div><div class="nx-hero-content">
-        <span class="nx-eyebrow">${featuredDrama ? 'NEXORA · FEATURED DRAMA' : 'NEXORA · TEMPORARY DEMO PREVIEW'}</span>
+        <span class="nx-eyebrow">${featuredDrama ? 'NEXORA · FEATURED DRAMA' : 'NEXORA · YOUR NEXT STORY'}</span>
         <h1>${featuredDrama ? esc(featuredDrama.title) : 'Stories worth staying up for.'}</h1>
-        <p>${featuredDrama ? esc(featuredDrama.description || featuredDrama.logline || featuredDrama.episode || 'A featured story selected for your next watch.') : 'Your cinematic home is ready. This temporary sample clip will automatically give way to your first published drama.'}</p>
-        <div class="nx-hero-actions">${featuredDrama ? `<button class="nx-primary" data-play="${esc(featuredDrama.id)}">▶ &nbsp; PLAY NOW</button>` : `<button class="nx-primary" data-demo-play>▶ &nbsp; WATCH DEMO</button>`}${featuredDrama ? `<button class="nx-secondary" data-details="${esc(featuredDrama.id)}">ⓘ &nbsp; MORE INFO</button>` : `<button class="nx-secondary" data-go="originals">ⓘ &nbsp; MORE INFO</button>`}</div>
-        <div class="nx-hero-meta"><span>✦ NEXORA PICK</span><span>${featuredDrama ? 'YOUR UPLOADED VIDEO' : 'DEMO CLIP · CC0'}</span><span>SHORT DRAMA EXPERIENCE</span></div>
+        <p>${featuredDrama ? esc(featuredDrama.description || featuredDrama.logline || featuredDrama.episode || 'A featured story selected for your next watch.') : 'Explore the NEXORA collection and discover original drama series.'}</p>
+        <div class="nx-hero-actions">${featuredDrama ? `<button class="nx-primary" data-play="${esc(featuredDrama.id)}">▶ &nbsp; PLAY NOW</button>` : `<button class="nx-primary" data-go="originals">EXPLORE ORIGINALS</button>`}${featuredDrama ? `<button class="nx-secondary" data-details="${esc(featuredDrama.id)}">ⓘ &nbsp; MORE INFO</button>` : ''}</div>
+        <div class="nx-hero-meta"><span>✦ NEXORA PICK</span><span>${featuredDrama ? 'YOUR UPLOADED DRAMA' : 'ORIGINAL SERIES'}</span><span>SHORT DRAMA EXPERIENCE</span></div>
       </div></section>
       ${continueItem ? `<section class="nx-shelf"><div class="nx-shelf-heading"><h2>Continue Watching</h2><span>Pick up where you left off</span></div><div class="nx-card-row"><article class="nx-continue-card"><div class="nx-continue-thumb">${safeHttpsUrl(continueItem.poster) ? `<img src="${esc(safeHttpsUrl(continueItem.poster))}" alt="${esc(continueItem.title)} poster">` : '<span>NEXORA</span>'}<i style="width:${Math.max(2,Math.min(98,Math.round((continueProgress.time||0)/(continueProgress.duration||((continueProgress.time||0)+60))*100)))}%"></i></div><div class="nx-continue-info"><b>${esc(continueItem.title)}</b><small>${esc(continueItem.episode||'Episode')} · ${Math.floor((continueProgress.time||0)/60)}:${String((continueProgress.time||0)%60).padStart(2,'0')}</small><button data-play="${esc(continueItem.id)}">▶ CONTINUE</button></div></article></div></section>` : ''}
       ${recentItems.length ? `<section class="nx-shelf"><div class="nx-shelf-heading"><h2>Recently Watched</h2><button data-go="history">SEE ALL ›</button></div><div class="nx-card-row">${recentItems.map(card).join('')}</div></section>` : ''}
@@ -843,7 +831,7 @@ function renderScreen() {
     // Register diagnostics before starting media loading; Android WebView can fail quickly.
     video.removeAttribute('src');
     video.querySelectorAll('source').forEach(source => source.remove());
-    video.preload = 'auto';
+    video.preload = 'metadata';
     if(subtitleUrl){const track=document.createElement('track');track.kind='subtitles';track.label='Subtitles';track.srclang='en';track.src=subtitleUrl;video.appendChild(track);}
     const volumeToggle = document.querySelector('#volumeToggle');
     const syncVolumeToggle = () => {
@@ -1200,61 +1188,32 @@ function card(x) {
   </article>`;
 }
 function hydrateMissingDramaThumbnails(root = document) {
+  // Never download an entire drama video just to synthesize a card thumbnail.
+  // Owners should upload a poster; otherwise show the lightweight branded fallback.
   const images = [...root.querySelectorAll('img[data-video-thumbnail]')];
-  const hydrate = img => {
-    const entry = items.find(item => item.id === img.dataset.videoThumbnail);
-    if (!entry || img.dataset.hydrating === '1' || img.dataset.generated === '1') return;
+  for (const img of images) {
     const fallback = img.nextElementSibling;
-    const generate = async () => {
-      if (img.dataset.hydrating === '1' || img.dataset.generated === '1') return;
-      img.dataset.hydrating = '1';
-      try {
-        const frame = await captureDramaThumbnail(entry.url);
-        if (!frame) throw new Error('Video frame unavailable');
-        const previewUrl = URL.createObjectURL(frame);
-        activeThumbnailObjectUrls.add(previewUrl);
-        const releasePreview = () => { URL.revokeObjectURL(previewUrl); activeThumbnailObjectUrls.delete(previewUrl); };
-        img.addEventListener('load', releasePreview, {once:true});
-        img.addEventListener('error', releasePreview, {once:true});
-        img.src = previewUrl;
-        img.hidden = false;
-        img.style.opacity = '1';
-        img.dataset.generated = '1';
-        if (fallback) fallback.hidden = true;
-      } catch (_) {
-        img.hidden = true;
-        if (fallback) fallback.hidden = false;
-        const note = fallback?.querySelector('small');
-        if (note) note.textContent = 'VIDEO THUMBNAIL NOT AVAILABLE';
-      } finally {
-        img.dataset.hydrating = '0';
-      }
+    const showFallback = () => {
+      img.hidden = true;
+      if (fallback) fallback.hidden = false;
     };
+    if (!img.getAttribute('src')) {
+      showFallback();
+      continue;
+    }
     img.addEventListener('load', () => {
       if (img.naturalWidth > 0) {
         img.hidden = false;
         if (fallback) fallback.hidden = true;
-      }
-    }, {once:true});
-    img.addEventListener('error', generate, {once:true});
-    if (!img.getAttribute('src')) generate();
-    else if (img.complete && img.naturalWidth > 0) {
-      img.hidden = false;
-      if (fallback) fallback.hidden = true;
+      } else showFallback();
+    }, { once: true });
+    img.addEventListener('error', showFallback, { once: true });
+    if (img.complete) {
+      if (img.naturalWidth > 0) {
+        img.hidden = false;
+        if (fallback) fallback.hidden = true;
+      } else showFallback();
     }
-  };
-  if ('IntersectionObserver' in window) {
-    activeThumbnailObserver = new IntersectionObserver(entries => entries.forEach(entry => {
-      if (!entry.isIntersecting) return;
-      observer.unobserve(entry.target);
-      hydrate(entry.target);
-    }), {rootMargin:'280px 0px',threshold:0.01});
-    images.forEach(img => activeThumbnailObserver.observe(img));
-  } else {
-    images.filter(img => {
-      const rect = img.getBoundingClientRect();
-      return rect.top < window.innerHeight + 280 && rect.bottom > -280;
-    }).forEach(hydrate);
   }
 }
 function openDramaDetails(dramaId) {
@@ -1387,47 +1346,6 @@ function isSupportedVideoUrl(videoUrl) {
   return /^https:\/\//i.test(String(videoUrl||'')) && /\.(mp4|webm|mov)(?:[?#]|$)/i.test(String(videoUrl||''));
 }
 
-async function captureDramaThumbnail(source) {
-  return new Promise(resolve => {
-    const video=document.createElement('video');
-    const objectUrl=source instanceof Blob ? URL.createObjectURL(source) : '';
-    if(!objectUrl) video.crossOrigin='anonymous';
-    video.muted=true;video.playsInline=true;video.preload='auto';
-    let finished=false;
-    const done=value=>{if(finished)return;finished=true;video.removeAttribute('src');video.load();if(objectUrl)URL.revokeObjectURL(objectUrl);resolve(value||null);};
-    const timer=window.setTimeout(()=>done(null),20000);
-    const finish=value=>{window.clearTimeout(timer);done(value);};
-    video.onerror=()=>finish(null);
-    let frameRequested=false;
-    const captureFrame=()=>{
-      if(frameRequested||!video.videoWidth||!video.videoHeight||video.readyState<2)return false;
-      frameRequested=true;
-      try{
-        const canvas=document.createElement('canvas'),width=640,height=Math.max(1,Math.round(width*video.videoHeight/video.videoWidth));
-        canvas.width=width;canvas.height=height;
-        const ctx=canvas.getContext('2d');if(!ctx)return finish(null);
-        ctx.drawImage(video,0,0,width,height);
-        canvas.toBlob(blob=>finish(blob),'image/jpeg',0.84);
-        return true;
-      }catch{finish(null);return true;}
-    };
-    let captureAtStart=false;
-    video.onloadedmetadata=()=>{
-      try{
-        const duration=Number(video.duration);
-        const target=Number.isFinite(duration)&&duration>0
-          ? Math.max(0,Math.min(8,duration*0.12,duration-Math.min(0.05,duration/4)))
-          : 0;
-        captureAtStart=target<=0.02;
-        if(captureAtStart){if(video.readyState>=2)captureFrame();}
-        else video.currentTime=target;
-      }catch{finish(null);}
-    };
-    video.onloadeddata=()=>{if(captureAtStart)captureFrame();};
-    video.onseeked=()=>{captureFrame();};
-    video.src=objectUrl||source;video.load();
-  });
-}
 function dramaAssetBucket(contentType){
   return contentType==='video/mp4'||contentType==='video/webm'||contentType==='video/quicktime'
     ? 'nexora-drama-videos' : 'nexora-drama-assets';
@@ -1627,55 +1545,106 @@ async function renderAdmin() {
     items=items.filter(x=>x.id!==b.dataset.delete);await renderAdmin();
   });
 }
+function applyCloudDramaRows(rows) {
+  const cloud = rows.map(row => ({
+    id: row.id,
+    title: row.title,
+    episode: row.episode,
+    episodeNumber: Number(row.episode_number || String(row.episode || '').match(/\d+/)?.[0] || 1),
+    parentDramaId: row.parent_drama_id || null,
+    category: row.category,
+    creator: row.creator,
+    source: row.source_url,
+    license: 'Owner-confirmed permission',
+    isPremium: row.is_premium === true,
+    url: row.is_premium ? '' : (row.video_url || (row.video_storage_path
+      ? supabase.storage.from('nexora-drama-videos').getPublicUrl(row.video_storage_path).data.publicUrl
+      : '')),
+    videoStoragePath: row.video_storage_path || '',
+    premiumVideoStoragePath: row.premium_video_storage_path || '',
+    poster: row.poster_url || '',
+    subtitle: row.subtitle_url || '',
+    watchCount: Number(row.watch_count || 0)
+  }));
+  const demoIds = new Set(seed.map(x => x.id));
+  const cloudIds = new Set(cloud.map(x => x.id));
+  const previousCatalog = items.filter(x => !demoIds.has(x.id))
+    .map(x => [x.id, x.watchCount || 0, x.url || '', x.poster || ''].join('|')).join('~');
+  const nextItems = [...seed, ...cloud, ...items.filter(x => !demoIds.has(x.id) && !cloudIds.has(x.id))];
+  const nextCatalog = nextItems.filter(x => !demoIds.has(x.id))
+    .map(x => [x.id, x.watchCount || 0, x.url || '', x.poster || ''].join('|')).join('~');
+  const catalogueChanged = previousCatalog !== nextCatalog;
+  items = nextItems;
+  if (pendingResumeId && !ownerFlowActive) {
+    const resumeIndex = items.findIndex(entry => entry.id === pendingResumeId);
+    if (resumeIndex >= 0) {
+      active = resumeIndex;
+      view = 'feed';
+      pendingResumeId = '';
+      render();
+      return;
+    }
+  }
+  // Never replace the active player DOM while a video is playing.
+  if (catalogueChanged && !ownerFlowActive && (view === 'home' || view === 'search')) render();
+}
+
 async function performCloudDramasLoad() {
-  if(!supabase)return;
-  // Fetch in bounded pages so large creator catalogues are not silently truncated
-  // by the Supabase/PostgREST maximum-row setting.
-  const pageSize = 250;
+  if (!supabase) return;
+  // Render the first page immediately; fetch older pages afterward so slow links
+  // do not keep the home screen empty while a large catalogue is downloaded.
+  const pageSize = 100;
   let columns = 'id,title,episode,episode_number,parent_drama_id,category,video_url,video_storage_path,is_premium,premium_video_storage_path,poster_url,subtitle_url,creator,source_url,watch_count';
   const allRows = [];
+  let firstPageApplied = false;
+
   for (let offset = 0; ; offset += pageSize) {
-    let result = await supabase.from('dramas').select(columns).eq('published',true).order('created_at',{ascending:false}).range(offset, offset + pageSize - 1);
+    let result = await supabase.from('dramas').select(columns)
+      .eq('published', true).order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
     if (result.error && /is_premium|premium_video_storage_path|column/i.test(result.error.message) && columns.includes('is_premium')) {
       columns = 'id,title,episode,episode_number,parent_drama_id,category,video_url,video_storage_path,poster_url,subtitle_url,creator,source_url,watch_count';
-      result = await supabase.from('dramas').select(columns).eq('published',true).order('created_at',{ascending:false}).range(offset, offset + pageSize - 1);
+      result = await supabase.from('dramas').select(columns)
+        .eq('published', true).order('created_at', { ascending: false })
+        .range(offset, offset + pageSize - 1);
     }
     if (result.error && /subtitle_url|column/i.test(result.error.message) && columns.includes('subtitle_url')) {
       columns = 'id,title,episode,category,video_url,video_storage_path,poster_url,creator,source_url,watch_count';
-      result = await supabase.from('dramas').select(columns).eq('published',true).order('created_at',{ascending:false}).range(offset, offset + pageSize - 1);
+      result = await supabase.from('dramas').select(columns)
+        .eq('published', true).order('created_at', { ascending: false })
+        .range(offset, offset + pageSize - 1);
     }
     if (result.error && /watch_count|column/i.test(result.error.message) && columns.includes('watch_count')) {
       columns = 'id,title,episode,category,video_url,video_storage_path,poster_url,creator,source_url';
-      result = await supabase.from('dramas').select(columns).eq('published',true).order('created_at',{ascending:false}).range(offset, offset + pageSize - 1);
+      result = await supabase.from('dramas').select(columns)
+        .eq('published', true).order('created_at', { ascending: false })
+        .range(offset, offset + pageSize - 1);
     }
-    if (result.error) { console.warn('NEXORA cloud library could not load:',result.error.message); return; }
+    if (result.error) {
+      console.warn('[NEXORA] Cloud catalogue page failed; keeping cached and already-loaded dramas:', result.error.message);
+      return;
+    }
+
     const page = result.data || [];
     allRows.push(...page);
+    lastCloudLoadAt = Date.now();
+    if (!firstPageApplied) {
+      applyCloudDramaRows(allRows);
+      firstPageApplied = true;
+    }
     if (page.length < pageSize) break;
   }
-  const cloud=allRows.map(row=>({id:row.id,title:row.title,episode:row.episode,episodeNumber:Number(row.episode_number||String(row.episode||'').match(/\d+/)?.[0]||1),parentDramaId:row.parent_drama_id||null,category:row.category,creator:row.creator,source:row.source_url,license:'Owner-confirmed permission',isPremium:row.is_premium===true,url:row.is_premium?'':(row.video_url||(row.video_storage_path?supabase.storage.from('nexora-drama-videos').getPublicUrl(row.video_storage_path).data.publicUrl:'')),videoStoragePath:row.video_storage_path||'',premiumVideoStoragePath:row.premium_video_storage_path||'',poster:row.poster_url||'',subtitle:row.subtitle_url||'',watchCount:Number(row.watch_count||0)}));
 
-  const demoIds=new Set(seed.map(x=>x.id)),cloudIds=new Set(cloud.map(x=>x.id));
-  const previousCatalog=items.filter(x=>!demoIds.has(x.id)).map(x=>[x.id,x.watchCount||0,x.url||'',x.poster||''].join('|')).join('~');
-  const nextItems=[...seed,...cloud,...items.filter(x=>!demoIds.has(x.id)&&!cloudIds.has(x.id))];
-  const nextCatalog=nextItems.filter(x=>!demoIds.has(x.id)).map(x=>[x.id,x.watchCount||0,x.url||'',x.poster||''].join('|')).join('~');
-  const catalogueChanged=previousCatalog!==nextCatalog;
-  items=nextItems;
-  if (pendingResumeId && !ownerFlowActive) {
-    const resumeIndex=items.findIndex(entry=>entry.id===pendingResumeId);
-    if (resumeIndex>=0) { active=resumeIndex; view='feed'; pendingResumeId=''; render(); return; }
-  }
-  // Never rebuild the active video DOM during playback. The 30-second catalogue
-  // refresh and watch-count realtime events used to recreate the <video> element,
-  // sending playback back to the beginning (especially noticeable in fullscreen).
-  if(catalogueChanged && !ownerFlowActive && (view==='home'||view==='search'))render();
+  // Apply the complete catalogue once more to append older pages without
+  // repeatedly rebuilding the home DOM during the background pagination.
+  if (firstPageApplied && allRows.length > pageSize) applyCloudDramaRows(allRows);
 }
 let cloudLoadPromise = null;
 let cloudRefreshQueued = false;
 let lastCloudLoadAt = 0;
 async function loadCloudDramas() {
   if (!supabase) return;
-  lastCloudLoadAt = Date.now();
   if (cloudLoadPromise) {
     cloudRefreshQueued = true;
     return cloudLoadPromise;
@@ -1712,9 +1681,12 @@ if (supabase) {
 }
 // Low-frequency fallback supports projects where Supabase Realtime is not enabled.
 window.setInterval(() => {
-  if (document.visibilityState === 'visible' && Date.now() - lastCloudLoadAt >= 110000) loadCloudDramas();
+  if (navigator.onLine !== false && document.visibilityState === 'visible' && Date.now() - lastCloudLoadAt >= 110000) loadCloudDramas();
 }, 120000);
 // Refresh on return only when the cached catalogue is stale; avoid needless background traffic.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && Date.now() - lastCloudLoadAt >= 60000) loadCloudDramas();
+  if (navigator.onLine !== false && document.visibilityState === 'visible' && Date.now() - lastCloudLoadAt >= 60000) loadCloudDramas();
+});
+window.addEventListener('online', () => {
+  if (document.visibilityState === 'visible') loadCloudDramas();
 });
