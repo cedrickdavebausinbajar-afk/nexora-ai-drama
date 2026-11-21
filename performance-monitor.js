@@ -35,6 +35,7 @@ export function startNexoraPerformanceMonitor() {
 
   const startedAt = perf.now();
   const lastVideoEvent = new WeakMap();
+  const videoBufferingStartedAt = new WeakMap();
   const reportStartup = () => {
     const startupMs = perf.now() - startedAt;
     emitMetric('nexora_startup_ready_ms', startupMs);
@@ -45,6 +46,9 @@ export function startNexoraPerformanceMonitor() {
       emitMetric('nexora_navigation_response_ms', nav.responseMs);
       emitMetric('nexora_navigation_transfer_bytes', nav.transferBytes);
     }
+    sampleMemory();
+  };
+  const sampleMemory = () => {
     const memory = perf.memory;
     if (memory && Number.isFinite(memory.usedJSHeapSize)) {
       emitMetric('nexora_js_heap_used_bytes', memory.usedJSHeapSize);
@@ -80,6 +84,16 @@ export function startNexoraPerformanceMonitor() {
     if (previous[event.type] && now - previous[event.type] < VIDEO_EVENT_COOLDOWN_MS) return;
     previous[event.type] = now;
     lastVideoEvent.set(video, previous);
+    if (event.type === 'waiting') videoBufferingStartedAt.set(video, now);
+    if (event.type === 'playing') {
+      const bufferingAt = videoBufferingStartedAt.get(video);
+      if (Number.isFinite(bufferingAt)) {
+        emitMetric('nexora_video_buffering_ms', now - bufferingAt, {
+          video_ready_state: Number(video.readyState || 0)
+        });
+        videoBufferingStartedAt.delete(video);
+      }
+    }
     const params = {
       event_category: 'video_playback',
       video_ready_state: Number(video.readyState || 0),
@@ -90,6 +104,16 @@ export function startNexoraPerformanceMonitor() {
   };
   for (const type of ['playing', 'waiting', 'stalled', 'error']) {
     doc.addEventListener(type, onVideoActivity, true);
+  }
+  doc.addEventListener('error', event => {
+    if (String(event.target?.tagName || '').toLowerCase() === 'img') {
+      emitMetric('nexora_thumbnail_load_error', 1);
+    }
+  }, true);
+  if (typeof win.setInterval === 'function') {
+    win.setInterval(() => {
+      if (doc.visibilityState !== 'hidden') sampleMemory();
+    }, 60000);
   }
 
   win.addEventListener('online', () => emitMetric('nexora_network_online', 1));
