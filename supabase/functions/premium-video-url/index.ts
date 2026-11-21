@@ -111,7 +111,7 @@ Deno.serve(async (req: Request) => {
   // by the reviewed migration before this function is deployed.
   const { data: signed, error: signedError } = await admin.storage
     .from("nexora-premium-videos")
-    .createSignedUrl(drama.premium_video_storage_path, 60);
+    .createSignedUrl(drama.premium_video_storage_path, 3600);
 
   if (signedError || !signed?.signedUrl) {
     return reply(404, { error: "premium_video_unavailable" });
@@ -119,6 +119,6 @@ Deno.serve(async (req: Request) => {
 
   return reply(200, {
     signedUrl: signed.signedUrl,
-    expiresInSeconds: 60,
+    expiresInSeconds: 3600,
   });
 });
