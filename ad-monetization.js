@@ -38,21 +38,23 @@ async function installAdEventListeners() {
 }
 
 async function hasActivePremium() {
-  // If billing configuration is absent, subscription status cannot be verified; suppress ads rather than risk showing them to a paid user.
-  if (!supabaseClient || !PAYMONGO_MODE) return true;
+  // Always check the server-side entitlement ledger, even when checkout is not configured.
+  // If the provider mode is known, scope to it; otherwise check all modes so an existing
+  // active subscriber is never shown ads merely because the public checkout key is absent.
+  if (!supabaseClient) return true;
   const { data: userResult, error: userError } = await supabaseClient.auth.getUser();
   if (userError) throw userError;
   const user = userResult?.user;
   if (!user) return false;
-  const { data, error } = await supabaseClient
+  let query = supabaseClient
     .from('nexora_subscriptions')
     .select('status,current_period_end')
     .eq('user_id', user.id)
     .eq('provider', 'paymongo')
-    .eq('provider_mode', PAYMONGO_MODE)
     .eq('status', 'active')
-    .gt('current_period_end', new Date().toISOString())
-    .limit(1);
+    .gt('current_period_end', new Date().toISOString());
+  if (PAYMONGO_MODE) query = query.eq('provider_mode', PAYMONGO_MODE);
+  const { data, error } = await query.limit(1);
   if (error) throw error;
   return Boolean(data && data.length > 0);
 }
