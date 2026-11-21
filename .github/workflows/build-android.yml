@@ -298,7 +298,7 @@ jobs:
             private void checkNewDramas(Context context) {
               if (SUPABASE_URL.isEmpty() || SUPABASE_KEY.isEmpty()) return;
               try {
-                String endpoint = SUPABASE_URL + "/rest/v1/dramas?select=id,title,episode,created_at&published=eq.true&order=created_at.desc&limit=10";
+                String endpoint = SUPABASE_URL + "/rest/v1/dramas?select=id,title,episode_number,created_at&published=eq.true&order=created_at.desc&limit=10";
                 JSONArray rows = new JSONArray(get(endpoint, true));
                 if (rows.length() == 0) return;
                 String newest = rows.getJSONObject(0).optString("created_at", "");
@@ -311,7 +311,7 @@ jobs:
                   String created = row.optString("created_at", "");
                   if (!created.isEmpty() && created.compareTo(previous) > 0) {
                     fresh++;
-                    if (firstTitle.isEmpty()) { firstTitle=row.optString("title","New drama"); firstEpisode=row.optString("episode","New episode"); }
+                    if (firstTitle.isEmpty()) { firstTitle=row.optString("title","New drama"); firstEpisode="Episode " + row.optString("episode_number","1"); }
                   }
                 }
                 if (fresh > 0) {
