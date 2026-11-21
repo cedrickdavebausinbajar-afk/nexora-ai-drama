@@ -1,7 +1,9 @@
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 
-const PUBLIC_KEY = import.meta.env.VITE_PAYMONGO_PUBLIC_KEY || '';
+const STORE_DISTRIBUTION = import.meta.env.VITE_APP_STORE_DISTRIBUTION === 'true';
+const PAYMONGO_STATUS_KEY = import.meta.env.VITE_PAYMONGO_PUBLIC_KEY || '';
+const PUBLIC_KEY = STORE_DISTRIBUTION ? '' : PAYMONGO_STATUS_KEY;
 const CONFIGURED_RETURN_URL = import.meta.env.VITE_NEXORA_PAYMENT_RETURN_URL || '';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -140,7 +142,7 @@ export async function renderPremiumView(screen, supabase) {
 
     let subscriptions = [];
     let subscriptionLoadError = '';
-    const publicMode = PUBLIC_KEY.startsWith('pk_live_') ? 'live' : PUBLIC_KEY.startsWith('pk_test_') ? 'test' : null;
+    const publicMode = PAYMONGO_STATUS_KEY.startsWith('pk_live_') ? 'live' : PAYMONGO_STATUS_KEY.startsWith('pk_test_') ? 'test' : null;
     if (!publicMode) {
       subscriptionLoadError = 'Secure PayMongo configuration is unavailable in this app build. Premium status cannot be confirmed.';
     } else {
@@ -171,7 +173,8 @@ export async function renderPremiumView(screen, supabase) {
       ${pending ? `<article class="premium-status-card"><span class="premium-status-pill pending">PAYMENT STATUS</span><h2>Subscription pending</h2><p>Complete or verify your first payment. Premium access is granted only after PayMongo confirms payment.</p>${pending.checkout_attempt_id ? '<button id="premiumResumeCheckout" class="gold" type="button">CONTINUE FIRST PAYMENT</button>' : '<p class="premium-notice error">This older pending checkout cannot be resumed automatically. Please contact NEXORA support so it can be safely reconciled.</p>'}<button id="premiumRefresh" class="gold-outline" type="button">REFRESH STATUS</button></article>` : ''}
       ${pastDue ? `<article class="premium-status-card"><span class="premium-status-pill pending">PAYMENT NEEDS ATTENTION</span><h2>Subscription payment is past due</h2><p>Premium access is paused until PayMongo confirms a successful payment. The first-payment resume option is not available for this subscription state. Please contact NEXORA support for payment recovery.</p><button id="premiumRefresh" class="gold-outline" type="button">REFRESH STATUS</button></article>` : ''}
       ${subscriptionLoadError ? `<p class="premium-notice error">${esc(subscriptionLoadError)}</p>` : ''}
-      ${!current && ((!pending && !pastDue) || canResumePendingCheckout) && !subscriptionLoadError ? `<div class="premium-checkout-card">
+      ${STORE_DISTRIBUTION && !current && !subscriptionLoadError ? `<article class="premium-status-card"><h2>Existing subscriber?</h2><p>Sign in with the account that already has NEXORA Premium. New subscriptions and external card checkout are unavailable in this store build.</p></article>` : ''}
+      ${!STORE_DISTRIBUTION && !current && ((!pending && !pastDue) || canResumePendingCheckout) && !subscriptionLoadError ? `<div class="premium-checkout-card">
         <div class="premium-plan-grid"><article><span>WEEKLY</span><strong>₱66</strong><small>Every 7 days</small></article><article><span>MONTHLY</span><strong>₱99</strong><small>Every calendar month</small></article></div>
         <h2>Choose your plan</h2>
         <p class="muted">Secure recurring card billing. Your first payment must be completed before Premium is activated.</p>
