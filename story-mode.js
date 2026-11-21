@@ -52,22 +52,25 @@ function normalizeStory(value) {
 }
 
 function loadStories() {
+  let value = [];
   try {
-    const value = JSON.parse(localStorage.getItem(STORE) || '[]');
-    const existing = Array.isArray(value)
-      ? value.slice(0, 500).map(normalizeStory).filter(Boolean)
-      : [];
-    const now = new Date().toISOString();
-    const missingSamples = SAMPLE_STORIES
-      .filter(sample => !existing.some(story => story.id === sample.id))
-      .map(sample => ({...sample, chapters:sample.chapters.map(ch => ({...ch})), createdAt:now, updatedAt:now}));
-    const combined = [...missingSamples, ...existing];
-    if (missingSamples.length) localStorage.setItem(STORE, JSON.stringify(combined));
-    return combined;
+    value = JSON.parse(localStorage.getItem(STORE) || '[]');
   } catch (error) {
-    console.warn('[NEXORA Story Mode] Stored stories could not be loaded; using sample stories:', error);
-    return SAMPLE_STORIES.map(s => ({...s, chapters:s.chapters.map(ch => ({...ch})), createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()}));
+    console.warn('[NEXORA Story Mode] Stored stories could not be parsed; using sample stories:', error);
   }
+  const existing = Array.isArray(value)
+    ? value.slice(0, 500).map(normalizeStory).filter(Boolean)
+    : [];
+  const now = new Date().toISOString();
+  const missingSamples = SAMPLE_STORIES
+    .filter(sample => !existing.some(story => story.id === sample.id))
+    .map(sample => ({...sample, chapters:sample.chapters.map(ch => ({...ch})), createdAt:now, updatedAt:now}));
+  const combined = [...missingSamples, ...existing];
+  if (missingSamples.length) {
+    try { localStorage.setItem(STORE, JSON.stringify(combined)); }
+    catch (error) { console.warn('[NEXORA Story Mode] Sample story migration could not be saved; existing stories remain available this session:', error); }
+  }
+  return combined;
 }
 function saveStories(stories) {
   try { localStorage.setItem(STORE, JSON.stringify(stories)); return true; }
