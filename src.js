@@ -39,7 +39,7 @@ function trackNexoraEvent(eventName, params = {}) {
       app_platform: NEXORA_PLATFORM,
       ...params
     });
-  } catch (_) {}
+  } catch (error) { console.debug('[NEXORA] Analytics event was not recorded:', error); }
 }
 
 
@@ -112,7 +112,7 @@ async function startUpdateFlow() {
       updateInfo.message = 'Update failed: ' + message;
       setUpdateProgress(0, 'Update failed · ' + message);
     } finally {
-      if (progressHandle) { try { await progressHandle.remove(); } catch (_) {} }
+      if (progressHandle) { try { await progressHandle.remove(); } catch (error) { console.debug('[NEXORA] Update progress listener cleanup failed:', error); } }
       refreshUpdateUI();
       const nextAction = document.querySelector('#updateAction');
       if (nextAction) { nextAction.disabled = false; nextAction.textContent = 'DOWNLOAD UPDATE'; }
@@ -135,7 +135,7 @@ if (Capacitor.isNativePlatform()) {
       trackNexoraEvent('app_first_launch');
       localStorage.setItem('nexora_aidrama_first_launch_v1', '1');
     }
-  } catch (_) {}
+  } catch (error) { console.debug('[NEXORA] First-launch marker could not be saved:', error); }
 }
 
 const APP_REPO = 'nexoraofficialph/nexora-ai-drama';
@@ -144,7 +144,8 @@ let updateInfo = {status:'checking', installed:'', latest:'', url:'', message:'C
 let updatePromptShown = false;
 function showUpdatePopup() {
   if (updateInfo.status !== 'available' || updatePromptShown) return;
-  if (localStorage.getItem('nexora-update-dismissed') === updateInfo.latest) return;
+  try { if (localStorage.getItem('nexora-update-dismissed') === updateInfo.latest) return; }
+  catch (error) { console.debug('[NEXORA] Update dismissal preference could not be read:', error); }
   updatePromptShown = true;
   const popup = document.createElement('div');
   popup.id = 'updatePopup';
@@ -166,7 +167,8 @@ function showUpdatePopup() {
   document.body.appendChild(popup);
   popup.querySelector('#popupUpdateNow').onclick = startUpdateFlow;
   popup.querySelector('#popupUpdateLater').onclick = () => {
-    localStorage.setItem('nexora-update-dismissed', updateInfo.latest);
+    try { localStorage.setItem('nexora-update-dismissed', updateInfo.latest); }
+    catch (error) { console.warn('[NEXORA] Update dismissal preference could not be saved:', error); }
     popup.remove();
   };
 }
@@ -201,7 +203,8 @@ async function performUpdateCheck() {
         message:newerVersion ? (downloadUrl ? 'A new version is ready. Download the official APK and approve the Android installer.' : 'A newer version was found, but its official APK asset is not published yet. Please try again later.') : 'Your app is up to date!'
       };
     }
-  } catch {
+  } catch (error) {
+    console.warn('[NEXORA] Update check failed:', error);
     updateInfo = {...updateInfo,status:'error',message:'Could not check for updates. Please try again.'};
   }
   if (updateInfo.status === 'available' && Capacitor.isNativePlatform()) {
@@ -220,7 +223,7 @@ async function performUpdateCheck() {
           }]});
           localStorage.setItem('nexora-update-notified-v1', updateInfo.latest);
         }
-      } catch (_) {}
+      } catch (error) { console.warn('[NEXORA] Update notification could not be scheduled:', error); }
     }
   }
   const badge=document.querySelector('#updateBadge');
@@ -1515,12 +1518,19 @@ async function renderAdmin() {
       if(progressDetail)progressDetail.textContent='Your drama is now in the shared NEXORA streaming catalogue.';
       await loadCloudDramas();await renderAdmin();
     } catch(error) {
+      let cleanupWarning = '';
       if(!published){
-        if(storagePath)await supabase.storage.from(isPremium?'nexora-premium-videos':'nexora-drama-videos').remove([storagePath]).catch(()=>{});
+        if(storagePath){
+          const {error: cleanupError}=await supabase.storage.from(isPremium?'nexora-premium-videos':'nexora-drama-videos').remove([storagePath]);
+          if(cleanupError){console.error('[NEXORA] Failed to remove an unpublished video object:',cleanupError);cleanupWarning=' Uploaded video cleanup also failed; ask the owner to review storage for an orphaned file.';}
+        }
         const assetCleanup=[posterPath,subtitlePath].filter(Boolean);
-        if(assetCleanup.length)await supabase.storage.from('nexora-drama-assets').remove(assetCleanup).catch(()=>{});
+        if(assetCleanup.length){
+          const {error: assetCleanupError}=await supabase.storage.from('nexora-drama-assets').remove(assetCleanup);
+          if(assetCleanupError){console.error('[NEXORA] Failed to remove unpublished poster/subtitle objects:',assetCleanupError);cleanupWarning+=' Poster/subtitle cleanup also failed; review storage for orphaned files.';}
+        }
       }
-      alert('Could not publish drama: '+(error?.message||'Please check your connection and try again.'));
+      alert('Could not publish drama: '+(error?.message||'Please check your connection and try again.')+cleanupWarning);
       submit.disabled=false;submit.textContent='PUBLISH DRAMA';
     }
   };
