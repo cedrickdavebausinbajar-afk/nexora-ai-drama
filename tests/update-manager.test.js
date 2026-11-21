@@ -82,3 +82,42 @@ test('GitHub API errors are not misreported as a missing APK', async () => {
     error => error?.code === 'UPDATE_RATE_LIMIT'
   );
 });
+
+
+test('transient network failures retry before returning a network error', async () => {
+  let calls = 0;
+  const result = await fetchLatestRelease({
+    repo,
+    attempts: 3,
+    retryDelayMs: 0,
+    sleepImpl: async () => {},
+    fetchImpl: async () => {
+      calls++;
+      if (calls < 3) throw new TypeError('Network connection lost');
+      return {ok:true,status:200,json:async()=>release('v1.0.303')};
+    }
+  });
+  assert.equal(calls, 3);
+  assert.equal(result.version.code, 303);
+});
+
+test('temporary GitHub server errors retry, but rate limits remain explicit', async () => {
+  let calls = 0;
+  const result = await fetchLatestRelease({
+    repo,
+    attempts: 2,
+    retryDelayMs: 0,
+    sleepImpl: async () => {},
+    fetchImpl: async () => {
+      calls++;
+      if (calls === 1) return {ok:false,status:503};
+      return {ok:true,status:200,json:async()=>release('v1.0.304')};
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.version.code, 304);
+  await assert.rejects(
+    fetchLatestRelease({repo,fetchImpl:async()=>({ok:false,status:429})}),
+    error => error?.code === 'UPDATE_RATE_LIMIT'
+  );
+});
