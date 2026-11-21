@@ -802,9 +802,21 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
   const nextEpisode = seriesEpisodes.find(entry =>
     (Number(entry.episodeNumber) || 1) > (Number(x.episodeNumber) || 1)
   );
+  const releaseNextEpisodeBuffer = () => {
+    if (!nextEpisodeBuffer) return;
+    const buffer = nextEpisodeBuffer;
+    nextEpisodeBuffer = null;
+    buffer.pause();
+    buffer.removeAttribute('src');
+    buffer.load();
+  };
   const warmNextEpisode = () => {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const slowNetwork = /^(slow-2g|2g)$/i.test(String(connection?.effectiveType || ''));
+    const lowMemoryDevice = Number.isFinite(Number(navigator.deviceMemory)) &&
+      Number(navigator.deviceMemory) > 0 && Number(navigator.deviceMemory) <= 2;
     if (!video || !nextEpisode || nextEpisode.isPremium || nextEpisodeBuffer ||
-        embeddedPlayer || navigator.connection?.saveData) return;
+        embeddedPlayer || connection?.saveData || slowNetwork || lowMemoryDevice) return;
     const nextPublicUrl = safeHttpsUrl(nextEpisode.url || (nextEpisode.videoStoragePath && supabase
       ? supabase.storage.from('nexora-drama-videos').getPublicUrl(nextEpisode.videoStoragePath).data.publicUrl
       : ''));
@@ -815,15 +827,11 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
     buffer.muted = true;
     buffer.playsInline = true;
     buffer.setAttribute('aria-hidden', 'true');
+    buffer.addEventListener('error', releaseNextEpisodeBuffer, {once:true});
     buffer.src = nextPublicUrl;
     buffer.load();
-    playerSignal.addEventListener('abort', () => {
-      buffer.pause();
-      buffer.removeAttribute('src');
-      buffer.load();
-      nextEpisodeBuffer = null;
-    }, {once:true});
   };
+  playerSignal.addEventListener('abort', releaseNextEpisodeBuffer, {once:true});
   video?.addEventListener('playing', warmNextEpisode, {once:true,signal:playerSignal});
   const drawerTrigger = document.querySelector('#episodeDrawerTrigger');
   const closeDrawer = () => { if (drawerBackdrop) drawerBackdrop.hidden = true; drawerTrigger?.focus(); };
