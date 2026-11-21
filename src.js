@@ -735,6 +735,9 @@ function renderScreen() {
   let playbackUrl = x.isPremium ? '' : safeHttpsUrl(x.url || (x.videoStoragePath && supabase
     ? supabase.storage.from('nexora-drama-videos').getPublicUrl(x.videoStoragePath).data.publicUrl
     : ''));
+  let playbackUrlExpiresAt = 0;
+  let refreshingPremiumUrl = false;
+  let lastPremiumUrlRefreshAt = 0;
   const sourceUrl = safeHttpsUrl(x.source);
   const posterUrl = safeHttpsUrl(x.poster);
   const subtitleUrl = safeHttpsUrl(x.subtitle);
@@ -898,7 +901,49 @@ function renderScreen() {
       if (icon) icon.textContent = state === 'pause' ? 'Ⅱ' : '▶';
       if (label) label.textContent = state === 'replay' ? 'REPLAY EPISODE' : state === 'pause' ? 'PAUSE VIDEO' : 'PLAY EPISODE';
     };
+    async function refreshPremiumPlaybackUrl() {
+      if (!x.isPremium || !supabase || refreshingPremiumUrl ||
+          Date.now() - lastPremiumUrlRefreshAt < 10000) return false;
+      refreshingPremiumUrl = true;
+      lastPremiumUrlRefreshAt = Date.now();
+      const resumeAt = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+      const shouldResume = !video.paused && !video.ended;
+      try {
+        const {data,error} = await supabase.functions.invoke('premium-video-url', {body:{dramaId:x.id}});
+        if (error || !data?.signedUrl) throw new Error(data?.error || error?.message || 'Secure playback refresh was rejected.');
+        const expiresIn = Number(data.expiresInSeconds);
+        playbackUrl = data.signedUrl;
+          playbackUrlExpiresAt = Date.now() + (Number(data.expiresInSeconds) > 0 ? Number(data.expiresInSeconds) : 3600) * 1000;
+        playbackUrlExpiresAt = Date.now() + (Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600) * 1000;
+        const controller = new AbortController();
+        try {
+          await new Promise((resolve,reject) => {
+            const timeout = window.setTimeout(() => reject(new Error('Secure video link refresh timed out.')), 12000);
+            const finish = callback => value => { window.clearTimeout(timeout); callback(value); };
+            video.addEventListener('loadedmetadata', finish(resolve), {once:true,signal:controller.signal});
+            video.addEventListener('error', finish(() => reject(new Error('The refreshed premium video could not load.'))), {once:true,signal:controller.signal});
+            video.src = playbackUrl;
+            video.load();
+          });
+        } finally { controller.abort(); }
+        if (Number.isFinite(video.duration) && video.duration > 0) {
+          video.currentTime = Math.min(resumeAt, Math.max(0, video.duration - 0.25));
+        }
+        if (shouldResume) await video.play();
+        if (errorBox) errorBox.hidden = true;
+        return true;
+      } catch (error) {
+        if (errorMessage) errorMessage.textContent = error?.message || 'Secure premium playback could not be refreshed. Check your connection and retry.';
+        if (errorBox) errorBox.hidden = false;
+        return false;
+      } finally { refreshingPremiumUrl = false; }
+    }
     if (premiumPlayButton) premiumPlayButton.addEventListener('click', async () => {
+      if (x.isPremium && playbackUrl && playbackUrlExpiresAt &&
+          Date.now() >= playbackUrlExpiresAt - 30000) {
+        const refreshed = await refreshPremiumPlaybackUrl();
+        if (!refreshed) return;
+      }
       if (x.isPremium && !playbackUrl) {
         if (errorMessage) errorMessage.textContent = 'Unlock this premium episode by watching one rewarded ad, or subscribe to NEXORA Premium.';
         if (errorBox) errorBox.hidden = false;
@@ -979,6 +1024,8 @@ function renderScreen() {
     });
     video.addEventListener('playing', () => { cancelContinueNotification(); });
     video.addEventListener('timeupdate', () => {
+      if (x.isPremium && playbackUrlExpiresAt && !refreshingPremiumUrl &&
+          Date.now() >= playbackUrlExpiresAt - 90000) void refreshPremiumPlaybackUrl();
       maybeRecordDramaView();
       if (Math.abs(video.currentTime - lastProgressWrite) < 2) return;
       lastProgressWrite = video.currentTime;
@@ -1029,6 +1076,11 @@ function renderScreen() {
     });
     video.addEventListener('error', () => {
       const code = video.error?.code;
+      if (x.isPremium && (code === 2 || code === 4) && !refreshingPremiumUrl &&
+          (!playbackUrlExpiresAt || Date.now() >= playbackUrlExpiresAt - 30000)) {
+        void refreshPremiumPlaybackUrl();
+        return;
+      }
       const messages = {
         1: 'Playback was interrupted. Tap RETRY to continue.',
         2: 'A network error stopped this video. Check your connection, then retry.',
@@ -1054,7 +1106,8 @@ function renderScreen() {
         let unlocked = false;
         for (let attemptNumber=0; attemptNumber<20; attemptNumber++) {
           const {data:videoAccess,error:accessError} = await supabase.functions.invoke('premium-video-url', {body:{dramaId:x.id}});
-          if (!accessError && videoAccess?.signedUrl) { playbackUrl = videoAccess.signedUrl; video.src = playbackUrl; video.load(); unlocked = true; break; }
+          if (!accessError && videoAccess?.signedUrl) { playbackUrl = videoAccess.signedUrl;
+          playbackUrlExpiresAt = Date.now() + (Number(videoAccess.expiresInSeconds) > 0 ? Number(videoAccess.expiresInSeconds) : 3600) * 1000; video.src = playbackUrl; video.load(); unlocked = true; break; }
           await new Promise(resolve=>setTimeout(resolve,2000));
         }
         if (!unlocked) throw new Error('Ad reward was received, but server verification is still pending. Please wait and tap RETRY.');
@@ -1076,6 +1129,7 @@ function renderScreen() {
           const {data,error} = await supabase.functions.invoke('premium-video-url', {body:{dramaId:x.id}});
           if (error || !data?.signedUrl) throw new Error(data?.error || error?.message || 'Premium access could not be verified.');
           playbackUrl = data.signedUrl;
+          playbackUrlExpiresAt = Date.now() + (Number(data.expiresInSeconds) > 0 ? Number(data.expiresInSeconds) : 3600) * 1000;
           source = playbackUrl;
         } catch (error) {
           if (errorMessage) errorMessage.textContent = error?.message || 'Sign in with an active NEXORA Premium account to watch this exclusive episode.';
@@ -1105,6 +1159,7 @@ function renderScreen() {
         supabase.functions.invoke('premium-video-url', {body:{dramaId:x.id}}).then(({data,error})=>{
           if (error || !data?.signedUrl) throw new Error(data?.error || error?.message || 'Premium access could not be verified.');
           playbackUrl = data.signedUrl;
+          playbackUrlExpiresAt = Date.now() + (Number(data.expiresInSeconds) > 0 ? Number(data.expiresInSeconds) : 3600) * 1000;
           video.src = playbackUrl;
           video.load();
         }).catch(error=>{
