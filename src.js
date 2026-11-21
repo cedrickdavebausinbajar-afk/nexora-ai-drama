@@ -795,6 +795,36 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
   const fullscreenButton = document.querySelector('#fullscreenPlayer');
   const video = document.querySelector('#dramaVideo');
   const drawerBackdrop = document.querySelector('#episodeDrawerBackdrop');
+  // Warm the next public episode in a separate decoder/buffer after the current
+  // episode starts. Premium media is deliberately excluded: it must be fetched
+  // only through the existing server-side signed-URL authorization flow.
+  let nextEpisodeBuffer = null;
+  const nextEpisode = seriesEpisodes.find(entry =>
+    (Number(entry.episodeNumber) || 1) > (Number(x.episodeNumber) || 1)
+  );
+  const warmNextEpisode = () => {
+    if (!video || !nextEpisode || nextEpisode.isPremium || nextEpisodeBuffer ||
+        embeddedPlayer || navigator.connection?.saveData) return;
+    const nextPublicUrl = safeHttpsUrl(nextEpisode.url || (nextEpisode.videoStoragePath && supabase
+      ? supabase.storage.from('nexora-drama-videos').getPublicUrl(nextEpisode.videoStoragePath).data.publicUrl
+      : ''));
+    if (!nextPublicUrl || !isSupportedVideoUrl(nextPublicUrl)) return;
+    const buffer = document.createElement('video');
+    nextEpisodeBuffer = buffer;
+    buffer.preload = 'auto';
+    buffer.muted = true;
+    buffer.playsInline = true;
+    buffer.setAttribute('aria-hidden', 'true');
+    buffer.src = nextPublicUrl;
+    buffer.load();
+    playerSignal.addEventListener('abort', () => {
+      buffer.pause();
+      buffer.removeAttribute('src');
+      buffer.load();
+      nextEpisodeBuffer = null;
+    }, {once:true});
+  };
+  video?.addEventListener('playing', warmNextEpisode, {once:true,signal:playerSignal});
   const drawerTrigger = document.querySelector('#episodeDrawerTrigger');
   const closeDrawer = () => { if (drawerBackdrop) drawerBackdrop.hidden = true; drawerTrigger?.focus(); };
   drawerTrigger?.addEventListener('click', () => { if (drawerBackdrop) drawerBackdrop.hidden = false; });
