@@ -26,6 +26,7 @@ async function paymongo(
 ) {
   const response = await fetch(`https://api.paymongo.com/v1/${path}`, {
     method,
+    signal: AbortSignal.timeout(15000),
     headers: {
       "Authorization": `Basic ${btoa(secret + ":")}`,
       "Content-Type": "application/json",
