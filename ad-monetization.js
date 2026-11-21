@@ -2,6 +2,8 @@ import { Capacitor } from '@capacitor/core';
 import { AdMob, AdmobConsentStatus, BannerAdSize, BannerAdPosition } from '@capacitor-community/admob';
 
 const BANNER_AD_ID = 'ca-app-pub-4497851143738030/2668274674';
+const PAYMONGO_PUBLIC_KEY = import.meta.env.VITE_PAYMONGO_PUBLIC_KEY || '';
+const PAYMONGO_MODE = PAYMONGO_PUBLIC_KEY.startsWith('pk_live_') ? 'live' : PAYMONGO_PUBLIC_KEY.startsWith('pk_test_') ? 'test' : null;
 let consentReady = false;
 let initPromise = null;
 let consentInfoPromise = null;
@@ -10,9 +12,12 @@ let premiumStatus = null;
 let requestedView = 'home';
 let bannerVisible = false;
 let supabaseClient = null;
+let authSubscription = null;
+let bannerQueue = Promise.resolve();
+let bannerRevision = 0;
 
 async function hasActivePremium() {
-  if (!supabaseClient) return false;
+  if (!supabaseClient || !PAYMONGO_MODE) return false;
   const { data: userResult, error: userError } = await supabaseClient.auth.getUser();
   if (userError) throw userError;
   const user = userResult?.user;
@@ -21,6 +26,8 @@ async function hasActivePremium() {
     .from('nexora_subscriptions')
     .select('status,current_period_end')
     .eq('user_id', user.id)
+    .eq('provider', 'paymongo')
+    .eq('provider_mode', PAYMONGO_MODE)
     .order('created_at', { ascending: false })
     .limit(5);
   if (error) throw error;
@@ -61,36 +68,43 @@ async function initializeWithConsent() {
   return initPromise;
 }
 
-async function applyBannerState() {
+async function hideBanner() {
+  if (!bannerVisible) return;
+  try {
+    await AdMob.hideBanner();
+    bannerVisible = false;
+  } catch (error) {
+    console.warn('NEXORA banner could not be hidden:', error);
+  }
+}
+
+async function applyBannerState(revision) {
   if (!Capacitor.isNativePlatform()) return;
   const allowedViews = new Set(['home', 'feed', 'search', 'saved', 'originals']);
-  const shouldShow = allowedViews.has(requestedView);
-  if (!shouldShow) {
-    if (bannerVisible) {
-      try { await AdMob.hideBanner(); } catch {}
-      bannerVisible = false;
-    }
+  if (!allowedViews.has(requestedView)) {
+    await hideBanner();
     return;
   }
 
   try {
-    const premium = await hasActivePremium();
-    premiumStatus = premium;
+    premiumStatus = await hasActivePremium();
   } catch (error) {
     // Fail closed: never show ads when subscription status cannot be verified.
     premiumStatus = true;
     console.warn('NEXORA Premium status check failed; ads are paused:', error);
   }
 
+  // Navigation/auth may change while network and consent requests are pending.
+  // A stale operation must never re-show a banner on a screen that forbids ads.
+  if (revision !== bannerRevision) return;
   if (premiumStatus) {
-    if (bannerVisible) {
-      try { await AdMob.hideBanner(); } catch {}
-      bannerVisible = false;
-    }
+    await hideBanner();
     return;
   }
 
   if (!await initializeWithConsent()) return;
+  if (revision !== bannerRevision || !allowedViews.has(requestedView) || premiumStatus) return;
+
   try {
     await AdMob.showBanner({
       adId: BANNER_AD_ID,
@@ -99,27 +113,42 @@ async function applyBannerState() {
       margin: 0
     });
     bannerVisible = true;
+    if (revision !== bannerRevision || !allowedViews.has(requestedView)) {
+      await hideBanner();
+    }
   } catch (error) {
     bannerVisible = false;
     console.warn('NEXORA banner ad could not be displayed:', error);
   }
 }
 
+function queueBannerState() {
+  const revision = ++bannerRevision;
+  bannerQueue = bannerQueue
+    .catch(error => { console.warn('NEXORA previous banner operation failed:', error); })
+    .then(() => applyBannerState(revision))
+    .catch(error => { console.warn('NEXORA banner state update failed:', error); });
+  return bannerQueue;
+}
+
 export function initializeNexoraAds(supabase) {
   if (!Capacitor.isNativePlatform()) return;
-  supabaseClient = supabase;
+  supabaseClient = supabase || null;
+  if (authSubscription?.unsubscribe) authSubscription.unsubscribe();
+  authSubscription = null;
   if (supabaseClient?.auth?.onAuthStateChange) {
-    supabaseClient.auth.onAuthStateChange(() => {
+    const result = supabaseClient.auth.onAuthStateChange(() => {
       premiumStatus = null;
-      void applyBannerState();
+      void queueBannerState();
     });
+    authSubscription = result?.data?.subscription || null;
   }
-  void applyBannerState();
+  void queueBannerState();
 }
 
 export function setNexoraAdView(view) {
   requestedView = String(view || 'home');
-  void applyBannerState();
+  void queueBannerState();
 }
 
 export async function isNexoraPrivacyOptionsRequired() {
