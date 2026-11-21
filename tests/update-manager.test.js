@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   parseReleaseVersion,
   compareReleaseVersions,
+  isReleaseNewer,
   findOfficialApkAsset,
   fetchLatestRelease
 } from '../update-manager.js';
@@ -30,6 +31,11 @@ test('release tags are parsed strictly and compared semantically', () => {
   assert.equal(parseReleaseVersion('v1.0.latest'), null);
   assert.equal(compareReleaseVersions(parseReleaseVersion('v1.1.0'), parseReleaseVersion('v1.0.999')), 1);
   assert.equal(compareReleaseVersions(parseReleaseVersion('v1.0.301'), parseReleaseVersion('v1.0.302')), -1);
+  assert.equal(isReleaseNewer('v2.0.0', '1.9.999'), true);
+  assert.equal(isReleaseNewer('v1.1.0', '1.0.999'), true);
+  assert.equal(isReleaseNewer('v1.0.339', '1.0.333'), true);
+  assert.equal(isReleaseNewer('v1.0.333', '1.0.339'), false);
+  assert.throws(() => isReleaseNewer('v1.0.340', 'unknown'), /installed app version metadata is invalid/);
 });
 
 test('only the exact official uploaded APK asset is accepted', () => {
