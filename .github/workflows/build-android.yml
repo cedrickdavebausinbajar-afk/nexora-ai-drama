@@ -1,4 +1,5 @@
 name: Build NEXORA AI DRAMA APK
+# Rebuild the native package whenever AdMob integration changes.
 
 on:
   push:

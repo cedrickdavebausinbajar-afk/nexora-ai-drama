@@ -19,22 +19,6 @@ let supabaseClient = null;
 let authSubscription = null;
 let bannerQueue = Promise.resolve();
 let bannerRevision = 0;
-let adEventListenersReady = false;
-
-async function installAdEventListeners() {
-  if (adEventListenersReady) return;
-  await Promise.all([
-    AdMob.addListener('bannerAdLoaded', () => console.info('[NEXORA][AdMob] Banner load success.')),
-    AdMob.addListener('bannerAdFailedToLoad', error => console.warn('[NEXORA][AdMob] Banner load failed:', error)),
-    AdMob.addListener('onRewardedVideoAdLoaded', () => console.info('[NEXORA][AdMob] Rewarded load success.')),
-    AdMob.addListener('onRewardedVideoAdFailedToLoad', error => console.warn('[NEXORA][AdMob] Rewarded load failed:', error)),
-    AdMob.addListener('onRewardedVideoAdShowed', () => console.info('[NEXORA][AdMob] Rewarded show success.')),
-    AdMob.addListener('onRewardedVideoAdFailedToShow', error => console.warn('[NEXORA][AdMob] Rewarded show failed:', error)),
-    AdMob.addListener('onRewardedVideoAdReward', reward => console.info('[NEXORA][AdMob] Reward earned event:', reward)),
-    AdMob.addListener('onRewardedVideoAdDismissed', () => console.info('[NEXORA][AdMob] Rewarded ad dismissed.'))
-  ]);
-  adEventListenersReady = true;
-}
 
 async function hasActivePremium() {
   if (!supabaseClient || !PAYMONGO_MODE) return false;
@@ -75,7 +59,6 @@ async function initializeWithConsent() {
       privacyOptionsRequired = consent.privacyOptionsRequirementStatus === 'REQUIRED';
       if (!consent.canRequestAds) return false;
       await AdMob.initialize();
-      await installAdEventListeners();
       consentReady = true;
       return true;
     })().catch(error => {
