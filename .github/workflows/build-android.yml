@@ -203,7 +203,7 @@ jobs:
           public class NexoraNotificationWorker extends Worker {
             private static final String SUPABASE_URL = __SUPABASE_URL__;
             private static final String SUPABASE_KEY = __SUPABASE_KEY__;
-            private static final String REPO = "cedrickdavebausinbajar-afk/nexora-ai-drama";
+            private static final String REPO = "nexoraofficialph/nexora-ai-drama";
             public NexoraNotificationWorker(Context context, WorkerParameters params) { super(context, params); }
             @Override public Result doWork() {
               Context context = getApplicationContext();
