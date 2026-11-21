@@ -184,6 +184,7 @@ jobs:
           import android.content.pm.PackageInfo;
           import android.content.pm.PackageManager;
           import android.os.Build;
+          import android.util.Log;
           import androidx.core.app.NotificationCompat;
           import androidx.core.app.NotificationManagerCompat;
           import androidx.core.content.ContextCompat;
@@ -222,21 +223,26 @@ jobs:
             }
             private String get(String address, boolean supabase) throws Exception {
               HttpURLConnection connection = (HttpURLConnection)new URL(address).openConnection();
-              connection.setRequestMethod("GET"); connection.setConnectTimeout(10000); connection.setReadTimeout(10000);
-              connection.setRequestProperty("Accept", "application/json");
-              connection.setRequestProperty("User-Agent", "NEXORA-AI-DRAMA-Android");
-              if (supabase && !SUPABASE_KEY.isEmpty()) {
-                connection.setRequestProperty("apikey", SUPABASE_KEY);
-                connection.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
+              try {
+                connection.setRequestMethod("GET"); connection.setConnectTimeout(10000); connection.setReadTimeout(10000);
+                connection.setRequestProperty("Accept", "application/json");
+                connection.setRequestProperty("User-Agent", "NEXORA-AI-DRAMA-Android");
+                if (supabase && !SUPABASE_KEY.isEmpty()) {
+                  connection.setRequestProperty("apikey", SUPABASE_KEY);
+                  connection.setRequestProperty("Authorization", "Bearer " + SUPABASE_KEY);
+                }
+                int status = connection.getResponseCode();
+                InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
+                if (stream == null) throw new Exception("HTTP " + status + " returned no response body");
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                  StringBuilder result = new StringBuilder(); String line;
+                  while ((line = reader.readLine()) != null) result.append(line);
+                  if (status < 200 || status >= 300) throw new Exception("HTTP " + status);
+                  return result.toString();
+                }
+              } finally {
+                connection.disconnect();
               }
-              int status = connection.getResponseCode();
-              InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
-              BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
-              StringBuilder result = new StringBuilder(); String line;
-              while ((line = reader.readLine()) != null) result.append(line);
-              reader.close(); connection.disconnect();
-              if (status < 200 || status >= 300) throw new Exception("HTTP " + status);
-              return result.toString();
             }
             private boolean notify(Context context, int id, String title, String body, String channel) {
               if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false;
@@ -248,7 +254,7 @@ jobs:
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(body)).setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT).setContentIntent(pending);
               try { NotificationManagerCompat.from(context).notify(id, builder.build()); return true; }
-              catch (SecurityException ignored) { return false; }
+              catch (SecurityException error) { Log.w("NEXORA", "Notification permission denied by Android", error); return false; }
             }
             private void checkLatestAppVersion(Context context) {
               try {
@@ -270,7 +276,7 @@ jobs:
                     }
                   }
                 }
-              } catch (Exception ignored) {}
+              } catch (Exception error) { Log.w("NEXORA", "Background app-release check failed", error); }
             }
             private void checkNewDramas(Context context) {
               if (SUPABASE_URL.isEmpty() || SUPABASE_KEY.isEmpty()) return;
@@ -297,7 +303,7 @@ jobs:
                     prefs.edit().putString("last_drama_created_at", newest).apply();
                   }
                 }
-              } catch (Exception ignored) {}
+              } catch (Exception error) { Log.w("NEXORA", "Background new-drama check failed", error); }
             }
           }
           """
@@ -359,8 +365,19 @@ jobs:
             @PluginMethod
             public void downloadAndInstall(PluginCall call) {
               String address = call.getString("url");
-              if (address == null || !address.startsWith("https://")) {
-                call.reject("A secure HTTPS APK URL is required."); return;
+              if (address == null) {
+                call.reject("A secure official NEXORA APK URL is required."); return;
+              }
+              try {
+                URL requested = new URL(address);
+                String path = requested.getPath();
+                if (!"https".equalsIgnoreCase(requested.getProtocol()) ||
+                    !"github.com".equalsIgnoreCase(requested.getHost()) ||
+                    !path.matches("/nexoraofficialph/nexora-ai-drama/releases/download/v[0-9]+\\.[0-9]+\\.[0-9]+/NEXORA-AI-DRAMA\\.apk")) {
+                  call.reject("Only official NEXORA AI DRAMA release APKs can be installed."); return;
+                }
+              } catch (Exception invalidUrl) {
+                call.reject("The official NEXORA APK URL is invalid.", invalidUrl); return;
               }
               if (Build.VERSION.SDK_INT >= 26 && !getContext().getPackageManager().canRequestPackageInstalls()) {
                 Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
@@ -380,6 +397,13 @@ jobs:
                   connection.setConnectTimeout(20000); connection.setReadTimeout(30000);
                   connection.setRequestProperty("User-Agent", "NEXORA-AI-DRAMA-Android");
                   int status = connection.getResponseCode();
+                  URL finalUrl = connection.getURL();
+                  String finalHost = finalUrl.getHost();
+                  boolean trustedHost = "github.com".equalsIgnoreCase(finalHost) ||
+                    "release-assets.githubusercontent.com".equalsIgnoreCase(finalHost) ||
+                    "objects.githubusercontent.com".equalsIgnoreCase(finalHost);
+                  if (!"https".equalsIgnoreCase(finalUrl.getProtocol()) || !trustedHost)
+                    throw new Exception("APK download redirected to an untrusted server.");
                   if (status < 200 || status >= 300) throw new Exception("APK server returned HTTP " + status + ".");
                   long length = connection.getContentLengthLong();
                   if (length > 600L * 1024L * 1024L) throw new Exception("APK is larger than the allowed download size.");
