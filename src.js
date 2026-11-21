@@ -611,7 +611,7 @@ function renderScreen() {
     screen.innerHTML = `<section class="shorts-head"><h1>Drama Shorts</h1><p>Swipe up for the next short. Videos shown here are creator-credited catalogue entries; only videos you are authorized to publish should be added.</p></section>
       ${playable.length ? `<div class="shorts-feed">${playable.map((x,i)=>`<article class="short-card" data-short-index="${i}">
         <video class="short-video" data-src="${esc(x.url)}" ${videoMimeType(x.url) ? `data-type="${videoMimeType(x.url)}"` : ''} ${x.poster ? `poster="${esc(x.poster)}"` : ''} controls playsinline muted loop preload="none"></video>
-        <div class="short-shade"></div><div class="short-meta"><span class="short-tag">NEXORA SHORTS</span><h2>${esc(x.title)}</h2><p>${esc(x.episode || x.category || 'Drama')}</p><small>Creator: ${esc(x.creator || 'Not listed')}</small>${x.source ? `<a href="${esc(x.source)}" target="_blank" rel="noopener">VIEW ORIGINAL SOURCE ↗</a>` : ''}</div>
+        <div class="short-shade"></div><div class="short-meta"><span class="short-tag">NEXORA SHORTS</span><h2>${esc(x.title)}</h2><p>${esc(x.episode || x.category || 'Drama')}</p><small>Creator: ${esc(x.creator || 'Not listed')}</small>${safeHttpsUrl(x.source) ? `<a href="${esc(safeHttpsUrl(x.source))}" target="_blank" rel="noopener noreferrer">VIEW ORIGINAL SOURCE ↗</a>` : ''}</div>
         <span class="short-counter">${i+1} / ${playable.length}</span>
       </article>`).join('')}</div>` : `<article class="short-card short-demo-card">
         <video class="short-video" data-src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" controls playsinline muted loop preload="none"></video>
