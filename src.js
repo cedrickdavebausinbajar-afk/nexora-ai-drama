@@ -1,4 +1,5 @@
 import './style.css';
+import { safeStorageGet, safeStorageSet, fetchWithTimeout } from './runtime-resilience.js';
 
 // Keep Firebase-based diagnostics off the critical startup path.
 if (typeof window !== 'undefined') {
@@ -40,25 +41,6 @@ function trackNexoraEvent(eventName, params = {}) {
       ...params
     });
   } catch (error) { console.debug('[NEXORA] Analytics event was not recorded:', error); }
-}
-
-function safeStorageGet(key) {
-  try { return window.localStorage?.getItem(String(key)) ?? null; }
-  catch (error) { console.debug('[NEXORA] Optional storage read unavailable:', error?.name || 'StorageError'); return null; }
-}
-function safeStorageSet(key, value) {
-  try { window.localStorage?.setItem(String(key), String(value)); return true; }
-  catch (error) { console.debug('[NEXORA] Optional storage write unavailable:', error?.name || 'StorageError'); return false; }
-}
-async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, {...options, signal:controller.signal});
-    return response;
-  } finally {
-    window.clearTimeout(timeout);
-  }
 }
 
 function formatUpdateBytes(bytes) {
