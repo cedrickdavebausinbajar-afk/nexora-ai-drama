@@ -9,6 +9,7 @@ const BANNER_AD_ID = IS_AD_TEST_BUILD
 const PAYMONGO_PUBLIC_KEY = import.meta.env.VITE_PAYMONGO_PUBLIC_KEY || '';
 const PAYMONGO_MODE = PAYMONGO_PUBLIC_KEY.startsWith('pk_live_') ? 'live' : PAYMONGO_PUBLIC_KEY.startsWith('pk_test_') ? 'test' : null;
 let consentReady = false;
+let sdkInitialized = false;
 let initPromise = null;
 let consentInfoPromise = null;
 let privacyOptionsRequired = false;
@@ -74,8 +75,12 @@ async function initializeWithConsent() {
       }
       privacyOptionsRequired = consent.privacyOptionsRequirementStatus === 'REQUIRED';
       if (!consent.canRequestAds) return false;
-      await AdMob.initialize();
-      await installAdEventListeners();
+      if (!sdkInitialized) {
+        await AdMob.initialize();
+        await installAdEventListeners();
+        sdkInitialized = true;
+        console.info('[NEXORA][AdMob] SDK initialized once after consent.');
+      }
       consentReady = true;
       return true;
     })().catch(error => {
