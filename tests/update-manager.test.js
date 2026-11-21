@@ -51,6 +51,12 @@ test('only the exact official uploaded APK asset is accepted', () => {
   const wrongName = release();
   wrongName.assets[0].name = 'debug.apk';
   assert.equal(findOfficialApkAsset(wrongName), null);
+  const missingDigest = release();
+  delete missingDigest.assets[0].digest;
+  assert.equal(findOfficialApkAsset(missingDigest), null);
+  const malformedDigest = release();
+  malformedDigest.assets[0].digest = 'sha256:not-a-real-checksum';
+  assert.equal(findOfficialApkAsset(malformedDigest), null);
 });
 
 test('latest release lookup retries while GitHub is still attaching the APK', async () => {
