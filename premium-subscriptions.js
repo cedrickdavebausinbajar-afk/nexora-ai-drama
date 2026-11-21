@@ -150,6 +150,7 @@ export async function renderPremiumView(screen, supabase) {
         .eq('user_id', user.id)
         .eq('provider', 'paymongo')
         .eq('provider_mode', publicMode)
+        .in('status', ['active', 'pending', 'past_due'])
         .order('created_at', { ascending: false })
         .limit(5);
       if (rowsError) subscriptionLoadError = 'Subscription database setup is not active yet. Checkout is unavailable until the NEXORA subscription migrations are applied.';
