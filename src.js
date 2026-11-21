@@ -364,6 +364,15 @@ async function initializePhoneNotifications() {
 let selectedSeries = null;
 let selectedDramaId = null;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeHttpsUrl = value => {
+  if (typeof value !== 'string' || !value.trim()) return '';
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password ? url.href : '';
+  } catch {
+    return '';
+  }
+};
 const save = () => localStorage.setItem(KEY, JSON.stringify(items));
 const builtInIds = new Set(seed.map(x => x.id));
 const isDemo = x => builtInIds.has(x.id);
@@ -388,9 +397,10 @@ function shell() {
   <button class="drawer-link" id="adPrivacyOptions" hidden>⚙ &nbsp; Privacy choices</button>
   <button class="drawer-link" data-view="updates">↻ &nbsp; Updates <span id="updateBadge">CHECKING</span></button>
   <div class="drawer-divider"></div>
-  <a class="drawer-link" href="https://cedrickdavebausinbajar-afk.github.io/nexora-official-website/" target="_blank" rel="noopener">◎ &nbsp; Official website ↗</a>
+  <a class="drawer-link" href="https://nexoraofficialph.github.io/nexora-official-website/" target="_blank" rel="noopener">◎ &nbsp; Official website ↗</a>
   <a class="drawer-link" href="https://t.me/nexorastudioteam" target="_blank" rel="noopener">✈ &nbsp; Telegram ↗</a>
   <a class="drawer-link" href="https://www.facebook.com/profile.php?id=61596591209056" target="_blank" rel="noopener">f &nbsp; NEXORA FACEBOOK PAGE ↗</a>
+  <a class="drawer-link" href="https://www.facebook.com/profile.php?id=61596319277504" target="_blank" rel="noopener">f &nbsp; NEXORA FACEBOOK PAGE 2 ↗</a>
   <button class="drawer-link owner-link" id="adminOpen">♛ &nbsp; Owner Dashboard</button>
   <p class="drawer-foot">© 2026 NEXORA AI DRAMA</p>
 </aside>
@@ -675,9 +685,12 @@ function renderScreen() {
   const x = items[active];
   const seriesRootId=x.parentDramaId||x.id;
   const seriesEpisodes=items.filter(entry=>entry.id===seriesRootId||entry.parentDramaId===seriesRootId).sort((a,b)=>(a.episodeNumber||1)-(b.episodeNumber||1));
-  let playbackUrl = x.isPremium ? '' : (x.url || (x.videoStoragePath && supabase
+  let playbackUrl = x.isPremium ? '' : safeHttpsUrl(x.url || (x.videoStoragePath && supabase
     ? supabase.storage.from('nexora-drama-videos').getPublicUrl(x.videoStoragePath).data.publicUrl
     : ''));
+  const sourceUrl = safeHttpsUrl(x.source);
+  const posterUrl = safeHttpsUrl(x.poster);
+  const subtitleUrl = safeHttpsUrl(x.subtitle);
   const peerTubeId = String(playbackUrl || '').match(/(?:webseed|download\/videos)\/([0-9a-f-]{36})/i)?.[1];
   const peerTubeEmbed = peerTubeId
     ? `https://video.blender.org/videos/embed/${peerTubeId}?p2p=0&warningTitle=0`
@@ -691,7 +704,7 @@ function renderScreen() {
   <button type="button" id="fullscreenPlayer" class="fullscreen-player" aria-label="Enter full screen" title="Full screen">⛶ <span>FULL SCREEN</span></button>
   ${embeddedPlayer
     ? `<iframe class="peer-player" src="${embeddedPlayer}" title="Watch ${esc(x.title)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>`
-    : `<video id="dramaVideo" controls playsinline webkit-playsinline preload="metadata" poster="${esc(x.poster||'')}">Your device cannot play this video.</video>
+    : `<video id="dramaVideo" controls playsinline webkit-playsinline preload="metadata" poster="${esc(posterUrl)}">Your device cannot play this video.</video>
     <button id="nexoraPlayButton" class="nexora-play-button" type="button" aria-label="Play video">
       <span class="nexora-play-orbit" aria-hidden="true"></span><span class="nexora-play-icon" aria-hidden="true">▶</span>
       <span class="nexora-play-label">PLAY EPISODE</span>
@@ -707,7 +720,7 @@ function renderScreen() {
 </div>
 <section class="episode-picker"><h3>WATCH EPISODES</h3><p>${esc(x.title)}</p><div class="episode-list">${seriesEpisodes.map(entry=>'<button type="button" class="episode-choice '+(entry.id===x.id?'active':'')+'" data-episode-play="'+esc(entry.id)+'"><b>EP '+(entry.episodeNumber||1)+'</b><span>'+esc(entry.episode||('Episode '+(entry.episodeNumber||1)))+'</span></button>').join('')}</div></section>
 <div class="feed-controls"><button id="prev" ${active===0?'disabled':''}>↑ PREVIOUS</button><span>${active+1} / ${items.length}</span><button id="nextText" ${active===items.length-1?'disabled':''}>NEXT ↓</button></div>
-<p class="credit">Credit: ${esc(x.creator||'Not provided')} · ${esc(x.license||'Authorized content')}. <a href="${esc(x.source||'#')}" target="_blank" rel="noopener">Source and license details ↗</a></p>
+<p class="credit">Credit: ${esc(x.creator||'Not provided')} · ${esc(x.license||'Authorized content')}. <a href="${esc(sourceUrl||'#')}" target="_blank" rel="noopener">Source and license details ↗</a></p>
 </section>`;
   const playerController = new AbortController();
   activePlayerController = playerController;
@@ -792,7 +805,7 @@ function renderScreen() {
     video.removeAttribute('src');
     video.querySelectorAll('source').forEach(source => source.remove());
     video.preload = 'auto';
-    if(x.subtitle){const track=document.createElement('track');track.kind='subtitles';track.label='Subtitles';track.srclang='en';track.src=x.subtitle;video.appendChild(track);}
+    if(subtitleUrl){const track=document.createElement('track');track.kind='subtitles';track.label='Subtitles';track.srclang='en';track.src=subtitleUrl;video.appendChild(track);}
     const volumeToggle = document.querySelector('#volumeToggle');
     const syncVolumeToggle = () => {
       if (!volumeToggle) return;
@@ -1066,7 +1079,7 @@ function renderScreen() {
   document.querySelector('#share').onclick = async () => {
     trackNexoraEvent('share_click');
 
-    const data = {title:x.title,text:`Watch ${x.title} on NEXORA AI DRAMA`,url:x.source||location.href};
+    const data = {title:x.title,text:`Watch ${x.title} on NEXORA AI DRAMA`,url:sourceUrl||location.href};
     if (navigator.share) { try { await navigator.share(data); } catch {} }
     else if (navigator.clipboard) { try { await navigator.clipboard.writeText(data.url); alert('Link copied.'); } catch { alert('Sharing is not available on this device yet.'); } }
     else alert('Sharing is not available on this device yet.');
