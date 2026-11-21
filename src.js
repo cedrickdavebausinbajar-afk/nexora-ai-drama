@@ -1,5 +1,7 @@
 import './style.css';
 import { safeStorageGet, safeStorageSet, fetchWithTimeout } from './runtime-resilience.js';
+import { startNexoraPerformanceMonitor } from './performance-monitor.js';
+startNexoraPerformanceMonitor();
 import { fetchLatestRelease } from './update-manager.js';
 
 // Keep Firebase-based diagnostics off the critical startup path.
