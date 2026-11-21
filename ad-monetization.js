@@ -28,14 +28,11 @@ async function hasActivePremium() {
     .eq('user_id', user.id)
     .eq('provider', 'paymongo')
     .eq('provider_mode', PAYMONGO_MODE)
-    .order('created_at', { ascending: false })
-    .limit(5);
+    .eq('status', 'active')
+    .gt('current_period_end', new Date().toISOString())
+    .limit(1);
   if (error) throw error;
-  return (data || []).some(row =>
-    row.status === 'active' &&
-    row.current_period_end &&
-    new Date(row.current_period_end).getTime() > Date.now()
-  );
+  return Boolean(data && data.length > 0);
 }
 
 async function requestNexoraConsentInfo() {
