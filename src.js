@@ -9,7 +9,7 @@ import { registerPlugin } from '@capacitor/core';
 const ApkInstaller = registerPlugin('ApkInstaller');
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { initializeNexoraAds, setNexoraAdView, showNexoraPrivacyOptions, showNexoraRewardedEpisodeAd } from './ad-monetization.js';
+import { initializeNexoraAds, isNexoraPrivacyOptionsRequired, setNexoraAdView, showNexoraPrivacyOptions, showNexoraRewardedEpisodeAd } from './ad-monetization.js';
 const NEXORA_GA_ID = 'G-VYQZ6HT0RD';
 const NEXORA_PLATFORM = Capacitor.isNativePlatform() ? 'android' : 'web';
 if (typeof window !== 'undefined') {
@@ -374,7 +374,7 @@ function shell() {
   <button class="drawer-link" data-view="saved">♥ &nbsp; Saved dramas</button>
   <button class="drawer-link" data-view="history">◷ &nbsp; Watch history</button>
   <button class="drawer-link" data-view="premium">✦ &nbsp; NEXORA Premium <span>₱66 / ₱99</span></button>
-  <button class="drawer-link" id="adPrivacyOptions">⚙ &nbsp; Privacy choices</button>
+  <button class="drawer-link" id="adPrivacyOptions" hidden>⚙ &nbsp; Privacy choices</button>
   <button class="drawer-link" data-view="updates">↻ &nbsp; Updates <span id="updateBadge">CHECKING</span></button>
   <div class="drawer-divider"></div>
   <a class="drawer-link" href="https://cedrickdavebausinbajar-afk.github.io/nexora-official-website/" target="_blank" rel="noopener">◎ &nbsp; Official website ↗</a>
@@ -408,7 +408,13 @@ ${view==='feed'?`<section class="welcome-strip"><img class="drama-cover-banner" 
   backdrop.onclick = closeMenu;
   app.querySelectorAll('.drawer-link[data-view], .tabs [data-view]').forEach(b => b.onclick = () => { closeMenu(); view = b.dataset.view; render(); });
   document.querySelector('#adminOpen').onclick = () => { closeMenu(); ownerFlowActive = true; adminGate(); };
-  document.querySelector('#adPrivacyOptions')?.addEventListener('click', () => { closeMenu(); void showNexoraPrivacyOptions(); });
+  const privacyOptionsButton = document.querySelector('#adPrivacyOptions');
+  if (privacyOptionsButton) {
+    void isNexoraPrivacyOptionsRequired().then(required => {
+      privacyOptionsButton.hidden = !required;
+    });
+    privacyOptionsButton.addEventListener('click', () => { closeMenu(); void showNexoraPrivacyOptions(); });
+  }
   // Open social and official links through Capacitor Browser on Android so
   // target=_blank does not get trapped in an unsupported WebView window.
   drawer.querySelectorAll('a.drawer-link[target="_blank"]').forEach(link => {
