@@ -33,13 +33,14 @@ test('performance monitor registers startup, video and network observers once', 
     __nexoraPerformanceMonitorStarted: false,
     addEventListener(type, fn) { (listeners[type] ||= []).push(fn); },
     setTimeout(fn) { fn(); },
+    setInterval(fn) { win.memorySampler = fn; return 1; },
     gtag(_command, name, params) { events.push({name, params}); }
   };
   const doc = {
     readyState: 'complete',
     addEventListener(type, fn) { (documentListeners[type] ||= []).push(fn); }
   };
-  const perf = { now: () => 125, getEntriesByType: () => [] };
+  const perf = { now: () => 125, getEntriesByType: () => [], memory: {usedJSHeapSize: 2048, jsHeapSizeLimit: 8192} };
   try {
     globalThis.window = win;
     globalThis.document = doc;
@@ -52,6 +53,10 @@ test('performance monitor registers startup, video and network observers once', 
     assert.ok(listeners.online?.length);
     assert.ok(listeners.offline?.length);
     for (const type of ['playing', 'waiting', 'stalled', 'error']) assert.ok(documentListeners[type]?.length);
+    assert.ok(documentListeners.error?.length >= 2, 'video and thumbnail error observers are registered');
+    assert.equal(typeof win.memorySampler, 'function');
+    win.memorySampler();
+    assert.ok(events.some(event => event.name === 'nexora_js_heap_used_bytes'));
   } finally {
     for (const key of Object.keys(previous)) {
       if (previous[key] === undefined) delete globalThis[key];
