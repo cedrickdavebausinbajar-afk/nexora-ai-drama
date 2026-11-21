@@ -59,6 +59,7 @@ function constantTimeEqual(left: string, right: string) {
 async function getPayMongoResource(path: string, secret: string) {
   const response = await fetch(`https://api.paymongo.com/v1/${path}`, {
     method: "GET",
+    signal: AbortSignal.timeout(12000),
     headers: {
       "Authorization": `Basic ${btoa(secret + ":")}`,
       "Accept": "application/json",
@@ -75,6 +76,34 @@ function toIsoDate(value: unknown): string | null {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const date = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+async function readBodyLimited(req: Request, maxBytes: number): Promise<string> {
+  const reader = req.body?.getReader();
+  if (!reader) return "";
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        throw new Error("payload_too_large");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
 }
 
 Deno.serve(async (req: Request) => {
@@ -96,7 +125,19 @@ Deno.serve(async (req: Request) => {
   const signatureHeader = req.headers.get("Paymongo-Signature");
   if (!signatureHeader) return reply(401, { error: "missing_signature" });
 
-  const rawBody = await req.text();
+  const declaredLength = Number(req.headers.get("content-length") || 0);
+  if (Number.isFinite(declaredLength) && declaredLength > 1024 * 1024) {
+    return reply(413, { error: "payload_too_large" });
+  }
+  let rawBody: string;
+  try {
+    rawBody = await readBodyLimited(req, 1024 * 1024);
+  } catch (error) {
+    if (error instanceof Error && error.message === "payload_too_large") {
+      return reply(413, { error: "payload_too_large" });
+    }
+    return reply(400, { error: "request_body_unavailable" });
+  }
   const signature = parseSignature(signatureHeader);
   if (!signature.t || !/^\d+$/.test(signature.t) || (!signature.te && !signature.li)) {
     return reply(401, { error: "invalid_signature_header" });
