@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { AdMob, AdmobConsentStatus, BannerAdSize, BannerAdPosition } from '@capacitor-community/admob';
 
 // Use Google's sample ad units in Vite development builds; never serve live ads during local/debug testing.
-const IS_AD_TEST_BUILD = Boolean(import.meta.env.DEV);
+const IS_AD_TEST_BUILD = import.meta.env.VITE_ADMOB_TEST_MODE === 'true' || Boolean(import.meta.env.DEV);
 const BANNER_AD_ID = IS_AD_TEST_BUILD
   ? 'ca-app-pub-3940256099942544/9214589741'
   : 'ca-app-pub-4497851143738030/2668274674';
