@@ -44,7 +44,8 @@ jobs:
         with:
           node-version: 22
       - name: Install dependencies
-        run: npm install
+        run: |
+          if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
       - name: Build web app
         run: npm run build
 
@@ -58,7 +59,8 @@ jobs:
         with:
           node-version: 22
       - name: Install npm dependencies for Deno's npm resolver
-        run: npm install --ignore-scripts
+        run: |
+          if [ -f package-lock.json ]; then npm ci --ignore-scripts --no-audit --no-fund; else npm install --ignore-scripts --no-audit --no-fund; fi
       - name: Set up Deno
         uses: denoland/setup-deno@v2
         with:
