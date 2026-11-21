@@ -1,9 +1,20 @@
-import './error-monitoring.js';
 import './style.css';
+
+// Keep Firebase-based diagnostics off the critical startup path.
+if (typeof window !== 'undefined') {
+  const loadErrorMonitoring = () => {
+    import('./error-monitoring.js').catch(error => {
+      console.warn('[NEXORA] Deferred error monitoring could not load:', error);
+    });
+  };
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(loadErrorMonitoring, { timeout: 2500 });
+  } else {
+    window.setTimeout(loadErrorMonitoring, 1200);
+  }
+}
 import { Upload } from 'tus-js-client';
 import { createClient } from '@supabase/supabase-js';
-import { renderStoryMode } from './story-mode.js';
-import { renderPremiumView } from './premium-subscriptions.js';
 import { Browser } from '@capacitor/browser';
 import { registerPlugin } from '@capacitor/core';
 const ApkInstaller = registerPlugin('ApkInstaller');
@@ -444,6 +455,9 @@ ${view==='feed'?`<section class="welcome-strip"><img class="drama-cover-banner" 
   checkForUpdates();
 }
 function render() { setNexoraAdView(view); shell(); }
+let storyModeModulePromise = null;
+let premiumViewModulePromise = null;
+
 function renderScreen() {
   activePlayerController?.abort();
   activePlayerController = null;
@@ -533,8 +547,48 @@ function renderScreen() {
     screen.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{view=b.dataset.go;render();});
     return;
   }
-  if (view === 'stories') { renderStoryMode(screen, () => { view='feed'; render(); }); return; }
-  if (view === 'premium') { renderPremiumView(screen, supabase); return; }
+  if (view === 'stories') {
+    screen.innerHTML = '<section class="panel"><p class="muted">Loading NEXORA Stories…</p></section>';
+    if (!storyModeModulePromise) {
+      storyModeModulePromise = import('./story-mode.js').catch(error => {
+        storyModeModulePromise = null;
+        throw error;
+      });
+    }
+    storyModeModulePromise.then(({ renderStoryMode }) => {
+      if (view === 'stories' && document.querySelector('#screen') === screen) {
+        renderStoryMode(screen, () => { view='feed'; render(); });
+      }
+    }).catch(error => {
+      if (view === 'stories' && document.querySelector('#screen') === screen) {
+        screen.innerHTML = '<section class="panel"><h1>Stories are temporarily unavailable</h1><p class="muted">Please check your connection and try again.</p><button class="gold" id="retryStories">RETRY</button></section>';
+        screen.querySelector('#retryStories')?.addEventListener('click', () => renderScreen());
+      }
+      console.warn('[NEXORA] Story mode failed to load:', error);
+    });
+    return;
+  }
+  if (view === 'premium') {
+    screen.innerHTML = '<section class="panel"><p class="muted">Loading NEXORA Premium…</p></section>';
+    if (!premiumViewModulePromise) {
+      premiumViewModulePromise = import('./premium-subscriptions.js').catch(error => {
+        premiumViewModulePromise = null;
+        throw error;
+      });
+    }
+    premiumViewModulePromise.then(({ renderPremiumView }) => {
+      if (view === 'premium' && document.querySelector('#screen') === screen) {
+        renderPremiumView(screen, supabase);
+      }
+    }).catch(error => {
+      if (view === 'premium' && document.querySelector('#screen') === screen) {
+        screen.innerHTML = '<section class="panel"><h1>Premium is temporarily unavailable</h1><p class="muted">Please check your connection and try again.</p><button class="gold" id="retryPremium">RETRY</button></section>';
+        screen.querySelector('#retryPremium')?.addEventListener('click', () => renderScreen());
+      }
+      console.warn('[NEXORA] Premium view failed to load:', error);
+    });
+    return;
+  }
   if (view === 'updates') {
     screen.innerHTML = `<section class="panel update-panel"><div class="eyebrow">NEXORA SOFTWARE UPDATE</div><h1>Keep your app up to date</h1><p id="updateStatus" class="update-status">${esc(updateInfo.message)}</p><p id="updateVersions" class="muted">Installed: ${esc(updateInfo.installed || 'Checking…')} · Latest: ${esc(updateInfo.latest || 'Checking…')}</p><div class="update-actions"><button class="gold" id="checkUpdates">CHECK FOR UPDATES</button><button class="gold-outline" id="updateAction" hidden>UPDATE NOW</button></div><small class="muted">${APP_STORE_DISTRIBUTION ? 'Updates are delivered through the app store where you installed NEXORA.' : 'Android updates download directly from NEXORA. After the APK downloads, approve the Android installer. This direct APK channel does not use Google Play.'}</small></section>`;
     document.querySelector('#checkUpdates').onclick=()=>{updateDownload={status:'idle',path:'',message:''};document.querySelector('#updateStatus').textContent='Checking for updates…';checkForUpdates(true);};
