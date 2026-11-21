@@ -913,7 +913,6 @@ function renderScreen() {
         if (error || !data?.signedUrl) throw new Error(data?.error || error?.message || 'Secure playback refresh was rejected.');
         const expiresIn = Number(data.expiresInSeconds);
         playbackUrl = data.signedUrl;
-          playbackUrlExpiresAt = Date.now() + (Number(data.expiresInSeconds) > 0 ? Number(data.expiresInSeconds) : 3600) * 1000;
         playbackUrlExpiresAt = Date.now() + (Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600) * 1000;
         const controller = new AbortController();
         try {
