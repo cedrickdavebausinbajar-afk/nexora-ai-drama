@@ -138,7 +138,7 @@ if (Capacitor.isNativePlatform()) {
   } catch (_) {}
 }
 
-const APP_REPO = 'cedrickdavebausinbajar-afk/nexora-ai-drama';
+const APP_REPO = 'nexoraofficialph/nexora-ai-drama';
 const APP_STORE_DISTRIBUTION = import.meta.env.VITE_APP_STORE_DISTRIBUTION === 'true';
 let updateInfo = {status:'checking', installed:'', latest:'', url:'', message:'Checking for updates…'};
 let updatePromptShown = false;
