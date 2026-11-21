@@ -1,7 +1,11 @@
 import { Capacitor } from '@capacitor/core';
 import { AdMob, AdmobConsentStatus, BannerAdSize, BannerAdPosition } from '@capacitor-community/admob';
 
-const BANNER_AD_ID = 'ca-app-pub-4497851143738030/2668274674';
+// Use Google's sample ad units in Vite development builds; never serve live ads during local/debug testing.
+const IS_AD_TEST_BUILD = Boolean(import.meta.env.DEV);
+const BANNER_AD_ID = IS_AD_TEST_BUILD
+  ? 'ca-app-pub-3940256099942544/9214589741'
+  : 'ca-app-pub-4497851143738030/2668274674';
 const PAYMONGO_PUBLIC_KEY = import.meta.env.VITE_PAYMONGO_PUBLIC_KEY || '';
 const PAYMONGO_MODE = PAYMONGO_PUBLIC_KEY.startsWith('pk_live_') ? 'live' : PAYMONGO_PUBLIC_KEY.startsWith('pk_test_') ? 'test' : null;
 let consentReady = false;
@@ -103,6 +107,7 @@ async function applyBannerState(revision) {
   if (revision !== bannerRevision || !allowedViews.has(requestedView) || premiumStatus) return;
 
   try {
+    console.info('[NEXORA][AdMob] Banner load requested.');
     await AdMob.showBanner({
       adId: BANNER_AD_ID,
       adSize: BannerAdSize.ADAPTIVE_BANNER,
@@ -110,12 +115,13 @@ async function applyBannerState(revision) {
       margin: 0
     });
     bannerVisible = true;
+    console.info('[NEXORA][AdMob] Banner displayed.');
     if (revision !== bannerRevision || !allowedViews.has(requestedView)) {
       await hideBanner();
     }
   } catch (error) {
     bannerVisible = false;
-    console.warn('NEXORA banner ad could not be displayed:', error);
+    console.warn('[NEXORA][AdMob] Banner load/show failed:', error);
   }
 }
 
@@ -184,18 +190,24 @@ export async function showNexoraPrivacyOptions() {
   }
 }
 
-const REWARDED_EPISODE_AD_ID = 'ca-app-pub-4497851143738030/5422109728';
+const REWARDED_EPISODE_AD_ID = IS_AD_TEST_BUILD
+  ? 'ca-app-pub-3940256099942544/5224354917'
+  : 'ca-app-pub-4497851143738030/5422109728';
 
 export async function showNexoraRewardedEpisodeAd(userId, attemptNonce) {
   if (!Capacitor.isNativePlatform()) throw new Error('Rewarded episode unlock is available in the NEXORA Android app only.');
   if (!userId || !attemptNonce) throw new Error('A signed-in account and secure reward attempt are required.');
   if (!await initializeWithConsent()) throw new Error('Ad consent is required or rewarded ads are unavailable on this device.');
-  await AdMob.prepareRewardVideoAd({ adId: REWARDED_EPISODE_AD_ID, ssv: { userId, customData: attemptNonce }, immersiveMode: true });
   try {
+    console.info('[NEXORA][AdMob] Rewarded load requested.');
+    await AdMob.prepareRewardVideoAd({ adId: REWARDED_EPISODE_AD_ID, ssv: { userId, customData: attemptNonce }, immersiveMode: true });
+    console.info('[NEXORA][AdMob] Rewarded ad loaded; showing after user tap.');
     const reward = await AdMob.showRewardVideoAd();
     if (!reward) throw new Error('The rewarded ad did not confirm a reward.');
+    console.info('[NEXORA][AdMob] Reward callback confirmed:', reward);
     return reward;
   } catch (error) {
+    console.warn('[NEXORA][AdMob] Rewarded load/show failed:', error);
     if (error?.code === 'REWARDED_AD_CANCELLED' || error?.message?.includes('REWARDED_AD_CANCELLED')) throw new Error('The ad was closed before the reward was earned. No episode was unlocked.');
     throw error;
   }
