@@ -510,8 +510,7 @@ function renderScreen() {
     const uploadedVideoRows = items.filter(x => !builtInIds.has(x.id) && (x.url || x.isPremium));
     const latestByDrama = new Map();
     for (const entry of uploadedVideoRows) {
-      const key = String(entry.title || entry.parentDramaId || entry.seriesId || entry.dramaId || entry.id)
-        .trim().toLowerCase();
+      const key = String(entry.parentDramaId || entry.id).trim().toLowerCase();
       const current = latestByDrama.get(key);
       const episodeNumber = Number(entry.episodeNumber || String(entry.episode || '').replace(/\\D/g, '') || 1);
       const currentEpisodeNumber = current
@@ -1253,8 +1252,11 @@ function hydrateMissingDramaThumbnails(root = document) {
 function openDramaDetails(dramaId) {
   const drama = items.find(entry => entry.id === dramaId);
   if (!drama) return;
-  const groupKey = String(drama.seriesId || drama.dramaId || drama.title || drama.id).trim().toLowerCase();
-  const episodes = items.filter(entry => String(entry.seriesId || entry.dramaId || entry.title || entry.id).trim().toLowerCase() === groupKey && entry.url);
+  const seriesRootId = drama.parentDramaId || drama.id;
+  const episodes = items
+    .filter(entry => entry.id === seriesRootId || entry.parentDramaId === seriesRootId)
+    .filter(entry => entry.url || entry.isPremium)
+    .sort((a, b) => Number(a.episodeNumber || 1) - Number(b.episodeNumber || 1));
   const episodeList = episodes.length ? episodes : (drama.url ? [drama] : []);
   const synopsis = drama.description || drama.logline || drama.synopsis || 'Synopsis has not been added yet.';
   const existing = document.querySelector('#nxDramaDetailsModal');
