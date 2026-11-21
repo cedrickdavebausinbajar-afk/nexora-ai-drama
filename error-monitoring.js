@@ -1,6 +1,6 @@
-import { initializeApp, getApps } from 'firebase/app';
-import { initializeAppCheck, ReCaptchaV3Provider, getToken } from 'firebase/app-check';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { initializeApp, getApps } from '@firebase/app';
+import { initializeAppCheck, ReCaptchaV3Provider, getToken } from '@firebase/app-check';
+import { getFunctions, httpsCallable } from '@firebase/functions';
 import { Capacitor } from '@capacitor/core';
 
 const config = {
@@ -14,7 +14,7 @@ let sendReport = null;
 let lastReportAt = 0;
 
 function safeText(value, limit) {
-  return String(value ?? '').replace(/[\r\n\t]/g, ' ').slice(0, limit);
+  return String(value ?? '').replace(/[\\r\\n\\t]/g, ' ').slice(0, limit);
 }
 
 function initializeReporter() {
@@ -26,9 +26,8 @@ function initializeReporter() {
     const app = getApps().find(item => item.name === 'nexora-error-monitor') ||
       initializeApp(config, 'nexora-error-monitor');
     if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
-      // Use the registered Firebase Web App + reCAPTCHA App Check provider in the
-      // Capacitor WebView. Native Play Integrity attestation is a separate future
-      // enhancement; do not claim native-device attestation from this WebView token.
+      // App Check uses the registered Firebase Web App + reCAPTCHA provider in the
+      // Capacitor WebView. This is not native Play Integrity attestation.
     }
     const appCheck = initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(siteKey),
