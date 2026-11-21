@@ -331,6 +331,10 @@ jobs:
           activity = activity_path.read_text(encoding="utf-8")
           if "NexoraNotificationWorker" not in activity:
               activity = activity.replace("import com.getcapacitor.BridgeActivity;", """import com.getcapacitor.BridgeActivity;
+          import android.Manifest;
+          import android.content.pm.PackageManager;
+          import android.os.Build;
+          import androidx.core.app.ActivityCompat;
           import androidx.work.ExistingPeriodicWorkPolicy;
           import androidx.work.PeriodicWorkRequest;
           import androidx.work.WorkManager;
@@ -340,7 +344,14 @@ jobs:
               activity = activity.replace("super.onCreate(savedInstanceState);", """super.onCreate(savedInstanceState);
               Constraints constraints = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
               PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(NexoraNotificationWorker.class, 15, TimeUnit.MINUTES).setConstraints(constraints).build();
-              WorkManager.getInstance(this).enqueueUniquePeriodicWork("nexora-background-notifications", ExistingPeriodicWorkPolicy.KEEP, request);""")
+              WorkManager.getInstance(this).enqueueUniquePeriodicWork("nexora-background-notifications", ExistingPeriodicWorkPolicy.KEEP, request);
+              if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                android.content.SharedPreferences notificationPrefs = getSharedPreferences("nexora_notifications", MODE_PRIVATE);
+                if (!notificationPrefs.getBoolean("permission_prompted", false)) {
+                  notificationPrefs.edit().putBoolean("permission_prompted", true).apply();
+                  ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 8103);
+                }
+              }""")
               activity_path.write_text(activity, encoding="utf-8")
 
           manifest = base / "AndroidManifest.xml"
