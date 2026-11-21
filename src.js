@@ -2,7 +2,7 @@ import './style.css';
 import { safeStorageGet, safeStorageSet, fetchWithTimeout } from './runtime-resilience.js';
 import { startNexoraPerformanceMonitor } from './performance-monitor.js';
 startNexoraPerformanceMonitor();
-import { fetchLatestRelease } from './update-manager.js';
+import { fetchLatestRelease, isReleaseNewer } from './update-manager.js';
 
 // Keep Firebase-based diagnostics off the critical startup path.
 if (typeof window !== 'undefined') {
@@ -192,8 +192,7 @@ async function performUpdateCheck() {
         repo: APP_REPO,
         fetchImpl: (url, options) => fetchWithTimeout(url, options, 12000)
       });
-      const installedCode = Number(local.versionCode || 0);
-      const newerVersion = latestRelease.version.code > installedCode;
+      const newerVersion = isReleaseNewer(latestRelease.release.tag_name, local.versionName);
       const downloadUrl = latestRelease.apk.url;
       updateInfo = {
         status:newerVersion ? 'available' : 'current',
