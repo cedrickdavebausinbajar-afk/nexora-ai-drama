@@ -8,6 +8,9 @@ on:
     paths:
       - "src.js"
       - "runtime-resilience.js"
+      - "performance-monitor.js"
+      - "tests/**"
+      - "docs/**"
       - "update-manager.js"
       - "ad-monetization.js"
       - "premium-subscriptions.js"
