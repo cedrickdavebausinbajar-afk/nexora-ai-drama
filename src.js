@@ -542,7 +542,14 @@ function renderScreen() {
   activeShortsObserver?.disconnect();
   activeShortsObserver = null;
   const screen = document.querySelector('#screen');
-  if (!screen) return;
+  if (!screen) {
+    if (promotedVideoBuffer) {
+      promotedVideoBuffer.pause();
+      promotedVideoBuffer.removeAttribute('src');
+      promotedVideoBuffer.load();
+    }
+    return;
+  }
   if (view === 'home') {
     // Show one catalogue card per drama series on Home. Keep every episode in
     // the library so Watch Episodes and the player can still access the full series.
