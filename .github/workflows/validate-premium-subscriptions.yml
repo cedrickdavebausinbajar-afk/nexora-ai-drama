@@ -46,6 +46,8 @@ jobs:
       - name: Install dependencies
         run: |
           if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+      - name: Run runtime resilience tests
+        run: npm test
       - name: Build web app
         run: npm run build
 
