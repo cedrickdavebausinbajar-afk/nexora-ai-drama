@@ -61,6 +61,9 @@ jobs:
             npm install --no-audit --no-fund
           fi
 
+      - name: Run runtime resilience tests
+        run: npm test
+
       - name: Write web app version metadata
         run: |
           node -e "const fs=require('fs'); const n=process.env.GITHUB_RUN_NUMBER; fs.writeFileSync('public/app-version.json', JSON.stringify({versionName:'1.0.'+n,versionCode:Number(n)}));"
