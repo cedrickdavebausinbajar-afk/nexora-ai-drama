@@ -42,6 +42,24 @@ function trackNexoraEvent(eventName, params = {}) {
   } catch (error) { console.debug('[NEXORA] Analytics event was not recorded:', error); }
 }
 
+function safeStorageGet(key) {
+  try { return window.localStorage?.getItem(String(key)) ?? null; }
+  catch (error) { console.debug('[NEXORA] Optional storage read unavailable:', error?.name || 'StorageError'); return null; }
+}
+function safeStorageSet(key, value) {
+  try { window.localStorage?.setItem(String(key), String(value)); return true; }
+  catch (error) { console.debug('[NEXORA] Optional storage write unavailable:', error?.name || 'StorageError'); return false; }
+}
+async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {...options, signal:controller.signal});
+    return response;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
 
 function formatUpdateBytes(bytes) {
   const value = Number(bytes) || 0;
@@ -144,8 +162,7 @@ let updateInfo = {status:'checking', installed:'', latest:'', url:'', message:'C
 let updatePromptShown = false;
 function showUpdatePopup() {
   if (updateInfo.status !== 'available' || updatePromptShown) return;
-  try { if (localStorage.getItem('nexora-update-dismissed') === updateInfo.latest) return; }
-  catch (error) { console.debug('[NEXORA] Update dismissal preference could not be read:', error); }
+  if (safeStorageGet('nexora-update-dismissed') === updateInfo.latest) return;
   updatePromptShown = true;
   const popup = document.createElement('div');
   popup.id = 'updatePopup';
@@ -167,15 +184,14 @@ function showUpdatePopup() {
   document.body.appendChild(popup);
   popup.querySelector('#popupUpdateNow').onclick = startUpdateFlow;
   popup.querySelector('#popupUpdateLater').onclick = () => {
-    try { localStorage.setItem('nexora-update-dismissed', updateInfo.latest); }
-    catch (error) { console.warn('[NEXORA] Update dismissal preference could not be saved:', error); }
+    safeStorageSet('nexora-update-dismissed', updateInfo.latest);
     popup.remove();
   };
 }
 
 async function performUpdateCheck() {
   try {
-    const localRes = await fetch('/app-version.json', {cache:'no-store'});
+    const localRes = await fetchWithTimeout('/app-version.json', {cache:'no-store'}, 8000);
     if (!localRes.ok) throw new Error('App version metadata unavailable');
     const local = await localRes.json();
     if (APP_STORE_DISTRIBUTION) {
@@ -187,7 +203,7 @@ async function performUpdateCheck() {
         message:'Updates are delivered through the app store where you installed NEXORA.'
       };
     } else {
-      const remoteRes = await fetch(`https://api.github.com/repos/${APP_REPO}/releases/latest`, {headers:{Accept:'application/vnd.github+json'}, cache:'no-store'});
+      const remoteRes = await fetchWithTimeout(`https://api.github.com/repos/${APP_REPO}/releases/latest`, {headers:{Accept:'application/vnd.github+json'}, cache:'no-store'}, 12000);
       if (!remoteRes.ok) throw new Error('Update service unavailable');
       const release = await remoteRes.json();
       const latestCode = Number(String(release.tag_name || '').match(/^v\d+\.\d+\.(\d+)$/)?.[1] || 0);
@@ -208,7 +224,7 @@ async function performUpdateCheck() {
     updateInfo = {...updateInfo,status:'error',message:'Could not check for updates. Please try again.'};
   }
   if (updateInfo.status === 'available' && Capacitor.isNativePlatform()) {
-    const notifiedVersion = localStorage.getItem('nexora-update-notified-v1');
+    const notifiedVersion = safeStorageGet('nexora-update-notified-v1');
     if (notifiedVersion !== updateInfo.latest) {
       try {
         const permission = await LocalNotifications.checkPermissions();
@@ -221,7 +237,7 @@ async function performUpdateCheck() {
             channelId:'nexora-updates',
             extra:{type:'app-update'}
           }]});
-          localStorage.setItem('nexora-update-notified-v1', updateInfo.latest);
+          safeStorageSet('nexora-update-notified-v1', updateInfo.latest);
         }
       } catch (error) { console.warn('[NEXORA] Update notification could not be scheduled:', error); }
     }
@@ -233,7 +249,11 @@ async function performUpdateCheck() {
   const versions=document.querySelector('#updateVersions');
   if(versions) versions.textContent=`Installed: ${updateInfo.installed||'—'} · Latest: ${updateInfo.latest||'—'}`;
   const action=document.querySelector('#updateAction');
-  if(action) { action.hidden=updateInfo.status!=='available'; action.onclick=startUpdateFlow; }
+  if(action) {
+    action.hidden=!['available','error'].includes(updateInfo.status);
+    action.textContent=updateInfo.status==='error'?'RETRY UPDATE CHECK':'DOWNLOAD UPDATE';
+    action.onclick=updateInfo.status==='error'?()=>checkForUpdates(true):startUpdateFlow;
+  }
   showUpdatePopup();
     return updateInfo;
 }
@@ -244,10 +264,22 @@ let lastUpdateCheckAt = 0;
 async function checkForUpdates(force = false) {
   if (updateCheckPromise) return updateCheckPromise;
   if (!force && Date.now() - lastUpdateCheckAt < UPDATE_CHECK_INTERVAL_MS) return updateInfo;
-  lastUpdateCheckAt = Date.now();
-  updateCheckPromise = performUpdateCheck();
+  updateCheckPromise = (async () => {
+    try { return await performUpdateCheck(); }
+    finally { lastUpdateCheckAt = Date.now(); }
+  })();
   try { return await updateCheckPromise; }
   finally { updateCheckPromise = null; }
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('offline', () => {
+    updateInfo = {...updateInfo,status:'error',message:'You are offline. Reconnect to check for the latest NEXORA update.'};
+    const badge=document.querySelector('#updateBadge'); if(badge) badge.textContent='RETRY';
+    const status=document.querySelector('#updateStatus'); if(status) status.textContent=updateInfo.message;
+    const action=document.querySelector('#updateAction');
+    if(action){action.hidden=false;action.textContent='RETRY UPDATE CHECK';action.onclick=()=>checkForUpdates(true);}
+  });
+  window.addEventListener('online', () => { void checkForUpdates(true); });
 }
 
 const KEY = 'nexora-drama-demo-v2';
