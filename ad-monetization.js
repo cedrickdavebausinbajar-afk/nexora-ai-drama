@@ -102,7 +102,7 @@ async function applyBannerState(revision) {
     return;
   }
 
-  if (!await initializeWithConsent()) return;
+  if (!await initializeWithConsent()) { await hideBanner(); return; }
   if (revision !== bannerRevision || !allowedViews.has(requestedView) || premiumStatus) return;
 
   try {
@@ -176,6 +176,11 @@ export async function showNexoraPrivacyOptions() {
       return;
     }
     await AdMob.showPrivacyOptionsForm();
+    // Re-read the user's choice and reconcile any already-visible banner.
+    consentReady = false;
+    const updatedConsent = await requestNexoraConsentInfo();
+    privacyOptionsRequired = updatedConsent.privacyOptionsRequirementStatus === 'REQUIRED';
+    await queueBannerState();
   } catch (error) {
     console.warn('NEXORA privacy options are unavailable:', error);
     window.alert('Privacy choices could not be loaded. Please check your connection and try again.');
