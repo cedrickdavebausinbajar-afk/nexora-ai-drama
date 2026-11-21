@@ -40,8 +40,26 @@ jobs:
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses
           "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Install web dependencies
-        run: npm install
+      - name: Create and commit npm lockfile once, then install reproducibly
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            if ! git diff --cached --quiet; then
+              git commit -m "chore: pin npm dependency graph"
+              if ! git push origin "HEAD:${GITHUB_REF_NAME}"; then
+                echo "::warning::Generated lockfile could not be committed. Check branch protection and Actions write access."
+              fi
+            fi
+          fi
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            echo "::warning::No committed lockfile is available; using npm install for this run."
+            npm install --no-audit --no-fund
+          fi
 
       - name: Write web app version metadata
         run: |
@@ -545,7 +563,11 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
-            echo "Release signing secrets are not configured yet; debug APK is still built."
+            echo "::warning::Signing secrets are missing. This run is DEBUG-ONLY; no release APK, AAB, or GitHub release will be published."
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+              echo "::error::Manual release requested, but one or more Android signing secrets are missing."
+              exit 1
+            fi
             exit 0
           fi
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/release-key.jks
@@ -566,6 +588,13 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_PAYMONGO_PUBLIC_KEY: ${{ secrets.VITE_PAYMONGO_PUBLIC_KEY }}
+          VITE_NEXORA_FIREBASE_API_KEY: ${{ secrets.VITE_NEXORA_FIREBASE_API_KEY }}
+          VITE_NEXORA_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_NEXORA_FIREBASE_AUTH_DOMAIN }}
+          VITE_NEXORA_FIREBASE_PROJECT_ID: ${{ secrets.VITE_NEXORA_FIREBASE_PROJECT_ID }}
+          VITE_NEXORA_FIREBASE_APP_ID: ${{ secrets.VITE_NEXORA_FIREBASE_APP_ID }}
+          VITE_NEXORA_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_NEXORA_APPCHECK_RECAPTCHA_SITE_KEY }}
+          VITE_APP_VERSION: 1.0.${{ github.run_number }}
           VITE_APP_STORE_DISTRIBUTION: 'true'
         run: |
           npm run build
