@@ -79,6 +79,7 @@ async function applyBannerState() {
   } catch (error) {
     // Fail closed: never show ads when subscription status cannot be verified.
     premiumStatus = true;
+    premiumStatusCheckedAt = Date.now();
     console.warn('NEXORA Premium status check failed; ads are paused:', error);
   }
 
