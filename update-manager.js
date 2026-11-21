@@ -4,7 +4,7 @@ const DEFAULT_ATTEMPTS = 3;
 const DEFAULT_RETRY_DELAY_MS = 1500;
 
 export function parseReleaseVersion(tag) {
-  const match = /^v(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$/.exec(String(tag || ''));
+  const match = /^v(0|[1-9]\d*)\\.(0|[1-9]\d*)\\.(0|[1-9]\d*)$/.exec(String(tag || ''));
   if (!match) return null;
   const major = Number(match[1]);
   const minor = Number(match[2]);
