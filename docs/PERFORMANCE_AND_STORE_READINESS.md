@@ -56,3 +56,11 @@ Before a store bundle is approved:
 - Samsung Galaxy Store submission: not submitted.
 - Real-device performance matrix: pending physical-device execution.
 - Privacy declarations, store screenshots and listing copy: draft only; require owner verification before submission.
+
+## Store-specific verified requirements
+
+- Amazon accepts either an APK or AAB for Fire OS submissions; AAB is optional. The Amazon developer account is free to register. Amazon requires listing image assets and descriptions, a physical-device test, and completion of its privacy questionnaire. See [Amazon submission requirements](https://developer.amazon.com/docs/app-submission/publish-app-login-and-add-app.html), [AAB support](https://developer.amazon.com/docs/app-submission/app-bundles.html), and [privacy labels](https://developer.amazon.com/docs/app-submission/appstore-privacy-labels.html).
+- Samsung Galaxy Store accepts APK and AAB. Its Seller Portal documentation says AAB signing must use a signing key managed or uploaded through Seller Portal; when moving an existing APK app to AAB, upload the signing key used by the existing APK. All binaries registered for one app must use the same signing key. Review [Samsung app registration](https://developer.samsung.com/galaxy-store/launch.html) and [AAB/APK upload action details](https://developer.samsung.com/galaxy-store/galaxy-store-developer-api/fastlane-plugin/action/upload-apk.html).
+- Do not switch the NEXORA signing key during a store migration. Confirm the current APK signing certificate fingerprint first, then coordinate the same key with each store's signing flow.
+
+Amazon currently permits the existing signed APK route, so a live PayMongo key is not technically required just to upload an APK there. However, the current workflow's store-specific APK/AAB build removes the direct-download installer permission and configures store distribution behavior; it is intentionally gated on production billing configuration to protect subscription/ad behavior. Do not upload the direct-download APK to a store until its permissions and payment behavior have been reviewed.
