@@ -38,7 +38,8 @@ async function installAdEventListeners() {
 }
 
 async function hasActivePremium() {
-  if (!supabaseClient || !PAYMONGO_MODE) return false;
+  // If billing configuration is absent, subscription status cannot be verified; suppress ads rather than risk showing them to a paid user.
+  if (!supabaseClient || !PAYMONGO_MODE) return true;
   const { data: userResult, error: userError } = await supabaseClient.auth.getUser();
   if (userError) throw userError;
   const user = userResult?.user;
