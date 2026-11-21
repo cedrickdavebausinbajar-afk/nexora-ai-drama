@@ -32,17 +32,51 @@ Deno.serve(async(req:Request)=>{
   if(rewardItem!==expectedItem||rewardAmount!==expectedAmount)return reply(403,"unexpected_reward");
   const url=Deno.env.get("SUPABASE_URL"),serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");if(!url||!serviceKey)return reply(503,"server_not_configured");
   const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
-  const {data:priorTx,error:priorTxError}=await admin.from("nexora_rewarded_ad_transactions").select("transaction_id,user_id,ad_unit").eq("transaction_id",transactionId).maybeSingle();
+  // A callback may be retried after the transaction was recorded but before the
+  // entitlement write completed. Never return early for a known transaction:
+  // re-run the idempotent entitlement grant so that transient DB failures recover.
+  const {data:priorTx,error:priorTxError}=await admin.from("nexora_rewarded_ad_transactions")
+    .select("transaction_id,attempt_id,user_id,drama_id,ad_unit")
+    .eq("transaction_id",transactionId).maybeSingle();
   if(priorTxError)return reply(503,"transaction_lookup_failed");
-  if(priorTx){if(priorTx.user_id===userId&&priorTx.ad_unit===adUnit)return reply(200,"already_processed");return reply(403,"transaction_mismatch");}
-  const {data:attempt,error:attemptError}=await admin.from("nexora_rewarded_unlock_attempts").select("id,user_id,drama_id,status,expires_at").eq("id",nonce).maybeSingle();
-  if(attemptError)return reply(503,"attempt_lookup_failed");
-  if(!attempt||attempt.status!=="pending"||attempt.user_id!==userId||new Date(attempt.expires_at).getTime()<Date.now())return reply(403,"invalid_or_expired_attempt");
-  const {error:txError}=await admin.from("nexora_rewarded_ad_transactions").upsert({transaction_id:transactionId,attempt_id:attempt.id,user_id:userId,drama_id:attempt.drama_id,ad_unit:adUnit,reward_item:rewardItem,reward_amount:rewardAmount,callback_timestamp:timestamp},{onConflict:"transaction_id",ignoreDuplicates:true});
-  if(txError)return reply(503,"transaction_record_failed");
-  const {error:grantError}=await admin.from("nexora_episode_entitlements").upsert({user_id:userId,drama_id:attempt.drama_id,source:"admob_rewarded",transaction_id:transactionId},{onConflict:"user_id,drama_id",ignoreDuplicates:true});
+  let attempt;
+  if(priorTx){
+    if(priorTx.user_id!==userId||priorTx.ad_unit!==adUnit||priorTx.attempt_id!==nonce)
+      return reply(403,"transaction_mismatch");
+    const {data:storedAttempt,error:storedAttemptError}=await admin.from("nexora_rewarded_unlock_attempts")
+      .select("id,user_id,drama_id,status,expires_at").eq("id",priorTx.attempt_id).maybeSingle();
+    if(storedAttemptError)return reply(503,"attempt_lookup_failed");
+    if(!storedAttempt||storedAttempt.user_id!==userId||storedAttempt.drama_id!==priorTx.drama_id)
+      return reply(403,"transaction_attempt_mismatch");
+    attempt=storedAttempt;
+  }else{
+    const {data:newAttempt,error:attemptError}=await admin.from("nexora_rewarded_unlock_attempts")
+      .select("id,user_id,drama_id,status,expires_at").eq("id",nonce).maybeSingle();
+    if(attemptError)return reply(503,"attempt_lookup_failed");
+    if(!newAttempt||newAttempt.status!=="pending"||newAttempt.user_id!==userId||
+      new Date(newAttempt.expires_at).getTime()<Date.now())
+      return reply(403,"invalid_or_expired_attempt");
+    attempt=newAttempt;
+    const {error:txError}=await admin.from("nexora_rewarded_ad_transactions").upsert({
+      transaction_id:transactionId,attempt_id:attempt.id,user_id:userId,drama_id:attempt.drama_id,
+      ad_unit:adUnit,reward_item:rewardItem,reward_amount:rewardAmount,callback_timestamp:timestamp
+    },{onConflict:"transaction_id",ignoreDuplicates:true});
+    if(txError)return reply(503,"transaction_record_failed");
+    // Re-read after the upsert to detect a concurrent transaction-ID collision.
+    const {data:storedTx,error:storedTxError}=await admin.from("nexora_rewarded_ad_transactions")
+      .select("attempt_id,user_id,drama_id,ad_unit").eq("transaction_id",transactionId).maybeSingle();
+    if(storedTxError)return reply(503,"transaction_verify_failed");
+    if(!storedTx||storedTx.attempt_id!==attempt.id||storedTx.user_id!==userId||
+      storedTx.drama_id!==attempt.drama_id||storedTx.ad_unit!==adUnit)
+      return reply(403,"transaction_mismatch");
+  }
+  const {error:grantError}=await admin.from("nexora_episode_entitlements").upsert({
+    user_id:userId,drama_id:attempt.drama_id,source:"admob_rewarded",transaction_id:transactionId
+  },{onConflict:"user_id,drama_id",ignoreDuplicates:true});
   if(grantError)return reply(503,"entitlement_grant_failed");
-  const {error:updateError}=await admin.from("nexora_rewarded_unlock_attempts").update({status:"rewarded",rewarded_at:new Date().toISOString()}).eq("id",attempt.id).eq("status","pending");
-  if(updateError)return reply(503,"attempt_update_failed");return reply(200,"reward_granted");
+  const {error:updateError}=await admin.from("nexora_rewarded_unlock_attempts")
+    .update({status:"rewarded",rewarded_at:new Date().toISOString()}).eq("id",attempt.id).eq("status","pending");
+  if(updateError)return reply(503,"attempt_update_failed");
+  return reply(200,priorTx?"already_processed":"reward_granted");
  }catch(error){console.error("AdMob SSV callback verification failed",error);return reply(503,"verification_unavailable");}
 });
