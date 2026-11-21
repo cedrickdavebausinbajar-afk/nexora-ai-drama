@@ -20,6 +20,14 @@ export function compareReleaseVersions(left, right) {
   return 0;
 }
 
+export function isReleaseNewer(latestTag, installedVersionName) {
+  const latest = parseReleaseVersion(latestTag);
+  const installed = parseReleaseVersion('v' + String(installedVersionName || ''));
+  if (!latest) throw new Error('The latest release version is invalid.');
+  if (!installed) throw new Error('The installed app version metadata is invalid.');
+  return compareReleaseVersions(latest, installed) > 0;
+}
+
 export function findOfficialApkAsset(release, repo = 'nexoraofficialph/nexora-ai-drama') {
   if (!release || release.draft || release.prerelease) return null;
   const version = parseReleaseVersion(release.tag_name);
