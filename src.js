@@ -770,14 +770,14 @@ function renderScreen() {
   <p>${esc(x.episode||'EPISODE 1')} · ${esc(x.creator||'Creator not listed')}</p>
   ${sourceUrl?`<a href="${esc(sourceUrl)}" target="_blank" rel="noopener noreferrer">Creator / film website ↗</a>`:''}
   <small class="license">${esc(x.license||'Creator-authorized video')}</small></div>
-  <div class="actions"><button id="like" class="action">${liked.has(x.id)?'♥':'♡'}<small>SAVE</small></button><button id="share" class="action">↗<small>SHARE</small></button></div>
+  <div class="actions"><button id="like" class="action">${liked.has(x.id)?'♥':'♡'}<small>SAVE</small></button><button id="share" class="action">↗<small>SHARE</small></button>${embeddedPlayer ? '' : '<button type="button" id="nxSpeedFloat" class="action nx-speed-float" aria-label="Playback speed 1 times">1×<small>SPEED</small></button>'}</div>
 </div>
 <button type="button" class="nx-episode-drawer-trigger" id="episodeDrawerTrigger" aria-haspopup="dialog" aria-controls="episodeDrawer">☷ &nbsp; EPISODES <span>${seriesEpisodes.length} EPISODES</span></button>
 <div class="nx-episode-drawer-backdrop" id="episodeDrawerBackdrop" hidden>
   <section class="nx-episode-drawer" id="episodeDrawer" role="dialog" aria-modal="true" aria-labelledby="episodeDrawerTitle">
     <div class="nx-episode-drawer-handle" aria-hidden="true"></div>
     <header><div><span class="nx-drawer-kicker">NOW PLAYING</span><h3 id="episodeDrawerTitle">${esc(x.title)}</h3><p>Choose an episode to continue watching</p></div><button type="button" id="episodeDrawerClose" aria-label="Close episodes">✕</button></header>
-    <div class="episode-list">${seriesEpisodes.map(entry=>{const episodePoster=safeHttpsUrl(entry.poster);const saved=readEpisodeProgress()[entry.id];const progressPercent=Math.max(0,Math.min(100,Number(saved?.percent)||0));return '<button type="button" class="episode-choice '+(entry.id===x.id?'active':'')+'" data-episode-play="'+esc(entry.id)+'" aria-current="'+(entry.id===x.id?'true':'false')+'" aria-label="Play episode '+(entry.episodeNumber||1)+(progressPercent?' — '+progressPercent+'% watched':'')+'">'+(episodePoster?'<img class="episode-choice-art" src="'+esc(episodePoster)+'" alt="" loading="lazy" decoding="async">':'<span class="episode-choice-art episode-choice-art-placeholder" aria-hidden="true">N</span>')+'<span class="episode-choice-shade" aria-hidden="true"></span><b>EP '+(entry.episodeNumber||1)+'</b><span class="episode-choice-title">'+esc(entry.episode||('Episode '+(entry.episodeNumber||1)))+'</span><span class="episode-progress-track" aria-label="'+progressPercent+'% watched"><i class="episode-progress-fill" style="width:'+progressPercent+'%"></i></span></button>'}).join('')}</div>
+    <div class="episode-list">${seriesEpisodes.map(entry=>{const episodePoster=safeHttpsUrl(entry.poster);const saved=readEpisodeProgress()[entry.id];const progressPercent=Math.max(0,Math.min(100,Number(saved?.percent)||0));return '<button type="button" class="episode-choice '+(entry.id===x.id?'active':'')+'" data-episode-play="'+esc(entry.id)+'" aria-current="'+(entry.id===x.id?'true':'false')+'" aria-label="Play episode '+(entry.episodeNumber||1)+(progressPercent?' — '+progressPercent+'% watched':'')+'">'+(episodePoster?'<img class="episode-choice-art" src="'+esc(episodePoster)+'" alt="" loading="lazy" decoding="async">':'<span class="episode-choice-art episode-choice-art-placeholder" aria-hidden="true">N</span>')+'<span class="episode-choice-shade" aria-hidden="true"></span><b>EP '+(entry.episodeNumber||1)+'</b>'+(entry.isPremium?'<span class="episode-lock-label" aria-label="Premium episode">🔒 PREMIUM</span>':'')+'<span class="episode-choice-title">'+esc(entry.episode||('Episode '+(entry.episodeNumber||1)))+'</span><span class="episode-progress-track" aria-label="'+progressPercent+'% watched"><i class="episode-progress-fill" style="width:'+progressPercent+'%"></i></span></button>'}).join('')}</div>
   </section>
 </div>
 ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback controls">
@@ -804,7 +804,7 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
   const seekInput = document.querySelector('#nxSeek');
   const currentTimeLabel = document.querySelector('#nxCurrentTime');
   const durationLabel = document.querySelector('#nxDuration');
-  const speedButton = document.querySelector('#nxSpeed');
+  const speedButtons = [document.querySelector('#nxSpeed'), document.querySelector('#nxSpeedFloat')].filter(Boolean);
   const playbackSpeeds = [1, 1.25, 1.5, 1.75, 2, 0.75];
   let playbackSpeedIndex = 0;
   const formatPlayerTime = seconds => { const value = Math.max(0, Math.floor(Number(seconds) || 0)); return Math.floor(value / 60) + ':' + String(value % 60).padStart(2, '0'); };
@@ -816,13 +816,17 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
     if (currentTimeLabel) currentTimeLabel.textContent = formatPlayerTime(current);
     if (durationLabel) durationLabel.textContent = formatPlayerTime(duration);
   };
-  speedButton?.addEventListener('click', () => {
+  const cyclePlaybackSpeed = () => {
     if (!video) return;
     playbackSpeedIndex = (playbackSpeedIndex + 1) % playbackSpeeds.length;
-    video.playbackRate = playbackSpeeds[playbackSpeedIndex];
-    speedButton.textContent = playbackSpeeds[playbackSpeedIndex] + '× SPEED';
-    speedButton.setAttribute('aria-label', 'Playback speed ' + playbackSpeeds[playbackSpeedIndex] + ' times');
-  });
+    const speed = playbackSpeeds[playbackSpeedIndex];
+    video.playbackRate = speed;
+    speedButtons.forEach(button => {
+      button.textContent = button.id === 'nxSpeedFloat' ? speed + '×' : speed + '× SPEED';
+      button.setAttribute('aria-label', 'Playback speed ' + speed + ' times');
+    });
+  };
+  speedButtons.forEach(button => button.addEventListener('click', cyclePlaybackSpeed));
   seekInput?.addEventListener('input', () => {
     if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
     video.currentTime = (Number(seekInput.value) / 1000) * video.duration;

@@ -1046,3 +1046,20 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
 @media(max-width:540px){.player-wrap{max-width:100%}.player{height:min(78svh,850px);min-height:420px;aspect-ratio:9/16;border-radius:14px}.player .meta{bottom:76px}.nx-episode-drawer .episode-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:360px){.nx-episode-drawer .episode-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){.nx-episode-drawer{animation:none}}
+
+
+/* Reference-player polish: floating speed control and clear premium episode markers. */
+.player .nx-speed-float{
+  width:50px;height:50px;min-height:50px;padding:0;
+  border:1px solid #d8b45e88;border-radius:50%;
+  color:#f3d995;font:900 13px/1 system-ui,sans-serif;
+}
+.player .nx-speed-float small{font-size:8px;letter-spacing:1px}
+.episode-lock-label{
+  position:relative;z-index:2;display:inline-flex;align-items:center;gap:4px;
+  margin-top:1px;padding:3px 6px;border:1px solid #d8b45e88;border-radius:99px;
+  background:#100d0ddd;color:#f5d98e;font:900 8px/1.2 system-ui,sans-serif;
+  letter-spacing:.08em;text-shadow:none;
+}
+.episode-choice:has(.episode-lock-label){border-color:#9c793866}
+@media(max-width:540px){.player .nx-speed-float{width:44px;height:44px;min-height:44px}}
