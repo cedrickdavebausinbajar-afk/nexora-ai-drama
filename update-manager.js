@@ -38,7 +38,10 @@ export function findOfficialApkAsset(release, repo = 'nexoraofficialph/nexora-ai
   const expectedUrl = 'https://github.com/' + repo + '/releases/download/' + release.tag_name + '/NEXORA-AI-DRAMA.apk';
   if (asset.browser_download_url !== expectedUrl) return null;
   const digest = typeof asset.digest === 'string' ? asset.digest : '';
-  const sha256 = /^sha256:[a-f0-9]{64}$/i.test(digest) ? digest.slice(7).toLowerCase() : '';
+  // Never offer an APK update unless GitHub publishes a valid SHA-256 digest.
+  // The native installer independently verifies these bytes before opening Android's installer.
+  if (!/^sha256:[a-f0-9]{64}$/i.test(digest)) return null;
+  const sha256 = digest.slice(7).toLowerCase();
   return { url: expectedUrl, size: Number(asset.size), sha256, version };
 }
 
@@ -98,7 +101,7 @@ export async function fetchLatestRelease({
     throw error;
   }
 
-  const error = new Error('The latest stable release does not have its official APK asset uploaded yet.');
+  const error = new Error('The latest stable release APK is missing or does not have a valid SHA-256 checksum yet.');
   error.code = 'RELEASE_ASSET_PENDING';
   error.release = lastRelease;
   throw error;
