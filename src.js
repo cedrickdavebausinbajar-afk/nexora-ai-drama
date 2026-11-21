@@ -526,8 +526,8 @@ function renderScreen() {
     const featuredDrama = trendingDramas[0] || latestEpisodes[0] || null;
     const newEpisodeCards = latestEpisodes.filter(entry => entry.id !== featuredDrama?.id);
     const demoVideoUrl = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
-    const featuredVideoUrl = featuredDrama?.url || demoVideoUrl;
-    const featuredPoster = featuredDrama?.poster || '';
+    const featuredVideoUrl = safeHttpsUrl(featuredDrama?.url) || demoVideoUrl;
+    const featuredPoster = safeHttpsUrl(featuredDrama?.poster);
     const featuredStyle = featuredPoster ? `style="--nexora-hero-image:url('${esc(featuredPoster)}')"` : '';
     screen.innerHTML = `<section class="nx-stream-home">
       <section class="nx-hero nx-hero-video" ${featuredStyle}>
@@ -539,7 +539,7 @@ function renderScreen() {
         <div class="nx-hero-actions">${featuredDrama ? `<button class="nx-primary" data-play="${esc(featuredDrama.id)}">▶ &nbsp; PLAY NOW</button>` : `<button class="nx-primary" data-demo-play>▶ &nbsp; WATCH DEMO</button>`}${featuredDrama ? `<button class="nx-secondary" data-details="${esc(featuredDrama.id)}">ⓘ &nbsp; MORE INFO</button>` : `<button class="nx-secondary" data-go="originals">ⓘ &nbsp; MORE INFO</button>`}</div>
         <div class="nx-hero-meta"><span>✦ NEXORA PICK</span><span>${featuredDrama ? 'YOUR UPLOADED VIDEO' : 'DEMO CLIP · CC0'}</span><span>SHORT DRAMA EXPERIENCE</span></div>
       </div></section>
-      ${continueItem ? `<section class="nx-shelf"><div class="nx-shelf-heading"><h2>Continue Watching</h2><span>Pick up where you left off</span></div><div class="nx-card-row"><article class="nx-continue-card"><div class="nx-continue-thumb">${continueItem.poster ? `<img src="${esc(continueItem.poster)}" alt="${esc(continueItem.title)} poster">` : '<span>NEXORA</span>'}<i style="width:${Math.max(2,Math.min(98,Math.round((continueProgress.time||0)/(continueProgress.duration||((continueProgress.time||0)+60))*100)))}%"></i></div><div class="nx-continue-info"><b>${esc(continueItem.title)}</b><small>${esc(continueItem.episode||'Episode')} · ${Math.floor((continueProgress.time||0)/60)}:${String((continueProgress.time||0)%60).padStart(2,'0')}</small><button data-play="${esc(continueItem.id)}">▶ CONTINUE</button></div></article></div></section>` : ''}
+      ${continueItem ? `<section class="nx-shelf"><div class="nx-shelf-heading"><h2>Continue Watching</h2><span>Pick up where you left off</span></div><div class="nx-card-row"><article class="nx-continue-card"><div class="nx-continue-thumb">${safeHttpsUrl(continueItem.poster) ? `<img src="${esc(safeHttpsUrl(continueItem.poster))}" alt="${esc(continueItem.title)} poster">` : '<span>NEXORA</span>'}<i style="width:${Math.max(2,Math.min(98,Math.round((continueProgress.time||0)/(continueProgress.duration||((continueProgress.time||0)+60))*100)))}%"></i></div><div class="nx-continue-info"><b>${esc(continueItem.title)}</b><small>${esc(continueItem.episode||'Episode')} · ${Math.floor((continueProgress.time||0)/60)}:${String((continueProgress.time||0)%60).padStart(2,'0')}</small><button data-play="${esc(continueItem.id)}">▶ CONTINUE</button></div></article></div></section>` : ''}
       ${recentItems.length ? `<section class="nx-shelf"><div class="nx-shelf-heading"><h2>Recently Watched</h2><button data-go="history">SEE ALL ›</button></div><div class="nx-card-row">${recentItems.map(card).join('')}</div></section>` : ''}
       ${uploadedVideos.length ? genreShelves : emptyLibrary}
       <section class="nx-shelf nx-originals-shelf"><div class="nx-shelf-heading"><h2>NEXORA Originals</h2><button data-go="originals">EXPLORE ALL ›</button></div><div class="nx-original-row">${originalSeries.slice(0,6).map((series,index)=>`<button class="nx-original-tile" data-series="${esc(series.id)}"><span>0${index+1} · NEXORA ORIGINAL</span><b>${esc(series.title)}</b><small>${esc(series.genre)}</small></button>`).join('')}</div></section>
@@ -622,7 +622,7 @@ function renderScreen() {
     const playable = items.filter(x => isSupportedVideoUrl(x.url));
     screen.innerHTML = `<section class="shorts-head"><h1>Drama Shorts</h1><p>Swipe up for the next short. Videos shown here are creator-credited catalogue entries; only videos you are authorized to publish should be added.</p></section>
       ${playable.length ? `<div class="shorts-feed">${playable.map((x,i)=>`<article class="short-card" data-short-index="${i}">
-        <video class="short-video" data-src="${esc(x.url)}" ${videoMimeType(x.url) ? `data-type="${videoMimeType(x.url)}"` : ''} ${x.poster ? `poster="${esc(x.poster)}"` : ''} controls playsinline muted loop preload="none"></video>
+        <video class="short-video" data-src="${esc(safeHttpsUrl(x.url))}" ${videoMimeType(x.url) ? `data-type="${videoMimeType(x.url)}"` : ''} ${safeHttpsUrl(x.poster) ? `poster="${esc(safeHttpsUrl(x.poster))}"` : ''} controls playsinline muted loop preload="none"></video>
         <div class="short-shade"></div><div class="short-meta"><span class="short-tag">NEXORA SHORTS</span><h2>${esc(x.title)}</h2><p>${esc(x.episode || x.category || 'Drama')}</p><small>Creator: ${esc(x.creator || 'Not listed')}</small>${safeHttpsUrl(x.source) ? `<a href="${esc(safeHttpsUrl(x.source))}" target="_blank" rel="noopener noreferrer">VIEW ORIGINAL SOURCE ↗</a>` : ''}</div>
         <span class="short-counter">${i+1} / ${playable.length}</span>
       </article>`).join('')}</div>` : `<article class="short-card short-demo-card">
@@ -726,7 +726,7 @@ function renderScreen() {
   <div class="shade"></div>
   <div class="meta"><span class="tag">${esc(x.category||'DRAMA')}</span><h2>${esc(x.title)}</h2>
   <p>${esc(x.episode||'EPISODE 1')} · ${esc(x.creator||'Creator not listed')}</p>
-  ${x.source?`<a href="${esc(x.source)}" target="_blank" rel="noopener">Creator / film website ↗</a>`:''}
+  ${sourceUrl?`<a href="${esc(sourceUrl)}" target="_blank" rel="noopener noreferrer">Creator / film website ↗</a>`:''}
   <small class="license">${esc(x.license||'Creator-authorized video')}</small></div>
   <div class="actions"><button id="like" class="action">${liked.has(x.id)?'♥':'♡'}<small>SAVE</small></button><button id="share" class="action">↗<small>SHARE</small></button></div>
 </div>
