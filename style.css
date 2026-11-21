@@ -1004,3 +1004,16 @@ footer{background:#08060d;border-top-color:#d9bd7a35}
 .episode-choice.active .episode-choice-art{opacity:.82;transform:scale(1.04)}
 .episode-choice:hover .episode-choice-art{transform:scale(1.05);opacity:.82}
 @media(max-width:540px){.episode-choice{min-height:108px}}
+
+/* Per-episode watch progress */
+.episode-choice .episode-progress-track{
+  position:relative;z-index:2;display:block;width:100%;height:3px;min-height:3px;
+  margin-top:2px;border-radius:99px;background:#ffffff35;overflow:hidden;
+  box-shadow:0 1px 3px #0009
+}
+.episode-choice .episode-progress-fill{
+  display:block;width:0;height:100%;border-radius:99px;
+  background:linear-gradient(90deg,#b88a36,#f4d98b);
+  transition:width .2s ease
+}
+.episode-choice.active .episode-progress-track{background:#ffffff55}
