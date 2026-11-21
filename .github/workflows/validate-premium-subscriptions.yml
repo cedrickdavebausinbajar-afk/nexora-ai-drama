@@ -5,12 +5,15 @@ on:
     branches: [main]
     paths:
       - "src.js"
+      - "ad-monetization.js"
+      - "story-mode.js"
       - "premium-subscriptions.js"
       - "style.css"
       - "package.json"
       - "docs/**"
       - ".env.example"
       - "supabase/**"
+      - ".github/workflows/build-android.yml"
       - ".github/workflows/validate-premium-subscriptions.yml"
   push:
     branches: [main, feat/premium-subscription-foundation]
