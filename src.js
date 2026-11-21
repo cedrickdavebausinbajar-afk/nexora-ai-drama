@@ -859,10 +859,15 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
   // episode starts. Premium media is deliberately excluded: it must be fetched
   // only through the existing server-side signed-URL authorization flow.
   let nextEpisodeBuffer = null;
+  let nextEpisodeWarmupTimeout = null;
   const nextEpisode = seriesEpisodes.find(entry =>
     (Number(entry.episodeNumber) || 1) > (Number(x.episodeNumber) || 1)
   );
   const releaseNextEpisodeBuffer = () => {
+    if (nextEpisodeWarmupTimeout !== null) {
+      clearTimeout(nextEpisodeWarmupTimeout);
+      nextEpisodeWarmupTimeout = null;
+    }
     if (!nextEpisodeBuffer) return;
     const buffer = nextEpisodeBuffer;
     nextEpisodeBuffer = null;
@@ -893,10 +898,21 @@ ${embeddedPlayer ? '' : `<div class="nx-playback-tools" aria-label="Playback con
     buffer.playsInline = true;
     buffer.setAttribute('aria-hidden', 'true');
     buffer.addEventListener('canplay', () => {
+      if (nextEpisodeWarmupTimeout !== null) {
+        clearTimeout(nextEpisodeWarmupTimeout);
+        nextEpisodeWarmupTimeout = null;
+      }
       prefetchedVideoForEpisode = buffer;
       prefetchedVideoEpisodeId = nextEpisode.id;
     }, {once:true,signal:playerSignal});
     buffer.addEventListener('error', releaseNextEpisodeBuffer, {once:true});
+    // Do not retain a detached decoder indefinitely when a slow or stalled
+    // public source never reaches canplay or emits an error.
+    nextEpisodeWarmupTimeout = setTimeout(() => {
+      if (nextEpisodeBuffer === buffer && buffer.readyState < 2) {
+        releaseNextEpisodeBuffer();
+      }
+    }, 12000);
     buffer.src = nextPublicUrl;
     buffer.load();
   };
