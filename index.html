@@ -5,7 +5,7 @@
 <meta name="theme-color" content="#08050e"><meta name="color-scheme" content="dark"><meta name="description" content="NEXORA AI DRAMA — short dramas, one swipe away.">
 <link rel="icon" type="image/svg+xml" href="/nexora-logo.svg"><link rel="manifest" href="/manifest.webmanifest"><title>NEXORA AI DRAMA</title>
 <style>
-  #nexora-splash{position:fixed;inset:0;z-index:99999;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;padding:28px;background:radial-gradient(ellipse at 50% 34%,#33204c 0%,#160d27 37%,#08050e 76%,#030207 100%);color:#fff;opacity:1;visibility:visible;transition:opacity .24s ease,visibility .24s ease}
+  #nexora-splash{position:fixed;inset:0;z-index:99999;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;padding:28px;background:radial-gradient(ellipse at 50% 34%,#33204c 0%,#160d27 37%,#08050e 76%,#030207 100%);color:#fff;opacity:1;visibility:visible;transition:opacity .55s ease,visibility .55s ease}
   #nexora-splash:before,#nexora-splash:after{content:"";position:absolute;left:-8%;width:116%;height:54px;opacity:.8;background:repeating-linear-gradient(90deg,transparent 0 12px,#080611 12px 21px,transparent 21px 34px),linear-gradient(90deg,#5b18a5,#f04bff,#661bd0);filter:drop-shadow(0 0 13px #b82cff);transform:rotate(-13deg);pointer-events:none}
   #nexora-splash:before{top:12%}#nexora-splash:after{bottom:12%;transform:rotate(13deg)}
   #nexora-splash .cinema-glow{position:absolute;width:min(90vw,520px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,#a52cff30,transparent 68%);filter:blur(8px);pointer-events:none}
@@ -46,7 +46,7 @@
   (function(){
     var dismissed=false;
     var startedAt=Date.now();
-    var minimumDisplayMs=0;
+    var minimumDisplayMs=2200;
     var fallbackTimer;
     function hideSplash(){
       if(dismissed)return;
@@ -60,10 +60,10 @@
       dismissed=true;
       window.clearTimeout(fallbackTimer);
       splash.classList.add('is-leaving');
-      window.setTimeout(function(){splash.remove();},750);
+      window.setTimeout(function(){splash.remove();},600);
     }
-    // Keep the cinematic brand intro visible for at least 3.5 seconds,
-    // but wait for the app shell before dismissing it.
+    // Keep the cinematic brand intro visible for at least 2.2 seconds,
+    // while the app shell initializes; the 12-second fallback prevents a stuck splash.
     window.addEventListener('nexora:app-ready',hideSplash,{once:true});
     // Safety fallback: recover if startup JavaScript never signals readiness.
     fallbackTimer=window.setTimeout(hideSplash,12000);
