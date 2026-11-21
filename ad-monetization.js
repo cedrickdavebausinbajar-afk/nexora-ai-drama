@@ -4,6 +4,8 @@ import { AdMob, AdmobConsentStatus, BannerAdSize, BannerAdPosition } from '@capa
 const BANNER_AD_ID = 'ca-app-pub-4497851143738030/2668274674';
 let consentReady = false;
 let initPromise = null;
+let consentInfoPromise = null;
+let privacyOptionsRequired = false;
 let premiumStatus = null;
 let requestedView = 'home';
 let bannerVisible = false;
@@ -29,15 +31,24 @@ async function hasActivePremium() {
   );
 }
 
+async function requestNexoraConsentInfo() {
+  if (!consentInfoPromise) {
+    consentInfoPromise = AdMob.requestConsentInfo()
+      .finally(() => { consentInfoPromise = null; });
+  }
+  return consentInfoPromise;
+}
+
 async function initializeWithConsent() {
   if (!Capacitor.isNativePlatform()) return false;
   if (consentReady) return true;
   if (!initPromise) {
     initPromise = (async () => {
-      let consent = await AdMob.requestConsentInfo();
+      let consent = await requestNexoraConsentInfo();
       if (consent.isConsentFormAvailable && consent.status === AdmobConsentStatus.REQUIRED) {
         consent = await AdMob.showConsentForm();
       }
+      privacyOptionsRequired = consent.privacyOptionsRequirementStatus === 'REQUIRED';
       if (!consent.canRequestAds) return false;
       await AdMob.initialize();
       consentReady = true;
@@ -111,24 +122,31 @@ export function setNexoraAdView(view) {
   void applyBannerState();
 }
 
+export async function isNexoraPrivacyOptionsRequired() {
+  if (!Capacitor.isNativePlatform()) return false;
+  try {
+    const consent = await requestNexoraConsentInfo();
+    privacyOptionsRequired = consent.privacyOptionsRequirementStatus === 'REQUIRED';
+    return privacyOptionsRequired;
+  } catch (error) {
+    privacyOptionsRequired = false;
+    console.warn('NEXORA privacy-options requirement check failed:', error);
+    return false;
+  }
+}
+
 export async function showNexoraPrivacyOptions() {
   if (!Capacitor.isNativePlatform()) return;
   try {
-    // Always refresh UMP consent info here. Premium users intentionally skip ad
-    // initialization, but must still be able to open the privacy settings entry point.
-    let consent = await AdMob.requestConsentInfo();
-    if (consent.isConsentFormAvailable && consent.status === AdmobConsentStatus.REQUIRED) {
-      consent = await AdMob.showConsentForm();
-    }
-    if (consent.privacyOptionsRequirementStatus === 'REQUIRED') {
-      await AdMob.showPrivacyOptionsForm();
+    // Refresh UMP status immediately before opening the form. The form is
+    // only available when Google's published consent message requires it.
+    const consent = await requestNexoraConsentInfo();
+    privacyOptionsRequired = consent.privacyOptionsRequirementStatus === 'REQUIRED';
+    if (!privacyOptionsRequired) {
+      window.alert('Google does not currently require a separate privacy-options form for this device or region.');
       return;
     }
-    if (consent.canRequestAds && !consentReady) {
-      await AdMob.initialize();
-      consentReady = true;
-    }
-    window.alert('Google does not currently require a separate privacy-options form for this device or region.');
+    await AdMob.showPrivacyOptionsForm();
   } catch (error) {
     console.warn('NEXORA privacy options are unavailable:', error);
     window.alert('Privacy choices could not be loaded. Please check your connection and try again.');
