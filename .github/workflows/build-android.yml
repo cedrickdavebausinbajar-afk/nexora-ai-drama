@@ -608,7 +608,7 @@ jobs:
             -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
           rm -f release-key.jks
 
-      - name: Build Google Play AAB without self-update permission
+      - name: Build signed store AAB without direct-APK installer permission
         if: ${{ success() && hashFiles('android/app/build/outputs/apk/release/app-release.apk') != '' }}
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -627,15 +627,19 @@ jobs:
           VITE_APP_STORE_DISTRIBUTION: 'true'
           VITE_ADMOB_TEST_MODE: 'false'
         run: |
-          for required in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY VITE_PAYMONGO_PUBLIC_KEY; do
+          for required in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY; do
             if [ -z "${!required}" ]; then
-              echo "::warning::Skipping store AAB only: ${required} is missing, so paid subscriber status would not be verifiable. The signed direct-download APK will still be published."
-              exit 0
+              echo "::error::Cannot build store AAB: ${required} is missing."
+              exit 1
             fi
           done
           case "$VITE_PAYMONGO_PUBLIC_KEY" in
-            pk_live_*) ;;
-            *) echo "::warning::Skipping store AAB: a PayMongo live public key is required for live subscriber status."; exit 0 ;;
+            pk_live_*) echo "Live PayMongo public key configured; subscription status can be checked." ;;
+            *)
+              echo "::warning::Building signed AAB without live PayMongo. Subscription checkout is not production-ready; ad banners remain suppressed until subscriber status can be verified."
+              VITE_PAYMONGO_PUBLIC_KEY=""
+              export VITE_PAYMONGO_PUBLIC_KEY
+              ;;
           esac
           npm run build
           npx cap copy android
