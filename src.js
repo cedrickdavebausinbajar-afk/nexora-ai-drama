@@ -190,7 +190,7 @@ async function performUpdateCheck() {
       const release = await remoteRes.json();
       const latestCode = Number(String(release.tag_name || '').match(/^v\d+\.\d+\.(\d+)$/)?.[1] || 0);
       const installedCode = Number(local.versionCode || 0);
-      const apk = (release.assets || []).find(item => item.name === 'NEXORA-AI-DRAMA.apk' && /^https:\/\/github\.com\/cedrickdavebausinbajar-afk\/nexora-ai-drama\/releases\/download\//i.test(item.browser_download_url || ''));
+      const apk = (release.assets || []).find(item => item.name === 'NEXORA-AI-DRAMA.apk' && /^https:\/\/github\.com\/nexoraofficialph\/nexora-ai-drama\/releases\/download\//i.test(item.browser_download_url || ''));
       const newerVersion = latestCode > installedCode;
       const downloadUrl = apk?.browser_download_url || (!Capacitor.isNativePlatform() ? (release.html_url || '') : '');
       updateInfo = {
