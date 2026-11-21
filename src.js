@@ -644,7 +644,7 @@ function renderScreen() {
       </article>`}`;
     const cards=[...screen.querySelectorAll('.short-card')];
     const attachShortVideo = video => {
-      if (!video || video.src || !video.dataset.src) return;
+      if (!video || video.hasAttribute('src') || !video.dataset.src) return;
       video.src = video.dataset.src;
       if (video.dataset.type) video.setAttribute('type', video.dataset.type);
       video.load();
@@ -656,7 +656,14 @@ function renderScreen() {
         if(entry.isIntersecting && entry.intersectionRatio>.25) attachShortVideo(video);
         if(entry.isIntersecting && entry.intersectionRatio>.65){
           if(!reduceMotion) video?.play().catch(()=>{});
-        } else if(video){video.pause();}
+        } else if(video){
+          video.pause();
+          // Release media buffers and decoder resources for shorts far outside the viewport.
+          if(!entry.isIntersecting && video.hasAttribute('src')){
+            video.removeAttribute('src');
+            video.load();
+          }
+        }
       }),{rootMargin:'160px 0px',threshold:[.25,.65,.9]});
       cards.forEach(card=>activeShortsObserver.observe(card));
     } else {
@@ -1651,6 +1658,10 @@ async function loadCloudDramas() {
   }
   cloudLoadPromise = performCloudDramasLoad();
   try { return await cloudLoadPromise; }
+  catch (error) {
+    console.warn('[NEXORA] Cloud catalogue refresh failed; cached content remains available:', error?.message || error);
+    return false;
+  }
   finally {
     cloudLoadPromise = null;
     if (cloudRefreshQueued) {
