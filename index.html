@@ -62,8 +62,7 @@
       splash.classList.add('is-leaving');
       window.setTimeout(function(){splash.remove();},600);
     }
-    // Keep the cinematic brand intro visible for at least 2.2 seconds,
-    // while the app shell initializes; the 12-second fallback prevents a stuck splash.
+    // Keep a brief brand intro while the app shell initializes; the 12-second fallback prevents a stuck splash.
     window.addEventListener('nexora:app-ready',hideSplash,{once:true});
     // Safety fallback: recover if startup JavaScript never signals readiness.
     fallbackTimer=window.setTimeout(hideSplash,12000);
