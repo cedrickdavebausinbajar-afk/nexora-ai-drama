@@ -1,5 +1,6 @@
 import './style.css';
 import { safeStorageGet, safeStorageSet, fetchWithTimeout } from './runtime-resilience.js';
+import { fetchLatestRelease } from './update-manager.js';
 
 // Keep Firebase-based diagnostics off the critical startup path.
 if (typeof window !== 'undefined') {
@@ -98,7 +99,7 @@ async function startUpdateFlow() {
         const total = Number(event?.totalBytes || 0);
         setUpdateProgress(percent, total > 0 ? `Downloading ${downloaded} of ${formatUpdateBytes(total)}` : `Downloaded ${downloaded}`);
       });
-      const result = await ApkInstaller.downloadAndInstall({url: downloadUrl});
+      const result = await ApkInstaller.downloadAndInstall({url: downloadUrl, sha256: updateInfo.sha256 || ''});
       if (result?.requiresPermission) {
         updateInfo.message = 'Allow NEXORA to install unknown apps in Android settings, return here, and tap UPDATE NOW again.';
       } else if (result?.started) {
@@ -140,7 +141,7 @@ if (Capacitor.isNativePlatform()) {
 
 const APP_REPO = 'nexoraofficialph/nexora-ai-drama';
 const APP_STORE_DISTRIBUTION = import.meta.env.VITE_APP_STORE_DISTRIBUTION === 'true';
-let updateInfo = {status:'checking', installed:'', latest:'', url:'', message:'Checking for updates…'};
+let updateInfo = {status:'checking', installed:'', latest:'', url:'', sha256:'', message:'Checking for updates…'};
 let updatePromptShown = false;
 function showUpdatePopup() {
   if (updateInfo.status !== 'available' || updatePromptShown) return;
@@ -185,25 +186,30 @@ async function performUpdateCheck() {
         message:'Updates are delivered through the app store where you installed NEXORA.'
       };
     } else {
-      const remoteRes = await fetchWithTimeout(`https://api.github.com/repos/${APP_REPO}/releases/latest`, {headers:{Accept:'application/vnd.github+json'}, cache:'no-store'}, 12000);
-      if (!remoteRes.ok) throw new Error('Update service unavailable');
-      const release = await remoteRes.json();
-      const latestCode = Number(String(release.tag_name || '').match(/^v\d+\.\d+\.(\d+)$/)?.[1] || 0);
+      const latestRelease = await fetchLatestRelease({
+        repo: APP_REPO,
+        fetchImpl: (url, options) => fetchWithTimeout(url, options, 12000)
+      });
       const installedCode = Number(local.versionCode || 0);
-      const apk = (release.assets || []).find(item => item.name === 'NEXORA-AI-DRAMA.apk' && /^https:\/\/github\.com\/nexoraofficialph\/nexora-ai-drama\/releases\/download\//i.test(item.browser_download_url || ''));
-      const newerVersion = latestCode > installedCode;
-      const downloadUrl = apk?.browser_download_url || (!Capacitor.isNativePlatform() ? (release.html_url || '') : '');
+      const newerVersion = latestRelease.version.code > installedCode;
+      const downloadUrl = latestRelease.apk.url;
       updateInfo = {
-        status:newerVersion ? (downloadUrl ? 'available' : 'error') : 'current',
+        status:newerVersion ? 'available' : 'current',
         installed:local.versionName || 'Unknown',
-        latest:release.tag_name || 'Unknown',
-        url:downloadUrl,
-        message:newerVersion ? (downloadUrl ? 'A new version is ready. Download the official APK and approve the Android installer.' : 'A newer version was found, but its official APK asset is not published yet. Please try again later.') : 'Your app is up to date!'
+        latest:latestRelease.release.tag_name,
+        url:newerVersion ? downloadUrl : '',
+        sha256:newerVersion ? latestRelease.apk.sha256 : '',
+        message:newerVersion ? 'A new version is ready. The official APK has been verified and is ready to download.' : 'Your app is up to date!'
       };
     }
   } catch (error) {
     console.warn('[NEXORA] Update check failed:', error);
-    updateInfo = {...updateInfo,status:'error',message:'Could not check for updates. Please try again.'};
+    const message = error?.code === 'RELEASE_ASSET_PENDING'
+      ? 'The newest release is still publishing its APK. Tap RETRY in a moment.'
+      : (navigator.onLine === false
+        ? 'You are offline. Reconnect and tap RETRY UPDATE CHECK.'
+        : 'The update service is temporarily unavailable. Tap RETRY UPDATE CHECK.');
+    updateInfo = {...updateInfo,status:'error',url:'',sha256:'',message};
   }
   if (updateInfo.status === 'available' && Capacitor.isNativePlatform()) {
     const notifiedVersion = safeStorageGet('nexora-update-notified-v1');

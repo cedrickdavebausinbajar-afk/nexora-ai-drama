@@ -386,8 +386,12 @@ jobs:
             @PluginMethod
             public void downloadAndInstall(PluginCall call) {
               String address = call.getString("url");
+              String expectedSha256 = call.getString("sha256", "");
               if (address == null) {
                 call.reject("A secure official NEXORA APK URL is required."); return;
+              }
+              if (expectedSha256 != null && !expectedSha256.isEmpty() && !expectedSha256.matches("(?i)[a-f0-9]{64}")) {
+                call.reject("The official APK checksum is invalid."); return;
               }
               try {
                 URL requested = new URL(address);
@@ -413,6 +417,8 @@ jobs:
                   File folder = new File(getContext().getCacheDir(), "updates");
                   if (!folder.exists() && !folder.mkdirs()) throw new Exception("Could not create update folder.");
                   File apk = new File(folder, "NEXORA-AI-DRAMA.apk");
+                  File partial = new File(folder, "NEXORA-AI-DRAMA.apk.part");
+                  if (partial.exists() && !partial.delete()) throw new Exception("Could not clear an interrupted update download.");
                   connection = (HttpURLConnection)new URL(address).openConnection();
                   connection.setInstanceFollowRedirects(true);
                   connection.setConnectTimeout(20000); connection.setReadTimeout(30000);
@@ -428,12 +434,14 @@ jobs:
                   if (status < 200 || status >= 300) throw new Exception("APK server returned HTTP " + status + ".");
                   long length = connection.getContentLengthLong();
                   if (length > 600L * 1024L * 1024L) throw new Exception("APK is larger than the allowed download size.");
-                  try (InputStream in = connection.getInputStream(); FileOutputStream out = new FileOutputStream(apk)) {
+                  java.security.MessageDigest sha256 = java.security.MessageDigest.getInstance("SHA-256");
+                  try (InputStream in = connection.getInputStream(); FileOutputStream out = new FileOutputStream(partial)) {
                     byte[] buffer = new byte[65536]; int count; long total = 0;
                     while ((count = in.read(buffer)) != -1) {
                       total += count;
                       if (total > 600L * 1024L * 1024L) throw new Exception("APK exceeded the allowed download size.");
                       out.write(buffer, 0, count);
+                      sha256.update(buffer, 0, count);
                       com.getcapacitor.JSObject progress = new com.getcapacitor.JSObject();
                       progress.put("downloadedBytes", total);
                       progress.put("totalBytes", length);
@@ -442,15 +450,21 @@ jobs:
                     }
                     out.getFD().sync();
                     com.getcapacitor.JSObject complete = new com.getcapacitor.JSObject();
-                    complete.put("downloadedBytes", apk.length());
-                    complete.put("totalBytes", apk.length());
+                    complete.put("downloadedBytes", partial.length());
+                    complete.put("totalBytes", partial.length());
                     complete.put("percent", 100);
                     notifyListeners("downloadProgress", complete);
                   }
-                  if (!apk.isFile() || apk.length() < 4) throw new Exception("Downloaded APK is empty.");
-                  try (InputStream check = new java.io.FileInputStream(apk)) {
+                  if (!partial.isFile() || partial.length() < 4) throw new Exception("Downloaded APK is empty.");
+                  StringBuilder actualDigest = new StringBuilder();
+                  for (byte value : sha256.digest()) actualDigest.append(String.format(java.util.Locale.US, "%02x", value & 0xff));
+                  if (expectedSha256 != null && !expectedSha256.isEmpty() && !actualDigest.toString().equalsIgnoreCase(expectedSha256))
+                    throw new Exception("Downloaded APK checksum did not match the official release. Please retry.");
+                  try (InputStream check = new java.io.FileInputStream(partial)) {
                     if (check.read() != 0x50 || check.read() != 0x4b) throw new Exception("The server did not return a valid APK file.");
                   }
+                  if (apk.exists() && !apk.delete()) throw new Exception("Could not replace the previous cached update.");
+                  if (!partial.renameTo(apk)) throw new Exception("Could not finalize the downloaded update.");
                   Uri uri = FileProvider.getUriForFile(getContext(),
                     getContext().getPackageName() + ".fileprovider", apk);
                   Intent install = new Intent(Intent.ACTION_VIEW);
@@ -463,6 +477,8 @@ jobs:
                   result.put("started", true);
                   call.resolve(result);
                 } catch (Exception error) {
+                  File partial = new File(getContext().getCacheDir(), "updates/NEXORA-AI-DRAMA.apk.part");
+                  if (partial.exists()) partial.delete();
                   call.reject("APK download/install failed: " + error.getMessage(), error);
                 } finally {
                   if (connection != null) connection.disconnect();
@@ -633,6 +649,35 @@ jobs:
             -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
             -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
           rm -f release-key.jks
+
+      - name: Validate release APK version and package before publishing
+        if: ${{ success() && hashFiles('android/app/build/outputs/apk/release/app-release.apk') != '' }}
+        env:
+          EXPECTED_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          python - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+          apk = Path("android/app/build/outputs/apk/release/app-release.apk")
+          metadata = json.loads(Path("public/app-version.json").read_text(encoding="utf-8"))
+          expected_code = int(os.environ["EXPECTED_VERSION_CODE"])
+          expected_name = f"1.0.{expected_code}"
+          if int(metadata.get("versionCode", -1)) != expected_code or metadata.get("versionName") != expected_name:
+              raise SystemExit("Updater metadata does not match this workflow's Android version.")
+          aapt = Path(os.environ["ANDROID_SDK_ROOT"]) / "build-tools" / "36.0.0" / "aapt"
+          if not aapt.is_file():
+              raise SystemExit("Android aapt tool is missing; cannot validate release APK.")
+          output = subprocess.check_output([str(aapt), "dump", "badging", str(apk)], text=True)
+          package = re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", output, re.M)
+          if not package:
+              raise SystemExit("Could not read Android package metadata from the release APK.")
+          actual_package, actual_code, actual_name = package.groups()
+          if actual_package != "com.nexora.aidrama":
+              raise SystemExit(f"Unexpected Android package: {actual_package}")
+          if int(actual_code) != expected_code or actual_name != expected_name:
+              raise SystemExit(f"APK version {actual_name}/{actual_code} does not match updater metadata {expected_name}/{expected_code}.")
+          print(f"Validated NEXORA APK {actual_package} {actual_name} (versionCode {actual_code}).")
+          PY
 
       - name: Prepare stable APK download
         if: ${{ success() && hashFiles('android/app/build/outputs/apk/release/app-release.apk') != '' }}
