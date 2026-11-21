@@ -339,7 +339,28 @@ let view = new URLSearchParams(location.search).get('nexora_payment_return') ===
 initializeNexoraAds(supabase);
 let ownerFlowActive = false;
 const WATCH_PROGRESS_KEY = 'nexora-watch-progress-v1';
+const WATCH_EPISODE_PROGRESS_KEY = 'nexora-episode-progress-v1';
 const WATCH_HISTORY_KEY = 'nexora-watch-history-v1';
+function readEpisodeProgress() {
+  try {
+    const value = JSON.parse(localStorage.getItem(WATCH_EPISODE_PROGRESS_KEY) || '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch { return {}; }
+}
+function writeEpisodeProgress(item, seconds, duration, completed = false) {
+  if (!item?.id) return 0;
+  const total = Number.isFinite(Number(duration)) ? Math.max(0, Number(duration)) : 0;
+  const time = completed && total > 0 ? total : Math.max(0, Math.min(Number(seconds) || 0, total || Number(seconds) || 0));
+  const percent = completed ? 100 : (total > 0 ? Math.max(0, Math.min(100, Math.round(time / total * 100))) : 0);
+  if (!total || (!completed && time < 2)) return percent;
+  try {
+    const progress = readEpisodeProgress();
+    progress[item.id] = {time:Math.floor(time),duration:Math.floor(total),percent,completed,updatedAt:Date.now()};
+    const entries = Object.entries(progress).sort((a,b)=>(Number(b[1]?.updatedAt)||0)-(Number(a[1]?.updatedAt)||0)).slice(0,100);
+    localStorage.setItem(WATCH_EPISODE_PROGRESS_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch {}
+  return percent;
+}
 const WATCH_NOTIFICATION_ID = 7301;
 let pendingResumeId = '';
 let activePlayerController = null;
@@ -751,7 +772,7 @@ function renderScreen() {
   <small class="license">${esc(x.license||'Creator-authorized video')}</small></div>
   <div class="actions"><button id="like" class="action">${liked.has(x.id)?'♥':'♡'}<small>SAVE</small></button><button id="share" class="action">↗<small>SHARE</small></button></div>
 </div>
-<section class="episode-picker"><h3>WATCH EPISODES</h3><p>${esc(x.title)}</p><div class="episode-list">${seriesEpisodes.map(entry=>{const episodePoster=safeHttpsUrl(entry.poster);return '<button type="button" class="episode-choice '+(entry.id===x.id?'active':'')+'" data-episode-play="'+esc(entry.id)+'" aria-current="'+(entry.id===x.id?'true':'false')+'">'+(episodePoster?'<img class="episode-choice-art" src="'+esc(episodePoster)+'" alt="" loading="lazy" decoding="async">':'<span class="episode-choice-art episode-choice-art-placeholder" aria-hidden="true">N</span>')+'<span class="episode-choice-shade" aria-hidden="true"></span><b>EP '+(entry.episodeNumber||1)+'</b><span class="episode-choice-title">'+esc(entry.episode||('Episode '+(entry.episodeNumber||1)))+'</span></button>'}).join('')}</div></section>
+<section class="episode-picker"><h3>WATCH EPISODES</h3><p>${esc(x.title)}</p><div class="episode-list">${seriesEpisodes.map(entry=>{const episodePoster=safeHttpsUrl(entry.poster);const saved=readEpisodeProgress()[entry.id];const progressPercent=Math.max(0,Math.min(100,Number(saved?.percent)||0));return '<button type="button" class="episode-choice '+(entry.id===x.id?'active':'')+'" data-episode-play="'+esc(entry.id)+'" aria-current="'+(entry.id===x.id?'true':'false')+'" aria-label="Play episode '+(entry.episodeNumber||1)+(progressPercent?' — '+progressPercent+'% watched':'')+'">'+(episodePoster?'<img class="episode-choice-art" src="'+esc(episodePoster)+'" alt="" loading="lazy" decoding="async">':'<span class="episode-choice-art episode-choice-art-placeholder" aria-hidden="true">N</span>')+'<span class="episode-choice-shade" aria-hidden="true"></span><b>EP '+(entry.episodeNumber||1)+'</b><span class="episode-choice-title">'+esc(entry.episode||('Episode '+(entry.episodeNumber||1)))+'</span><span class="episode-progress-track" aria-label="'+progressPercent+'% watched"><i class="episode-progress-fill" style="width:'+progressPercent+'%"></i></span></button>'}).join('')}</div></section>
 <div class="feed-controls"><button id="prev" ${active===0?'disabled':''}>↑ PREVIOUS</button><span>${active+1} / ${items.length}</span><button id="nextText" ${active===items.length-1?'disabled':''}>NEXT ↓</button></div>
 <p class="credit">Credit: ${esc(x.creator||'Not provided')} · ${esc(x.license||'Authorized content')}. <a href="${esc(sourceUrl||'#')}" target="_blank" rel="noopener">Source and license details ↗</a></p>
 </section>`;
@@ -764,10 +785,22 @@ function renderScreen() {
   const video = document.querySelector('#dramaVideo');
   const savePlaybackPosition = () => {
     if (!video || video.ended || !Number.isFinite(video.currentTime)) return;
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    const time = Math.max(0, video.currentTime);
+    writeEpisodeProgress(x, time, duration);
+    const percent = duration > 0 ? Math.max(0, Math.min(100, Math.round(time / duration * 100))) : 0;
+    const episodeButton = [...document.querySelectorAll('[data-episode-play]')].find(button => button.dataset.episodePlay === x.id);
+    const progressFill = episodeButton?.querySelector('.episode-progress-fill');
+    if (progressFill) progressFill.style.width = percent + '%';
+    if (episodeButton) {
+      const track = episodeButton.querySelector('.episode-progress-track');
+      if (track) track.setAttribute('aria-label', percent + '% watched');
+      episodeButton.setAttribute('aria-label', 'Play episode ' + (x.episodeNumber || 1) + ' — ' + percent + '% watched');
+    }
     try {
       localStorage.setItem(WATCH_PROGRESS_KEY, JSON.stringify({
         id:x.id,title:x.title,episode:x.episode||'Episode',
-        time:Math.floor(video.currentTime),duration:Number.isFinite(video.duration)?Math.floor(video.duration):0,updatedAt:Date.now()
+        time:Math.floor(time),duration:Math.floor(duration),updatedAt:Date.now()
       }));
     } catch {}
   };
@@ -1049,6 +1082,14 @@ function renderScreen() {
         maybeRecordDramaView();
       }
       cancelContinueNotification();
+      writeEpisodeProgress(x, Number.isFinite(video.duration) ? video.duration : video.currentTime, video.duration, true);
+      const completedButton = [...document.querySelectorAll('[data-episode-play]')].find(button => button.dataset.episodePlay === x.id);
+      const completedFill = completedButton?.querySelector('.episode-progress-fill');
+      if (completedFill) completedFill.style.width = '100%';
+      if (completedButton) {
+        completedButton.setAttribute('aria-label', 'Episode ' + (x.episodeNumber || 1) + ' — completed');
+        completedButton.querySelector('.episode-progress-track')?.setAttribute('aria-label', '100% watched');
+      }
       try { const p=JSON.parse(localStorage.getItem(WATCH_PROGRESS_KEY)||'null'); if(p?.id===x.id) localStorage.removeItem(WATCH_PROGRESS_KEY); } catch {}
       const nextEpisode=seriesEpisodes.find(entry=>(Number(entry.episodeNumber)||1)>(Number(x.episodeNumber)||1));
       if(nextEpisode){
