@@ -21,10 +21,42 @@ const SAMPLE_STORIES = [
     ], status:'published', saved:false
   }
 ];
+function normalizeStory(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      typeof value.id !== 'string' || !value.id.trim()) return null;
+  const now = new Date().toISOString();
+  const chapters = Array.isArray(value.chapters)
+    ? value.chapters.slice(0, 500).map((chapter, index) => {
+        if (!chapter || typeof chapter !== 'object' || Array.isArray(chapter)) return null;
+        return {
+          id: typeof chapter.id === 'string' && chapter.id ? chapter.id.slice(0, 128) : value.id + '-chapter-' + (index + 1),
+          title: clean(chapter.title).slice(0, MAX_CHAPTER_TITLE) || 'Chapter ' + (index + 1),
+          body: typeof chapter.body === 'string' ? chapter.body.slice(0, MAX_CHAPTER_BODY) : '',
+          createdAt: typeof chapter.createdAt === 'string' && Number.isFinite(Date.parse(chapter.createdAt)) ? chapter.createdAt : now
+        };
+      }).filter(Boolean)
+    : [];
+  const createdAt = typeof value.createdAt === 'string' && Number.isFinite(Date.parse(value.createdAt)) ? value.createdAt : now;
+  const updatedAt = typeof value.updatedAt === 'string' && Number.isFinite(Date.parse(value.updatedAt)) ? value.updatedAt : createdAt;
+  return {
+    id: value.id.slice(0, 128),
+    title: clean(value.title).slice(0, MAX_TITLE) || 'Untitled story',
+    genre: clean(value.genre).slice(0, 60) || 'Drama',
+    summary: clean(value.summary).slice(0, MAX_SUMMARY),
+    chapters,
+    status: value.status === 'published' ? 'published' : 'draft',
+    saved: value.saved === true,
+    createdAt,
+    updatedAt
+  };
+}
+
 function loadStories() {
   try {
     const value = JSON.parse(localStorage.getItem(STORE) || '[]');
-    const existing = Array.isArray(value) ? value.filter(s => s && typeof s.id === 'string' && Array.isArray(s.chapters)) : [];
+    const existing = Array.isArray(value)
+      ? value.slice(0, 500).map(normalizeStory).filter(Boolean)
+      : [];
     const now = new Date().toISOString();
     const missingSamples = SAMPLE_STORIES
       .filter(sample => !existing.some(story => story.id === sample.id))
@@ -32,13 +64,14 @@ function loadStories() {
     const combined = [...missingSamples, ...existing];
     if (missingSamples.length) localStorage.setItem(STORE, JSON.stringify(combined));
     return combined;
-  } catch {
+  } catch (error) {
+    console.warn('[NEXORA Story Mode] Stored stories could not be loaded; using sample stories:', error);
     return SAMPLE_STORIES.map(s => ({...s, chapters:s.chapters.map(ch => ({...ch})), createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()}));
   }
 }
 function saveStories(stories) {
   try { localStorage.setItem(STORE, JSON.stringify(stories)); return true; }
-  catch { return false; }
+  catch (error) { console.warn('[NEXORA Story Mode] Story changes could not be saved:', error); return false; }
 }
 function formatDate(value) {
   try { return new Intl.DateTimeFormat(undefined,{dateStyle:'medium'}).format(new Date(value)); }
@@ -84,7 +117,7 @@ export function renderStoryMode(root, onBack) {
       root.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.filter;render();}));
       root.querySelectorAll('[data-read]').forEach(b=>b.addEventListener('click',()=>{activeId=b.dataset.read;chapterIndex=0;page='reader';render();}));
       root.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>{activeId=b.dataset.edit;page='edit';render();}));
-      root.querySelectorAll('[data-save]').forEach(b=>b.addEventListener('click',()=>{const s=find(b.dataset.save);if(s){s.saved=!s.saved;s.updatedAt=new Date().toISOString();persist();render();}}));
+      root.querySelectorAll('[data-save]').forEach(b=>b.addEventListener('click',()=>{const s=find(b.dataset.save);if(s){const wasSaved=s.saved,previousUpdatedAt=s.updatedAt;s.saved=!s.saved;s.updatedAt=new Date().toISOString();if(persist())render();else{s.saved=wasSaved;s.updatedAt=previousUpdatedAt;}}}));
       root.querySelector('#storySearch')?.addEventListener('input',e=>{
         const q=e.target.value.toLowerCase();
         root.querySelector('#storyGrid').innerHTML=visible.filter(s=>(s.title+' '+s.genre+' '+s.summary).toLowerCase().includes(q)).map(s=>`<article class="story-card"><div class="story-cover"><span>N</span><small>${esc(s.genre||'DRAMA')}</small></div><div class="story-card-copy"><span class="story-state">${s.status==='published'?'PUBLISHED ON THIS DEVICE':'DRAFT'}</span><h2>${esc(s.title)}</h2><p>${esc(s.summary||'No description yet.')}</p><small>${s.chapters.length} chapter${s.chapters.length===1?'':'s'}</small><div class="story-card-actions"><button class="gold-outline" data-read="${esc(s.id)}">OPEN</button><button class="story-text-button" data-edit="${esc(s.id)}">EDIT</button></div></div></article>`).join('') || '<p class="story-empty">No matching stories.</p>';
@@ -121,7 +154,7 @@ export function renderStoryMode(root, onBack) {
         <div class="story-reader-nav"><button class="gold-outline" id="chapterPrev" ${chapterIndex<=0?'disabled':''}>← PREVIOUS</button><span>${chapter ? chapterIndex+1+' / '+s.chapters.length : '—'}</span><button class="gold" id="chapterNext" ${chapterIndex>=s.chapters.length-1?'disabled':''}>NEXT →</button></div>
       </section>`;
       root.querySelector('#readerBack').onclick=goLibrary;
-      root.querySelector('#readerSave').onclick=()=>{s.saved=!s.saved;persist();render();};
+      root.querySelector('#readerSave').onclick=()=>{const wasSaved=s.saved,previousUpdatedAt=s.updatedAt;s.saved=!s.saved;s.updatedAt=new Date().toISOString();if(persist())render();else{s.saved=wasSaved;s.updatedAt=previousUpdatedAt;}};
       root.querySelector('#chapterPrev').onclick=()=>{chapterIndex=Math.max(0,chapterIndex-1);render();};
       root.querySelector('#chapterNext').onclick=()=>{chapterIndex=Math.min(s.chapters.length-1,chapterIndex+1);render();};
       return;
@@ -141,12 +174,13 @@ export function renderStoryMode(root, onBack) {
         e.preventDefault();const title=clean(root.querySelector('#chapterTitle').value);const body=clean(root.querySelector('#chapterBody').value);
         if(!title||!body){alert('Add a chapter title and chapter text first.');return;}
         if(body.length>MAX_CHAPTER_BODY){alert('This chapter is too long.');return;}
+        const previousUpdatedAt=s.updatedAt;
         s.chapters.push({id:uid(),title,body,createdAt:new Date().toISOString()});s.updatedAt=new Date().toISOString();
-        if(persist()){page='edit';render();}
+        if(persist()){page='edit';render();}else{s.chapters.pop();s.updatedAt=previousUpdatedAt;}
       };
       root.querySelectorAll('[data-open-chapter]').forEach(b=>b.onclick=()=>{chapterIndex=Number(b.dataset.openChapter);page='reader';render();});
-      root.querySelector('#storyPublish').onclick=()=>{if(!s.chapters.length)return;s.status=s.status==='published'?'draft':'published';s.updatedAt=new Date().toISOString();if(persist())render();};
-      root.querySelector('#storyDelete').onclick=()=>{if(!confirm('Delete this story and all its chapters from this device? This cannot be undone.'))return;stories=stories.filter(x=>x.id!==s.id);persist();goLibrary();};
+      root.querySelector('#storyPublish').onclick=()=>{if(!s.chapters.length)return;const previousStatus=s.status,previousUpdatedAt=s.updatedAt;s.status=s.status==='published'?'draft':'published';s.updatedAt=new Date().toISOString();if(persist())render();else{s.status=previousStatus;s.updatedAt=previousUpdatedAt;}};
+      root.querySelector('#storyDelete').onclick=()=>{if(!confirm('Delete this story and all its chapters from this device? This cannot be undone.'))return;const previousStories=stories;stories=stories.filter(x=>x.id!==s.id);if(persist())goLibrary();else stories=previousStories;};
       return;
     }
   };
