@@ -600,6 +600,16 @@ jobs:
           VITE_APP_VERSION: 1.0.${{ github.run_number }}
           VITE_APP_STORE_DISTRIBUTION: 'true'
         run: |
+          for required in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY VITE_PAYMONGO_PUBLIC_KEY; do
+            if [ -z "${!required}" ]; then
+              echo "::error::Cannot build a store AAB without ${required}; paid subscriber status would not be verifiable."
+              exit 1
+            fi
+          done
+          case "$VITE_PAYMONGO_PUBLIC_KEY" in
+            pk_live_*) ;;
+            *) echo "::error::A production store AAB requires the PayMongo live public key for live subscriber status."; exit 1 ;;
+          esac
           npm run build
           npx cap copy android
           python - <<'PY'
